@@ -133,7 +133,10 @@ function HeroDisplay() {
             <div className="hero-plate-code">Näidisgraveering</div>
             <div className="hero-plate-status">Preview ready</div>
 
-            <div className="absolute inset-4.5 z-0 overflow-hidden rounded-[18px] border border-white/10">
+            <div
+              className="absolute z-0 overflow-hidden rounded-[18px] border border-white/10"
+              style={{ inset: '18px' }}
+            >
               <Image
                 src="/laser-graveerimine-logo.svg"
                 alt="Laser Graveerimine näidisgraveering"
@@ -142,8 +145,14 @@ function HeroDisplay() {
                 className="object-cover opacity-90"
                 sizes="(max-width: 1280px) 100vw, 55vw"
               />
-              <div className="absolute inset-0 bg-linear-to-t from-[#03070f]/82 via-[#050a12]/16 to-cyan-100/4" />
-              <div className="absolute inset-x-0 bottom-0 h-30 bg-linear-to-t from-[#02060d] via-[#02060d]/72 to-transparent" />
+              <div
+                className="absolute inset-0"
+                style={{ background: 'linear-gradient(to top, rgba(3, 7, 15, 0.82), rgba(5, 10, 18, 0.16), rgba(224, 255, 255, 0.04))' }}
+              />
+              <div
+                className="absolute inset-x-0 bottom-0 h-30"
+                style={{ background: 'linear-gradient(to top, #02060d, rgba(2, 6, 13, 0.72), transparent)' }}
+              />
             </div>
 
             <div className="hero-plate-spectrum">
