@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" role="img" aria-labelledby="title desc">
+  <title id="title">Laser Graveerimine logo</title>
+  <desc id="desc">A glowing engraving pen carves the text Laser Graveerimine into a metal plate.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#050914"/>
+      <stop offset="55%" stop-color="#151c28"/>
+      <stop offset="100%" stop-color="#090d17"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="0" cy="0" r="1" gradientTransform="translate(310 305) rotate(18) scale(190 120)">
+      <stop offset="0%" stop-color="#7ff6ff" stop-opacity="0.55"/>
+      <stop offset="50%" stop-color="#37e7ff" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#37e7ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="plateTop" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#132435"/>
+      <stop offset="45%" stop-color="#37627f"/>
+      <stop offset="100%" stop-color="#0c1724"/>
+    </linearGradient>
+    <linearGradient id="plateEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#68839a"/>
+      <stop offset="100%" stop-color="#0a121c"/>
+    </linearGradient>
+    <linearGradient id="penBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#78ffff"/>
+      <stop offset="55%" stop-color="#22d7eb"/>
+      <stop offset="100%" stop-color="#0d8198"/>
+    </linearGradient>
+    <linearGradient id="penMetal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0c1520"/>
+      <stop offset="100%" stop-color="#384a5a"/>
+    </linearGradient>
+    <linearGradient id="spark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff8e8"/>
+      <stop offset="55%" stop-color="#ffbf54"/>
+      <stop offset="100%" stop-color="#ff6d1d"/>
+    </linearGradient>
+    <linearGradient id="engravedText" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#08131d"/>
+      <stop offset="60%" stop-color="#12334a"/>
+      <stop offset="100%" stop-color="#4ca7b8"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="16" stdDeviation="22" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <rect width="800" height="520" fill="url(#bg)"/>
+  <rect width="800" height="520" fill="url(#halo)"/>
+
+  <g opacity="0.22" stroke="#b6f8ff" stroke-linecap="round" fill="none">
+    <path d="M190 80 C140 130 185 168 158 214" stroke-width="6"/>
+    <path d="M260 56 C222 96 255 146 232 188" stroke-width="5"/>
+    <path d="M348 52 C304 104 342 148 318 206" stroke-width="7"/>
+    <path d="M430 72 C392 122 438 176 410 226" stroke-width="6"/>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <path d="M86 314 L566 314 L648 356 L168 356 Z" fill="url(#plateTop)"/>
+    <path d="M86 314 L168 356 L152 438 L70 392 Z" fill="url(#plateEdge)"/>
+    <path d="M168 356 L648 356 L632 438 L152 438 Z" fill="#0b121b"/>
+    <path d="M566 314 L648 356 L632 438 L550 396 Z" fill="#111d29"/>
+    <path d="M92 318 L560 318" stroke="#d2edff" stroke-opacity="0.28" stroke-width="2"/>
+    <path d="M128 330 C250 324 400 336 590 344" stroke="#7fdcff" stroke-opacity="0.11" stroke-width="2"/>
+  </g>
+
+  <g transform="translate(346 116) rotate(39)">
+    <rect x="0" y="0" width="52" height="214" rx="20" fill="url(#penBody)" filter="url(#glow)"/>
+    <rect x="6" y="194" width="40" height="30" rx="8" fill="url(#penMetal)"/>
+    <path d="M26 224 L44 252 L8 252 Z" fill="#162231"/>
+    <path d="M26 252 L34 267 L18 267 Z" fill="#ffb35f"/>
+    <path d="M6 20 C18 14 34 14 46 20" stroke="#d9ffff" stroke-opacity="0.55" stroke-width="3"/>
+  </g>
+
+  <g filter="url(#glow)">
+    <path d="M298 327 C358 310 404 310 506 330" stroke="url(#spark)" stroke-width="10" stroke-linecap="round" fill="none"/>
+    <path d="M252 336 C286 322 300 314 318 298" stroke="#fff7db" stroke-width="8" stroke-linecap="round" fill="none"/>
+    <circle cx="242" cy="338" r="15" fill="#fff8dc"/>
+    <circle cx="260" cy="334" r="11" fill="#ffd38d"/>
+  </g>
+
+  <g stroke="url(#spark)" stroke-linecap="round">
+    <path d="M88 158 L38 84" stroke-width="4"/>
+    <path d="M110 206 L60 104" stroke-width="3"/>
+    <path d="M132 248 L108 154" stroke-width="3"/>
+    <path d="M166 224 L158 168" stroke-width="4"/>
+    <path d="M506 140 L532 104" stroke-width="3"/>
+    <path d="M554 230 L608 176" stroke-width="3"/>
+    <path d="M614 148 L646 110" stroke-width="5"/>
+    <path d="M690 196 L706 170" stroke-width="4"/>
+    <path d="M716 270 L734 248" stroke-width="5"/>
+    <path d="M474 212 L482 182" stroke-width="3"/>
+  </g>
+
+  <g fill="#ff9f52" filter="url(#glow)">
+    <circle cx="146" cy="146" r="5"/>
+    <circle cx="170" cy="232" r="4"/>
+    <circle cx="586" cy="128" r="4"/>
+    <circle cx="718" cy="124" r="6"/>
+    <circle cx="732" cy="290" r="5"/>
+  </g>
+
+  <g transform="rotate(-6 322 366)">
+    <text x="154" y="372" fill="#02070d" font-family="Segoe UI, Arial, sans-serif" font-size="42" font-style="italic" font-weight="700" letter-spacing="1.3">
+      Laser Graveerimine
+    </text>
+    <text x="156" y="370" fill="url(#engravedText)" font-family="Segoe UI, Arial, sans-serif" font-size="42" font-style="italic" font-weight="700" letter-spacing="1.3" opacity="0.95">
+      Laser Graveerimine
+    </text>
+  </g>
+</svg>

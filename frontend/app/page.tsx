@@ -1,0 +1,472 @@
+'use client'
+
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useChat } from '@ai-sdk/react'
+import { DefaultChatTransport, type FileUIPart } from 'ai'
+import Image from 'next/image'
+import { Settings2, Sparkles, WandSparkles, X } from 'lucide-react'
+import { ChatHeader } from '@/components/chat-header'
+import { ChatInput } from '@/components/chat-input'
+import { EngravingOptimizerPanel } from '@/components/engraving-optimizer-panel'
+import { ChatMessage } from '@/components/chat-message'
+import { KnowledgePanel } from '@/components/knowledge-panel'
+import { LaserSettingsPanel } from '@/components/laser-settings-panel'
+import type { ImageAsset } from '@/lib/engraving/types'
+import { useAuth } from '@/hooks/use-auth'
+import { cn } from '@/lib/utils'
+
+const MAX_CHAT_IMAGE_BYTES = 3 * 1024 * 1024
+const SUPPORTED_CHAT_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+type RightUtilityPanel = 'settings' | 'optimizer'
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result)
+        return
+      }
+
+      reject(new Error('Pildi lugemine ebaõnnestus.'))
+    }
+    reader.onerror = () => reject(new Error('Pildi lugemine ebaõnnestus.'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function RightDockButton({
+  active,
+  label,
+  onClick,
+  children,
+}: {
+  active: boolean
+  label: string
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={cn(
+        'flex h-12 w-12 items-center justify-center rounded-2xl border shadow-[0_0_24px_rgba(84,244,255,0.12)] transition-colors',
+        active
+          ? 'border-primary/30 bg-primary/14 text-cyan-50'
+          : 'border-primary/14 bg-black/50 text-cyan-100/74 hover:border-primary/28 hover:text-cyan-50',
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+function RightPanelShell({
+  title,
+  description,
+  onClose,
+  children,
+}: {
+  title: string
+  description: string
+  onClose: () => void
+  children: ReactNode
+}) {
+  return (
+    <div className="fixed inset-0 z-40 bg-slate-950/48 backdrop-blur-[2px]" onClick={onClose}>
+      <div
+        className="absolute inset-y-3 left-3 right-3 md:left-auto md:w-105"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex h-full flex-col gap-3">
+          <div className="rounded-3xl border border-primary/14 bg-black/72 px-4 py-3 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">Parempaneel</div>
+                <h2 className="mt-1 text-base font-semibold text-cyan-50">{title}</h2>
+                <p className="mt-1 text-xs leading-relaxed text-slate-300">{description}</p>
+              </div>
+
+              <button
+                type="button"
+                aria-label="Sulge paneel"
+                onClick={onClose}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-primary/14 bg-black/40 text-cyan-100/74 transition-colors hover:border-primary/28 hover:text-cyan-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="cyan-scrollbar min-h-0 flex-1 overflow-y-auto pr-1">{children}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function HeroDisplay() {
+  const showcaseStats = [
+    { label: 'Materjalid', value: 'Puit, metall, nahk' },
+    { label: 'Töövoog', value: 'Prompt -> optimize -> export' },
+    { label: 'Väljund', value: 'PNG, SVG, DXF' },
+  ]
+
+  const useCases = [
+    'Logo- ja märgistustööd puidule ning metallile.',
+    'Foto puhastus graveerimiskõlblikuks mustvalgeks väljundiks.',
+    'Masina- ja materjalipõhine seadistusoovitus ühes vaates.',
+  ]
+
+  return (
+    <section className="hud-panel px-5 py-5 md:px-6 md:py-6">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.22fr)_minmax(320px,0.78fr)] xl:items-center">
+        <div className="hero-stage">
+          <div className="hud-plate overflow-hidden">
+            <span className="hud-plate-bolt left-5 top-5" />
+            <span className="hud-plate-bolt right-5 top-5" />
+            <span className="hud-plate-bolt bottom-5 left-5" />
+            <span className="hud-plate-bolt bottom-5 right-5" />
+            <div className="hero-plate-code">Näidisgraveering</div>
+            <div className="hero-plate-status">Preview ready</div>
+
+            <div className="absolute inset-4.5 z-0 overflow-hidden rounded-[18px] border border-white/10">
+              <Image
+                src="/laser-graveerimine-logo.svg"
+                alt="Laser Graveerimine näidisgraveering"
+                fill
+                priority
+                className="object-cover opacity-90"
+                sizes="(max-width: 1280px) 100vw, 55vw"
+              />
+              <div className="absolute inset-0 bg-linear-to-t from-[#03070f]/82 via-[#050a12]/16 to-cyan-100/4" />
+              <div className="absolute inset-x-0 bottom-0 h-30 bg-linear-to-t from-[#02060d] via-[#02060d]/72 to-transparent" />
+            </div>
+
+            <div className="hero-plate-spectrum">
+              <span />
+              <span />
+              <span />
+              <span />
+            </div>
+
+            <div className="absolute inset-x-7 bottom-7 z-10 grid gap-3 sm:grid-cols-3">
+              {showcaseStats.map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-[18px] border border-primary/12 bg-black/50 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm"
+                >
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/44">{item.label}</div>
+                  <div className="mt-1 text-sm font-semibold text-cyan-50">{item.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-5 xl:pr-2">
+          <span className="hud-label">
+            <Sparkles className="h-3.5 w-3.5" />
+            Precision Array
+          </span>
+
+          <div>
+            <h1 className="hero-title font-semibold uppercase">Laser<br />Graveerimine</h1>
+            <p className="mt-4 hero-kicker">Precision. Power. Control.</p>
+          </div>
+
+          <p className="max-w-xl text-sm leading-relaxed text-slate-300">
+            Reaalne tööala lasergraveerimise jaoks: vestlus, masinapõhised soovitused ja eksporditav väljund samas
+            vaates. Avalehe hero-plokk näitab nüüd päris näidisstiili, mitte ainult dekoratiivset illustratsiooni.
+          </p>
+
+          <div className="grid gap-3">
+            {useCases.map((item, index) => (
+              <div
+                key={item}
+                className="rounded-[20px] border border-primary/12 bg-black/24 px-4 py-3 text-sm leading-relaxed text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
+              >
+                <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/44">Case {index + 1}</div>
+                <p className="mt-1">{item}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="hud-divider" />
+        </div>
+      </div>
+    </section>
+  )
+}
+
+export default function LaserGraveerimiseApp() {
+  const [input, setInput] = useState('')
+  const [knowledgeOpen, setKnowledgeOpen] = useState(false)
+  const [activeRightPanel, setActiveRightPanel] = useState<RightUtilityPanel | null>(null)
+  const [pendingImage, setPendingImage] = useState<FileUIPart | null>(null)
+  const [chatInputError, setChatInputError] = useState('')
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const auth = useAuth()
+
+  const chatTransport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: '/api/chat',
+      }),
+    []
+  )
+
+  const { messages, sendMessage, status, setMessages } = useChat({
+    transport: chatTransport,
+  })
+
+  const hasMessages = messages.length > 0
+  const isLoading = status === 'streaming' || status === 'submitted'
+  const commandModes = ['Material presets', 'Photo prep', 'LightBurn export', 'Safety check']
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [messages])
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setActiveRightPanel(null)
+      }
+    }
+
+    window.addEventListener('keydown', handleEscape)
+
+    return () => {
+      window.removeEventListener('keydown', handleEscape)
+    }
+  }, [])
+
+  const handleSubmit = async () => {
+    const text = input.trim()
+
+    if ((!text && !pendingImage) || isLoading) {
+      return
+    }
+
+    setChatInputError('')
+
+    try {
+      if (text) {
+        await sendMessage({ text, files: pendingImage ? [pendingImage] : undefined })
+      } else if (pendingImage) {
+        await sendMessage({ files: [pendingImage] })
+      }
+
+      setInput('')
+      setPendingImage(null)
+    } catch {
+      setChatInputError('Sõnumi saatmine ebaõnnestus. Proovi uuesti.')
+    }
+  }
+
+  const handleImageSelect = async (file: File | null) => {
+    if (!file) {
+      return
+    }
+
+    if (!SUPPORTED_CHAT_IMAGE_TYPES.has(file.type)) {
+      setChatInputError('Toetatud on JPG, PNG ja WEBP pildid.')
+      return
+    }
+
+    if (file.size > MAX_CHAT_IMAGE_BYTES) {
+      setChatInputError('Pilt peab olema kuni 3 MB, et vision-mudel selle vastu võtaks.')
+      return
+    }
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file)
+      setPendingImage({
+        type: 'file',
+        filename: file.name,
+        mediaType: file.type,
+        url: dataUrl,
+      })
+      setChatInputError('')
+    } catch (error) {
+      setPendingImage(null)
+      setChatInputError(error instanceof Error ? error.message : 'Pildi laadimine ebaõnnestus.')
+    }
+  }
+
+  const handleClearPendingImage = () => {
+    setPendingImage(null)
+    setChatInputError('')
+  }
+
+  const handlePromoteOptimizerImage = (asset: Pick<ImageAsset, 'dataUrl' | 'fileName' | 'mediaType'>) => {
+    setPendingImage({
+      type: 'file',
+      filename: asset.fileName,
+      mediaType: asset.mediaType,
+      url: asset.dataUrl,
+    })
+    setChatInputError('')
+  }
+
+  const handleReset = () => {
+    setMessages([])
+    setPendingImage(null)
+    setChatInputError('')
+  }
+
+  const toggleRightPanel = (panel: RightUtilityPanel) => {
+    setActiveRightPanel((currentPanel) => (currentPanel === panel ? null : panel))
+  }
+
+  return (
+    <div className="relative z-1 min-h-dvh px-3 py-3 md:px-4">
+      <KnowledgePanel isOpen={knowledgeOpen} onClose={() => setKnowledgeOpen(false)} />
+
+      <div className="hud-shell relative mx-auto flex min-h-[calc(100dvh-1.5rem)] max-w-400 flex-col p-3 md:p-5 xl:pr-24">
+        <ChatHeader
+          authStatus={auth.status}
+          currentUser={auth.user}
+          hasMessages={hasMessages}
+          onLogin={auth.login}
+          onLogout={auth.logout}
+          onRegister={auth.register}
+          onReset={handleReset}
+          onOpenKnowledge={() => setKnowledgeOpen(true)}
+        />
+
+        <div className="pointer-events-none fixed bottom-5 right-5 z-50 flex flex-col gap-3 md:bottom-6 md:right-6 xl:absolute xl:bottom-auto xl:right-5 xl:top-28">
+          <div className="pointer-events-auto flex flex-col gap-3">
+            <RightDockButton
+              active={activeRightPanel === 'settings'}
+              label="Ava seadistusmoodul"
+              onClick={() => toggleRightPanel('settings')}
+            >
+              <Settings2 className="h-5 w-5" />
+            </RightDockButton>
+            <RightDockButton
+              active={activeRightPanel === 'optimizer'}
+              label="Ava optimizer"
+              onClick={() => toggleRightPanel('optimizer')}
+            >
+              <WandSparkles className="h-5 w-5" />
+            </RightDockButton>
+          </div>
+        </div>
+
+        <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4">
+          <HeroDisplay />
+
+          <section className={hasMessages ? 'hud-panel flex min-h-0 flex-1 flex-col p-4 md:p-5' : 'hud-panel p-4 md:p-5'}>
+            {hasMessages ? (
+              <>
+                <div className="mb-4 flex flex-col gap-4 border-b border-white/6 pb-4 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <span className="hud-label">Vestluskeskus</span>
+                    <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-300">
+                      Küsi seadistusi, materjale, ohutust või töövooge. Vestlus elab nüüd sama HUD-ekraani sees nagu
+                      ülejäänud juhtpind.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-2 xl:w-88">
+                    <div className="hud-chip rounded-[18px] px-3 py-2">
+                      <span className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">Seanss</span>
+                      <strong className="text-cyan-50">{String(messages.length).padStart(2, '0')}</strong>
+                    </div>
+                    <div className="hud-chip rounded-[18px] px-3 py-2">
+                      <span className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">Režiim</span>
+                      <strong className="text-cyan-50">{isLoading ? 'Töötlen' : 'Valmis'}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="chat-deck flex min-h-0 flex-1 flex-col">
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    {commandModes.map((mode, index) => (
+                      <span key={mode} className={index === 0 ? 'chat-command chat-command--active' : 'chat-command'}>
+                        {mode}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div ref={scrollRef} className="chat-stage cyan-scrollbar min-h-0 flex-1 overflow-y-auto pr-2">
+                    <div className="space-y-1">
+                      {messages.map((message) => (
+                        <ChatMessage key={message.id} message={message} />
+                      ))}
+                      {isLoading && messages[messages.length - 1]?.role === 'user' && (
+                        <div className="flex gap-3 px-4 py-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-primary/16 bg-primary/8 text-primary shadow-[0_0_24px_rgba(84,244,255,0.14)]">
+                            <div className="flex gap-1">
+                              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />
+                              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
+                              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <ChatInput
+                  input={input}
+                  setInput={setInput}
+                  onSubmit={handleSubmit}
+                  isLoading={isLoading}
+                  pendingImage={pendingImage}
+                  onImageSelect={handleImageSelect}
+                  onClearImage={handleClearPendingImage}
+                  inputError={chatInputError}
+                  className="mt-4"
+                />
+              </>
+            ) : (
+              <ChatInput
+                input={input}
+                setInput={setInput}
+                onSubmit={handleSubmit}
+                isLoading={isLoading}
+                pendingImage={pendingImage}
+                onImageSelect={handleImageSelect}
+                onClearImage={handleClearPendingImage}
+                inputError={chatInputError}
+              />
+            )}
+          </section>
+        </div>
+
+        {activeRightPanel === 'settings' && (
+          <RightPanelShell
+            title="Seadistusmoodul"
+            description="Ava laserimasina, materjali ja soovituslike seadete paneel ainult siis, kui seda päriselt vajad."
+            onClose={() => setActiveRightPanel(null)}
+          >
+            <LaserSettingsPanel />
+          </RightPanelShell>
+        )}
+
+        {activeRightPanel === 'optimizer' && (
+          <RightPanelShell
+            title="Optimizer pipeline"
+            description="Ava pildi genereerimise, optimeerimise ja ekspordi tööriistad ainult kliki peale."
+            onClose={() => setActiveRightPanel(null)}
+          >
+            <EngravingOptimizerPanel
+              prompt={input}
+              pendingImage={pendingImage}
+              onPromoteImage={handlePromoteOptimizerImage}
+            />
+          </RightPanelShell>
+        )}
+      </div>
+    </div>
+  )
+}

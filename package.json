@@ -1,0 +1,13 @@
+{
+  "name": "projekt-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "npm run start-all",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "start-all": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
