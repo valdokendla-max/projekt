@@ -1,13 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { BookOpen, LogIn, LogOut, RotateCcw, UserPlus } from 'lucide-react'
-import type { AuthActionResult, AuthUser, LoginCredentials, RegisterCredentials } from '@/hooks/use-auth'
+import { BookOpen, KeyRound, LogIn, LogOut, RotateCcw, UserPlus } from 'lucide-react'
+import type { AuthActionResult, AuthUser, ChangePasswordCredentials, LoginCredentials, RegisterCredentials, RequestPasswordResetCredentials } from '@/hooks/use-auth'
 import { AuthDialog } from '@/components/auth-dialog'
 import { BrandLogo } from '@/components/brand-logo'
+import { PasswordChangeDialog } from '@/components/password-change-dialog'
 
 interface ChatHeaderProps {
   authStatus: 'loading' | 'authenticated' | 'anonymous'
+  onChangePassword: (credentials: ChangePasswordCredentials) => Promise<AuthActionResult>
   currentUser: AuthUser | null
   hasMessages: boolean
   onLogin: (credentials: LoginCredentials) => Promise<AuthActionResult>
@@ -15,10 +17,12 @@ interface ChatHeaderProps {
   onReset: () => void
   onOpenKnowledge: () => void
   onRegister: (credentials: RegisterCredentials) => Promise<AuthActionResult>
+  onRequestPasswordReset: (credentials: RequestPasswordResetCredentials) => Promise<AuthActionResult>
 }
 
 export function ChatHeader({
   authStatus,
+  onChangePassword,
   currentUser,
   hasMessages,
   onLogin,
@@ -26,10 +30,12 @@ export function ChatHeader({
   onReset,
   onOpenKnowledge,
   onRegister,
+  onRequestPasswordReset,
 }: ChatHeaderProps) {
   const [authDialogOpen, setAuthDialogOpen] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [dialogInstance, setDialogInstance] = useState(0)
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
 
   const openAuthDialog = (mode: 'login' | 'register') => {
     setAuthMode(mode)
@@ -66,8 +72,21 @@ export function ChatHeader({
                 </div>
                 <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-100/52">Sessioon aktiivne</p>
-                  <p className="max-w-56 truncate text-sm font-semibold text-cyan-50">{currentUser.name}</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <p className="max-w-56 truncate text-sm font-semibold text-cyan-50">{currentUser.name}</p>
+                    <span className="inline-flex items-center rounded-full border border-cyan-200/18 bg-cyan-300/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-50">
+                      {currentUser.role === 'admin' ? 'Admin' : 'Kasutaja'}
+                    </span>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setPasswordDialogOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-full border border-primary/14 bg-black/32 px-4 py-2 text-xs font-medium text-cyan-100/72 transition-colors hover:text-cyan-50"
+                >
+                  <KeyRound className="h-3 w-3" />
+                  Muuda parooli
+                </button>
                 <button
                   onClick={() => void onLogout()}
                   className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/4 px-4 py-2 text-xs font-medium text-slate-300 transition-colors hover:text-white"
@@ -127,7 +146,14 @@ export function ChatHeader({
         onLogin={onLogin}
         onOpenChange={setAuthDialogOpen}
         onRegister={onRegister}
+        onRequestPasswordReset={onRequestPasswordReset}
         open={authDialogOpen}
+      />
+
+      <PasswordChangeDialog
+        onOpenChange={setPasswordDialogOpen}
+        onSubmit={onChangePassword}
+        open={passwordDialogOpen}
       />
     </>
   )

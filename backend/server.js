@@ -1,10 +1,16 @@
 const express = require("express");
 const {
+  changePassword,
   getUserByToken,
   invalidateSession,
+  issueTemporaryPassword,
+  listPasswordResetRequests,
+  listUsers,
   loginUser,
   normalizeEmail,
+  requestPasswordReset,
   registerUser,
+  updateUserRole,
 } = require("./auth-store");
 const { LASER_MACHINES, MATERIALS, getRecommendation } = require("./laser-data");
 
@@ -36,6 +42,31 @@ function getBearerToken(req) {
 
 function sendError(res, error, fallbackMessage) {
   res.status(error?.status || 500).json({ error: error?.message || fallbackMessage });
+}
+
+async function resolveAuthenticatedUser(req) {
+  const token = getBearerToken(req);
+
+  if (!token) {
+    throw Object.assign(new Error("Sessioon puudub."), { status: 401 });
+  }
+
+  const user = await getUserByToken(token);
+  if (!user) {
+    throw Object.assign(new Error("Sessioon on aegunud või vigane."), { status: 401 });
+  }
+
+  return user;
+}
+
+async function requireAdminUser(req) {
+  const user = await resolveAuthenticatedUser(req);
+
+  if (user.role !== "admin") {
+    throw Object.assign(new Error("Selle toimingu jaoks on vaja admin-õigusi."), { status: 403 });
+  }
+
+  return user;
 }
 
 app.post("/api/auth/register", async (req, res) => {
@@ -116,6 +147,113 @@ app.post("/api/auth/logout", async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     sendError(res, error, "Väljalogimine ebaõnnestus.");
+  }
+});
+
+app.post("/api/auth/change-password", async (req, res) => {
+  const token = getBearerToken(req);
+  const currentPassword = String(req.body?.currentPassword || "");
+  const nextPassword = String(req.body?.nextPassword || "");
+
+  if (!token) {
+    res.status(401).json({ error: "Sessioon puudub." });
+    return;
+  }
+
+  if (!currentPassword || !nextPassword) {
+    res.status(400).json({ error: "Praegune ja uus parool on kohustuslikud." });
+    return;
+  }
+
+  if (nextPassword.length < 8) {
+    res.status(400).json({ error: "Uus parool peab olema vähemalt 8 tähemärki pikk." });
+    return;
+  }
+
+  try {
+    const result = await changePassword({ token, currentPassword, nextPassword });
+    res.json(result);
+  } catch (error) {
+    sendError(res, error, "Parooli vahetamine ebaõnnestus.");
+  }
+});
+
+app.post("/api/auth/request-password-reset", async (req, res) => {
+  const email = normalizeEmail(req.body?.email);
+  const note = String(req.body?.note || "");
+
+  if (!/^\S+@\S+\.\S+$/.test(email)) {
+    res.status(400).json({ error: "Sisesta korrektne e-posti aadress." });
+    return;
+  }
+
+  try {
+    await requestPasswordReset({ email, note });
+    res.json({
+      success: true,
+      message: "Kui konto on olemas, jõuab parooli reseti taotlus adminini.",
+    });
+  } catch (error) {
+    sendError(res, error, "Parooli reseti taotluse loomine ebaõnnestus.");
+  }
+});
+
+app.get("/api/auth/users", async (req, res) => {
+  try {
+    await requireAdminUser(req);
+    const users = await listUsers();
+    res.json({ users });
+  } catch (error) {
+    sendError(res, error, "Kasutajate laadimine ebaõnnestus.");
+  }
+});
+
+app.get("/api/auth/password-reset-requests", async (req, res) => {
+  try {
+    await requireAdminUser(req);
+    const requests = await listPasswordResetRequests();
+    res.json({ requests });
+  } catch (error) {
+    sendError(res, error, "Parooli reseti taotluste laadimine ebaõnnestus.");
+  }
+});
+
+app.post("/api/auth/password-reset-requests/:requestId/issue-temp-password", async (req, res) => {
+  const requestId = String(req.params.requestId || "").trim();
+
+  if (!requestId) {
+    res.status(400).json({ error: "Taotluse ID on kohustuslik." });
+    return;
+  }
+
+  try {
+    const actingUser = await requireAdminUser(req);
+    const result = await issueTemporaryPassword({ actingUserId: actingUser.id, requestId });
+    res.json(result);
+  } catch (error) {
+    sendError(res, error, "Ajutise parooli loomine ebaõnnestus.");
+  }
+});
+
+app.post("/api/auth/users/:userId/role", async (req, res) => {
+  const targetUserId = String(req.params.userId || "").trim();
+  const role = String(req.body?.role || "").trim();
+
+  if (!targetUserId) {
+    res.status(400).json({ error: "Kasutaja ID on kohustuslik." });
+    return;
+  }
+
+  try {
+    const actingUser = await requireAdminUser(req);
+    const user = await updateUserRole({
+      actingUserId: actingUser.id,
+      targetUserId,
+      role,
+    });
+    res.json({ user });
+  } catch (error) {
+    sendError(res, error, "Kasutaja rolli uuendamine ebaõnnestus.");
   }
 });
 

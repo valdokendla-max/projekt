@@ -64,6 +64,20 @@ function getDefaultItems(): KnowledgeItem[] {
   return DEFAULT_ITEMS.map((item) => ({ ...item }))
 }
 
+function isMissingFileError(error: unknown) {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT'
+}
+
+async function preserveCorruptedKnowledgeFile() {
+  const corruptedFilePath = `${KNOWLEDGE_FILE_PATH}.corrupt-${Date.now()}`
+
+  try {
+    await rename(KNOWLEDGE_FILE_PATH, corruptedFilePath)
+  } catch {
+    // Ignore backup failures and continue with a clean bootstrap file.
+  }
+}
+
 class KnowledgeStore {
   private items: KnowledgeItem[] = []
   private initialized = false
@@ -92,8 +106,13 @@ class KnowledgeStore {
         }
 
         this.items = sortItems(parsed)
-      } catch {
+      } catch (error) {
         this.items = getDefaultItems()
+
+        if (!isMissingFileError(error)) {
+          await preserveCorruptedKnowledgeFile()
+        }
+
         await this.persist(this.items)
       }
 

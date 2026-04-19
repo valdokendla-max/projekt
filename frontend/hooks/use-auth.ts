@@ -5,10 +5,13 @@ import { useEffect, useState } from 'react'
 const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000').replace(/\/$/, '')
 const AUTH_TOKEN_KEY = 'lasergraveerimine.auth-token'
 
+export type UserRole = 'admin' | 'user'
+
 export interface AuthUser {
   id: string
   name: string
   email: string
+  role: UserRole
   createdAt: string
 }
 
@@ -19,6 +22,16 @@ export interface LoginCredentials {
 
 export interface RegisterCredentials extends LoginCredentials {
   name: string
+}
+
+export interface ChangePasswordCredentials {
+  currentPassword: string
+  nextPassword: string
+}
+
+export interface RequestPasswordResetCredentials {
+  email: string
+  note?: string
 }
 
 export interface AuthActionResult {
@@ -195,8 +208,64 @@ export function useAuth() {
     }
   }
 
+  const changePassword = async (credentials: ChangePasswordCredentials): Promise<AuthActionResult> => {
+    const activeToken = token || window.localStorage.getItem(AUTH_TOKEN_KEY)
+
+    if (!activeToken) {
+      return { ok: false, error: 'Sessioon puudub.' }
+    }
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${activeToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      })
+
+      const payload = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        return { ok: false, error: readErrorMessage(payload, 'Parooli vahetamine ebaõnnestus.') }
+      }
+
+      return commitAuthResponse(payload)
+        ? { ok: true }
+        : { ok: false, error: 'Sessiooni uuendamine ebaõnnestus.' }
+    } catch {
+      return { ok: false, error: 'Serveriga ei saanud ühendust.' }
+    }
+  }
+
+  const requestPasswordReset = async (credentials: RequestPasswordResetCredentials): Promise<AuthActionResult> => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/auth/request-password-reset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      })
+
+      const payload = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        return { ok: false, error: readErrorMessage(payload, 'Parooli reseti taotlus ebaõnnestus.') }
+      }
+
+      return { ok: true }
+    } catch {
+      return { ok: false, error: 'Serveriga ei saanud ühendust.' }
+    }
+  }
+
   return {
+    changePassword,
+    requestPasswordReset,
     user,
+    token,
     status,
     isAuthenticated: status === 'authenticated',
     login,

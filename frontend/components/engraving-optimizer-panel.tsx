@@ -19,6 +19,7 @@ interface EngravingOptimizerPanelProps {
   prompt: string
   pendingImage: FileUIPart | null
   onPromoteImage: (asset: Pick<ImageAsset, 'dataUrl' | 'fileName' | 'mediaType'>) => void
+  savedSettingsSummary?: string
   className?: string
 }
 
@@ -196,6 +197,7 @@ export function EngravingOptimizerPanel({
   prompt,
   pendingImage,
   onPromoteImage,
+  savedSettingsSummary,
   className,
 }: EngravingOptimizerPanelProps) {
   const [loadingAction, setLoadingAction] = useState<'generate' | 'optimize' | 'export' | null>(null)
@@ -225,6 +227,7 @@ export function EngravingOptimizerPanel({
     try {
       const data = await postJson<ImageGenerationResponse>('/api/image-generation', {
         prompt: trimmedPrompt,
+        savedSettingsSummary: savedSettingsSummary || undefined,
       })
 
       setGeneration(data)
@@ -248,6 +251,7 @@ export function EngravingOptimizerPanel({
     try {
       const data = await postJson<OptimizationResponse>('/api/engraving-optimize', {
         userPrompt: trimmedPrompt || undefined,
+        savedSettingsSummary: savedSettingsSummary || undefined,
         sourceImageDataUrl: activeSourceAsset?.dataUrl,
         source: {
           sourceKind: uploadedAsset ? 'uploaded-image' : 'generated-text',
@@ -287,6 +291,7 @@ export function EngravingOptimizerPanel({
         assets,
         includeVector: optimization.result.vectorizationPlan.enabled,
         mode: optimization.result.modeDecision.mode,
+        savedSettingsSummary: savedSettingsSummary || undefined,
       })
 
       downloadBase64Archive(data.archiveBase64, data.exportManifest.archiveName)

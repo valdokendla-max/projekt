@@ -1,4 +1,22 @@
 {
-  "users": [],
-  "sessions": []
+  "users": [
+    {
+      "id": "e1ece93d-497f-4859-8a2e-88c7f3fb529b",
+      "name": "Valdo Kendla",
+      "email": "valdokendla@gmail.com",
+      "role": "admin",
+      "passwordHash": "2e18ac777c15af0f06864925a3c425f6:f8e4dd4589176174eb1f0657174eef7cccc15de7fb362622b59276cb0aa75f36b4c6f32edb1f8e7c823bd1421fb834e8f204d33e5bf68dea4cefa9c376cc3086",
+      "createdAt": "2026-04-19T10:07:26.314Z"
+    }
+  ],
+  "sessions": [
+    {
+      "id": "901b92af-fc1d-49bb-a33c-76f54d563ba5",
+      "userId": "e1ece93d-497f-4859-8a2e-88c7f3fb529b",
+      "tokenHash": "0452feb8889134a5552430c6175022307054be0016194011e459c3ec14007cda",
+      "createdAt": "2026-04-19T10:07:26.314Z",
+      "expiresAt": "2026-05-19T10:07:26.314Z"
+    }
+  ],
+  "passwordResetRequests": []
 }

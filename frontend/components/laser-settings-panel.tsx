@@ -49,6 +49,7 @@ interface Recommendation {
 
 interface LaserSettingsPanelProps {
   className?: string
+  onSavedSettingsSummaryChange?: (summary: string) => void
 }
 
 const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000').replace(/\/$/, '')
@@ -78,6 +79,49 @@ function formatModeLabel(mode: LaserMode) {
 
 function formatMachineLabel(machine: Machine) {
   return `${machine.brand} ${machine.model} (${formatLaserType(machine.laserType)}, ${machine.powerW}W)`
+}
+
+function formatNumber(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
+}
+
+function buildSavedSettingsSummary(args: {
+  selectedMachine: Machine | null
+  selectedMaterial: Material | null
+  thicknessMm: number
+  mode: LaserMode
+  recommendation: Recommendation | null
+}) {
+  const { selectedMachine, selectedMaterial, thicknessMm, mode, recommendation } = args
+
+  if (!selectedMachine || !selectedMaterial) {
+    return ''
+  }
+
+  const lines = [
+    `Masin: ${formatMachineLabel(selectedMachine)}`,
+    `Materjal: ${selectedMaterial.name}`,
+    `Paksus: ${formatNumber(thicknessMm)} mm`,
+    `Režiim: ${formatModeLabel(mode)}`,
+    `Materjali märkus: ${selectedMaterial.note}`,
+  ]
+
+  if (recommendation) {
+    lines.push(
+      `- Kiirus: ${formatNumber(recommendation.settings.speedMmpm)} mm/min`,
+      `- Võimsus: ${formatNumber(recommendation.settings.powerPct)}%`,
+      `- Passid: ${formatNumber(recommendation.settings.passes)}`,
+      `- Joone vahe: ${formatNumber(recommendation.settings.lineIntervalMm)} mm`,
+      `- Air assist: ${recommendation.settings.airAssist ? 'Jah' : 'Ei'}`,
+      `Soovituslik eksport: ${recommendation.exports.join(', ')}`,
+    )
+
+    if (recommendation.warnings.length > 0) {
+      lines.push('Tähelepanekud:', ...recommendation.warnings.map((warning) => `- ${warning}`))
+    }
+  }
+
+  return lines.join('\n')
 }
 
 function useBackendMachines() {
@@ -177,7 +221,7 @@ function isRecommendation(value: Recommendation | { error?: string } | null): va
   )
 }
 
-export function LaserSettingsPanel({ className }: LaserSettingsPanelProps) {
+export function LaserSettingsPanel({ className, onSavedSettingsSummaryChange }: LaserSettingsPanelProps) {
   const { machines, loading: loadingMachines, error: machinesError } = useBackendMachines()
   const { materials, loading: loadingMaterials, error: materialsError } = useBackendMaterials()
 
@@ -209,6 +253,22 @@ export function LaserSettingsPanel({ className }: LaserSettingsPanelProps) {
     () => materials.find((material) => material.id === materialId) || null,
     [materials, materialId],
   )
+
+  useEffect(() => {
+    setRecommendation(null)
+  }, [machineId, materialId, thicknessMm, mode])
+
+  useEffect(() => {
+    onSavedSettingsSummaryChange?.(
+      buildSavedSettingsSummary({
+        selectedMachine,
+        selectedMaterial,
+        thicknessMm,
+        mode,
+        recommendation,
+      }),
+    )
+  }, [mode, onSavedSettingsSummaryChange, recommendation, selectedMachine, selectedMaterial, thicknessMm])
 
   const handleCalculate = async () => {
     if (!machineId || !materialId) {

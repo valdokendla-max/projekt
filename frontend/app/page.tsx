@@ -18,6 +18,8 @@ import { cn } from '@/lib/utils'
 const MAX_CHAT_IMAGE_BYTES = 3 * 1024 * 1024
 const SUPPORTED_CHAT_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 type RightUtilityPanel = 'settings' | 'optimizer'
+type ShowcaseAction = { label: string; value: string; prompt: string }
+type UseCaseAction = { label: string; description: string; prompt: string }
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -33,6 +35,13 @@ function readFileAsDataUrl(file: File) {
     reader.onerror = () => reject(new Error('Pildi lugemine ebaõnnestus.'))
     reader.readAsDataURL(file)
   })
+}
+
+function messageHasImage(message: { parts?: Array<{ type?: string; mediaType?: string }> }) {
+  return Array.isArray(message.parts)
+    && message.parts.some(
+      (part) => part.type === 'file' && typeof part.mediaType === 'string' && part.mediaType.startsWith('image/'),
+    )
 }
 
 function RightDockButton({
@@ -108,19 +117,15 @@ function RightPanelShell({
   )
 }
 
-function HeroDisplay() {
-  const showcaseStats = [
-    { label: 'Materjalid', value: 'Puit, metall, nahk' },
-    { label: 'Töövoog', value: 'Prompt -> optimize -> export' },
-    { label: 'Väljund', value: 'PNG, SVG, DXF' },
-  ]
-
-  const useCases = [
-    'Logo- ja märgistustööd puidule ning metallile.',
-    'Foto puhastus graveerimiskõlblikuks mustvalgeks väljundiks.',
-    'Masina- ja materjalipõhine seadistusoovitus ühes vaates.',
-  ]
-
+function HeroDisplay({
+  showcaseActions,
+  useCaseActions,
+  onQuickAction,
+}: {
+  showcaseActions: ShowcaseAction[]
+  useCaseActions: UseCaseAction[]
+  onQuickAction: (prompt: string) => void
+}) {
   return (
     <section className="hud-panel px-5 py-5 md:px-6 md:py-6">
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.22fr)_minmax(320px,0.78fr)] xl:items-center">
@@ -163,14 +168,16 @@ function HeroDisplay() {
             </div>
 
             <div className="absolute inset-x-7 bottom-7 z-10 grid gap-3 sm:grid-cols-3">
-              {showcaseStats.map((item) => (
-                <div
+              {showcaseActions.map((item) => (
+                <button
                   key={item.label}
-                  className="rounded-[18px] border border-primary/12 bg-black/50 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm"
+                  type="button"
+                  onClick={() => onQuickAction(item.prompt)}
+                  className="rounded-[18px] border border-primary/12 bg-black/50 px-3 py-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm transition-colors hover:border-primary/24 hover:bg-black/58"
                 >
                   <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/44">{item.label}</div>
                   <div className="mt-1 text-sm font-semibold text-cyan-50">{item.value}</div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -193,14 +200,17 @@ function HeroDisplay() {
           </p>
 
           <div className="grid gap-3">
-            {useCases.map((item, index) => (
-              <div
-                key={item}
-                className="rounded-[20px] border border-primary/12 bg-black/24 px-4 py-3 text-sm leading-relaxed text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
+            {useCaseActions.map((item, index) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => onQuickAction(item.prompt)}
+                className="rounded-[20px] border border-primary/12 bg-black/24 px-4 py-3 text-left text-sm leading-relaxed text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors hover:border-primary/24 hover:bg-black/32"
               >
-                <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/44">Case {index + 1}</div>
-                <p className="mt-1">{item}</p>
-              </div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/44">Kiirtoiming {index + 1}</div>
+                <p className="mt-1 font-semibold text-cyan-50">{item.label}</p>
+                <p className="mt-1">{item.description}</p>
+              </button>
             ))}
           </div>
 
@@ -216,6 +226,7 @@ export default function LaserGraveerimiseApp() {
   const [knowledgeOpen, setKnowledgeOpen] = useState(false)
   const [activeRightPanel, setActiveRightPanel] = useState<RightUtilityPanel | null>(null)
   const [pendingImage, setPendingImage] = useState<FileUIPart | null>(null)
+  const [savedSettingsSummary, setSavedSettingsSummary] = useState('')
   const [chatInputError, setChatInputError] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const auth = useAuth()
@@ -224,8 +235,9 @@ export default function LaserGraveerimiseApp() {
     () =>
       new DefaultChatTransport({
         api: '/api/chat',
+        body: savedSettingsSummary ? { savedSettingsSummary } : undefined,
       }),
-    []
+    [savedSettingsSummary]
   )
 
   const { messages, sendMessage, status, setMessages } = useChat({
@@ -233,8 +245,68 @@ export default function LaserGraveerimiseApp() {
   })
 
   const hasMessages = messages.length > 0
+  const hasImageContext = Boolean(pendingImage) || messages.some(messageHasImage)
   const isLoading = status === 'streaming' || status === 'submitted'
-  const commandModes = ['Material presets', 'Photo prep', 'LightBurn export', 'Safety check']
+  const showcaseActions: ShowcaseAction[] = [
+    {
+      label: 'Materjalid',
+      value: 'Puit, metall, nahk',
+      prompt: 'Anna minu aktiivse masina ja materjali jaoks konkreetsed lähteseaded koos kiiruse, võimsuse, passide, joone vahe, air assisti ja tähelepanekutega.',
+    },
+    {
+      label: 'Töövoog',
+      value: 'Prompt -> optimize -> export',
+      prompt: 'Kirjelda mulle samm-sammult töövoogu alates pildist või promptist kuni graveerimiseks valmis faili ekspordini minu aktiivse seadistuse järgi.',
+    },
+    {
+      label: 'Väljund',
+      value: 'PNG, SVG, DXF',
+      prompt: 'Selgita, millal kasutada PNG, SVG või DXF väljundit minu aktiivse masina ja materjali puhul.',
+    },
+  ]
+  const useCaseActions: UseCaseAction[] = [
+    {
+      label: 'Logo ja märgistus',
+      description: 'Anna juhised logo või märgistuse faili ettevalmistamiseks puidule või metallile.',
+      prompt: 'Anna soovitus, kuidas valmistada logo või märgistuse fail ette minu aktiivse masina ja materjali jaoks.',
+    },
+    {
+      label: 'Foto puhastus',
+      description: 'Selgita, kuidas teha fotost lasergraveerimiseks sobiv kõrge kontrastiga väljund.',
+      prompt: hasImageContext
+        ? 'Analüüsi vestluses olevat pilti ja anna täpne foto ettevalmistuse plaan lasergraveerimiseks minu aktiivse masina ja materjali jaoks.'
+        : 'Kirjelda, kuidas valmistada foto lasergraveerimiseks ette minu aktiivse masina ja materjali jaoks, sh kontrast, threshold, taust ja DPI.',
+    },
+    {
+      label: 'Seadistusoovitus',
+      description: 'Kasuta valitud masinat ja materjali ning anna praktiline töötlusplaan.',
+      prompt: 'Koosta mulle praktiline seadistusoovitus minu aktiivse masina, materjali ja režiimi jaoks ning lisa lühike töötlusplaan.',
+    },
+  ]
+  const commandModes: UseCaseAction[] = [
+    {
+      label: 'Materjali presetid',
+      description: '',
+      prompt: 'Anna minu aktiivse masina ja materjali jaoks konkreetsed lähteseaded koos kiiruse, võimsuse, passide, joone vahe ja air assisti soovitusega.',
+    },
+    {
+      label: 'Foto ettevalmistus',
+      description: '',
+      prompt: hasImageContext
+        ? 'Analüüsi vestluses olevat pilti ja kirjelda täpselt, kuidas see lasergraveerimiseks ette valmistada minu aktiivse seadistuse jaoks.'
+        : 'Kirjelda, kuidas valmistada foto lasergraveerimiseks ette minu aktiivse seadistuse jaoks.',
+    },
+    {
+      label: 'LightBurn eksport',
+      description: '',
+      prompt: 'Selgita, kuidas valmistada töö LightBurn ekspordiks minu aktiivse masina ja materjali jaoks ning millised formaadid valida.',
+    },
+    {
+      label: 'Ohutuskontroll',
+      description: '',
+      prompt: 'Tee lühike ohutuskontroll minu aktiivse masina, materjali ja töö tüübi jaoks enne graveerimise alustamist.',
+    },
+  ]
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -256,8 +328,8 @@ export default function LaserGraveerimiseApp() {
     }
   }, [])
 
-  const handleSubmit = async () => {
-    const text = input.trim()
+  const sendChatRequest = async (nextText?: string) => {
+    const text = nextText?.trim()
 
     if ((!text && !pendingImage) || isLoading) {
       return
@@ -277,6 +349,14 @@ export default function LaserGraveerimiseApp() {
     } catch {
       setChatInputError('Sõnumi saatmine ebaõnnestus. Proovi uuesti.')
     }
+  }
+
+  const handleSubmit = async () => {
+    await sendChatRequest(input)
+  }
+
+  const handleQuickAction = async (prompt: string) => {
+    await sendChatRequest(prompt)
   }
 
   const handleImageSelect = async (file: File | null) => {
@@ -336,16 +416,24 @@ export default function LaserGraveerimiseApp() {
 
   return (
     <div className="relative z-1 min-h-dvh px-3 py-3 md:px-4">
-      <KnowledgePanel isOpen={knowledgeOpen} onClose={() => setKnowledgeOpen(false)} />
+      <KnowledgePanel
+        authStatus={auth.status}
+        currentUser={auth.user}
+        isOpen={knowledgeOpen}
+        onClose={() => setKnowledgeOpen(false)}
+        sessionToken={auth.token}
+      />
 
       <div className="hud-shell relative mx-auto flex min-h-[calc(100dvh-1.5rem)] max-w-400 flex-col p-3 md:p-5 xl:pr-24">
         <ChatHeader
           authStatus={auth.status}
+          onChangePassword={auth.changePassword}
           currentUser={auth.user}
           hasMessages={hasMessages}
           onLogin={auth.login}
           onLogout={auth.logout}
           onRegister={auth.register}
+          onRequestPasswordReset={auth.requestPasswordReset}
           onReset={handleReset}
           onOpenKnowledge={() => setKnowledgeOpen(true)}
         />
@@ -370,7 +458,13 @@ export default function LaserGraveerimiseApp() {
         </div>
 
         <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4">
-          <HeroDisplay />
+          <HeroDisplay
+            showcaseActions={showcaseActions}
+            useCaseActions={useCaseActions}
+            onQuickAction={(prompt) => {
+              void handleQuickAction(prompt)
+            }}
+          />
 
           <section className={hasMessages ? 'hud-panel flex min-h-0 flex-1 flex-col p-4 md:p-5' : 'hud-panel p-4 md:p-5'}>
             {hasMessages ? (
@@ -385,23 +479,38 @@ export default function LaserGraveerimiseApp() {
                   </div>
 
                   <div className="grid gap-2 sm:grid-cols-2 xl:w-88">
-                    <div className="hud-chip rounded-[18px] px-3 py-2">
-                      <span className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">Seanss</span>
-                      <strong className="text-cyan-50">{String(messages.length).padStart(2, '0')}</strong>
-                    </div>
-                    <div className="hud-chip rounded-[18px] px-3 py-2">
-                      <span className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">Režiim</span>
-                      <strong className="text-cyan-50">{isLoading ? 'Töötlen' : 'Valmis'}</strong>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleRightPanel('settings')}
+                      className="hud-chip rounded-[18px] px-3 py-2 text-left transition-colors hover:border-primary/24"
+                    >
+                      <span className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">Seaded</span>
+                      <strong className="text-cyan-50">{savedSettingsSummary ? 'Aktiivne' : 'Ava paneel'}</strong>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleRightPanel('optimizer')}
+                      className="hud-chip rounded-[18px] px-3 py-2 text-left transition-colors hover:border-primary/24"
+                    >
+                      <span className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">Optimizer</span>
+                      <strong className="text-cyan-50">{isLoading ? 'Töötlen' : 'Ava paneel'}</strong>
+                    </button>
                   </div>
                 </div>
 
                 <div className="chat-deck flex min-h-0 flex-1 flex-col">
                   <div className="mb-4 flex flex-wrap gap-2">
                     {commandModes.map((mode, index) => (
-                      <span key={mode} className={index === 0 ? 'chat-command chat-command--active' : 'chat-command'}>
-                        {mode}
-                      </span>
+                      <button
+                        key={mode.label}
+                        type="button"
+                        onClick={() => {
+                          void handleQuickAction(mode.prompt)
+                        }}
+                        className={index === 0 ? 'chat-command chat-command--active transition-colors hover:border-primary/28' : 'chat-command transition-colors hover:border-primary/22 hover:text-cyan-50'}
+                      >
+                        {mode.label}
+                      </button>
                     ))}
                   </div>
 
@@ -458,7 +567,7 @@ export default function LaserGraveerimiseApp() {
             description="Ava laserimasina, materjali ja soovituslike seadete paneel ainult siis, kui seda päriselt vajad."
             onClose={() => setActiveRightPanel(null)}
           >
-            <LaserSettingsPanel />
+            <LaserSettingsPanel onSavedSettingsSummaryChange={setSavedSettingsSummary} />
           </RightPanelShell>
         )}
 
@@ -472,6 +581,7 @@ export default function LaserGraveerimiseApp() {
               prompt={input}
               pendingImage={pendingImage}
               onPromoteImage={handlePromoteOptimizerImage}
+              savedSettingsSummary={savedSettingsSummary}
             />
           </RightPanelShell>
         )}

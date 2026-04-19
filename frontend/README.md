@@ -38,6 +38,10 @@ OPENAI_API_KEY=...
 
 Windowsis võid `GROQ_API_KEY` asemel hoida võtme ka kasutaja keskkonnamuutujana. Frontendi `npm run dev` skript proovib selle sel juhul automaatselt kasutaja keskkonnast laadida, nii et võti ei pea projektifaili jääma.
 
+Admin-konto jaoks on projektis vaikimisi lukustatud e-post `valdokendla@gmail.com`. Soovi korral saad lisada või muuta admin-e-posti loendit keskkonnamuutujaga `AUTH_ADMIN_EMAILS`, kus väärtused on komadega eraldatud.
+
+Kui kasutaja unustab parooli, saab ta sisselogimisaknast saata reseti taotluse. Admin näeb ootel taotlusi teadmistepaneelis, loob kasutajale ajutise parooli ja kasutaja vahetab selle pärast sisselogimist kohe ära.
+
 ## Arendus
 
 Workspace'i juurkaustast:
@@ -69,11 +73,12 @@ npm run build --prefix frontend
 - backend pakub route'e `/api/machines`, `/api/materials` ja `/api/recommendation`
 - teadmistebaasi route `/api/knowledge` salvestab kirjed faili `frontend/data/knowledge-store.json`
 - teadmiste kirjed püsivad ka pärast serveri restarti, kui rakendus töötab tavalises Node.js keskkonnas
+- admin saab teadmistepaneelis hallata ka kasutajate rolle; teadmistebaasi muutmine on lubatud ainult admin-kontole
 
 ## Süsteemi olek
 
 - route `/api/system-status` kontrollib frontendit, backendi tervist, teadmistebaasi püsisalvestust ja Groq AI ühendust
-- parempoolses juhtveerus olev süsteemi oleku paneel värskendab neid näite automaatselt ning käsitsi
+- avalehel ei ole enam püsivat süsteemi oleku paneeli; põhilised tööriistad avanevad ikoonipõhistest parempoolsetest nuppudest
 
 ## Ekspordid
 

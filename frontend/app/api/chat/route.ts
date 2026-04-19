@@ -1,4 +1,5 @@
 import { knowledgeStore } from '@/lib/knowledge-store'
+import { normalizeChatImageDataUrl } from '@/lib/engraving/chat-image-normalizer'
 
 export const maxDuration = 60
 export const runtime = 'nodejs'
@@ -25,12 +26,19 @@ interface UIMessage {
   content?: string
 }
 
+interface ProviderConfig {
+  providerName: 'groq' | 'openai'
+  apiKey: string
+  endpoint: string
+  model: string
+}
+
 type ImageUIMessagePart = UIMessagePart & {
   url: string
   mediaType: string
 }
 
-type GroqContentPart =
+type ModelContentPart =
   | { type: 'text'; text: string }
   | { type: 'image_url'; image_url: { url: string } }
 
@@ -48,12 +56,43 @@ function isImagePart(part: UIMessagePart): part is ImageUIMessagePart {
   return part.type === 'file' && typeof part.url === 'string' && typeof part.mediaType === 'string' && part.mediaType.startsWith('image/')
 }
 
-function toGroqContent(msg: UIMessage) {
+async function normalizeMessages(messages: UIMessage[]) {
+  return Promise.all(
+    messages.map(async (message) => {
+      if (!Array.isArray(message.parts)) {
+        return message
+      }
+
+      const parts = await Promise.all(
+        message.parts.map(async (part) => {
+          if (!isImagePart(part) || !part.url.startsWith('data:')) {
+            return part
+          }
+
+          const normalized = await normalizeChatImageDataUrl(part.url)
+
+          return {
+            ...part,
+            url: normalized.dataUrl,
+            mediaType: normalized.mediaType,
+          }
+        }),
+      )
+
+      return {
+        ...message,
+        parts,
+      }
+    }),
+  )
+}
+
+function toModelContent(msg: UIMessage) {
   if (!msg.parts || !Array.isArray(msg.parts)) {
     return msg.content || ''
   }
 
-  const content: GroqContentPart[] = []
+  const content: ModelContentPart[] = []
 
   for (const part of msg.parts) {
     if (part.type === 'text' && part.text) {
@@ -77,45 +116,143 @@ function toGroqContent(msg: UIMessage) {
   return content
 }
 
+function getOpenAiBaseUrl() {
+  return (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')
+}
+
+function normalizeProviderPreference(value: string | undefined) {
+  const normalized = String(value || '').trim().toLowerCase()
+
+  if (normalized === 'groq' || normalized === 'openai') {
+    return normalized
+  }
+
+  return null
+}
+
+function extractProviderMessage(rawError: string) {
+  let current = rawError.trim()
+
+  for (let index = 0; index < 2; index += 1) {
+    try {
+      const parsed = JSON.parse(current)
+      const message = parsed?.error?.message || parsed?.message
+
+      if (typeof message === 'string' && message.trim()) {
+        current = message.trim()
+        continue
+      }
+    } catch {
+      break
+    }
+  }
+
+  return current || 'Päring ebaõnnestus.'
+}
+
+function formatProviderError(message: string, provider: ProviderConfig) {
+  const normalized = message.toLowerCase()
+
+  if (provider.providerName === 'openai' && normalized.includes('safety system')) {
+    return `OpenAI turvasüsteem blokeeris selle pildipäringu. Kui see on tavaline graveerimispilt, kasuta vaikimisi Groq visionit või proovi pilti kärpida ja uuesti saata. Provider teade: ${message}`
+  }
+
+  if ((provider.providerName === 'openai' || provider.providerName === 'groq') && normalized.includes('image') && normalized.includes('invalid')) {
+    return `Provider ei suutnud pilti korrektselt lugeda. Proovi salvestatud PNG/JPG faili või tavalist screenshot-faili. Provider teade: ${message}`
+  }
+
+  return message
+}
+
+function resolveProvider(usesVision: boolean): ProviderConfig | null {
+  const groqApiKey = String(process.env.GROQ_API_KEY || '').trim()
+  const openAiApiKey = String(process.env.OPENAI_API_KEY || '').trim()
+  const preferredProvider = normalizeProviderPreference(
+    usesVision ? process.env.CHAT_VISION_PROVIDER : process.env.CHAT_TEXT_PROVIDER,
+  )
+
+  const providers: Record<'groq' | 'openai', ProviderConfig | null> = {
+    groq: groqApiKey
+      ? {
+          providerName: 'groq',
+          apiKey: groqApiKey,
+          endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+          model: usesVision ? 'meta-llama/llama-4-scout-17b-16e-instruct' : 'llama-3.3-70b-versatile',
+        }
+      : null,
+    openai: openAiApiKey
+      ? {
+          providerName: 'openai',
+          apiKey: openAiApiKey,
+          endpoint: `${getOpenAiBaseUrl()}/chat/completions`,
+          model: usesVision
+            ? process.env.OPENAI_VISION_MODEL || 'gpt-4o-mini'
+            : process.env.OPENAI_TEXT_MODEL || 'gpt-4o-mini',
+        }
+      : null,
+  }
+
+  if (preferredProvider && providers[preferredProvider]) {
+    return providers[preferredProvider]
+  }
+
+  if (usesVision) {
+    return providers.groq || providers.openai
+  }
+
+  return providers.groq || providers.openai
+}
+
 export async function POST(req: Request) {
   const { messages, savedSettingsSummary }: { messages: UIMessage[]; savedSettingsSummary?: string } = await req.json()
+  let normalizedMessages = messages
 
-  if (!process.env.GROQ_API_KEY) {
+  try {
+    normalizedMessages = await normalizeMessages(messages)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Pildi normaliseerimine ebaõnnestus.'
+    return new Response(JSON.stringify({ error: message }), { status: 400 })
+  }
+
+  const usesVision = normalizedMessages.some((message) => message.parts?.some(isImagePart))
+  const provider = resolveProvider(usesVision)
+
+  if (!provider) {
     return new Response(
-      JSON.stringify({ error: 'GROQ_API_KEY puudub. Lisa see frontend/.env.local faili.' }),
+      JSON.stringify({ error: 'Puudub sobiv AI provideri võti. Lisa GROQ_API_KEY või OPENAI_API_KEY.' }),
       { status: 500 }
     )
   }
 
   const knowledgeContext = await knowledgeStore.getContext()
   const system = BASE_SYSTEM + knowledgeContext + buildSavedSettingsContext(savedSettingsSummary)
-  const usesVision = messages.some((message) => message.parts?.some(isImagePart))
 
-  const groqMessages = [
+  const providerMessages = [
     { role: 'system', content: system },
-    ...messages.map((m) => ({
+    ...normalizedMessages.map((m) => ({
       role: m.role as string,
-      content: toGroqContent(m),
+      content: toModelContent(m),
     })),
   ]
 
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+  const response = await fetch(provider.endpoint, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+      Authorization: `Bearer ${provider.apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: usesVision ? 'meta-llama/llama-4-scout-17b-16e-instruct' : 'llama-3.3-70b-versatile',
-      messages: groqMessages,
+      model: provider.model,
+      messages: providerMessages,
       stream: true,
     }),
     signal: req.signal,
   })
 
   if (!response.ok) {
-    const error = await response.text()
-    return new Response(JSON.stringify({ error }), { status: response.status })
+    const providerError = await response.text()
+    const providerMessage = extractProviderMessage(providerError)
+    return new Response(JSON.stringify({ error: formatProviderError(providerMessage, provider) }), { status: response.status })
   }
 
   const encoder = new TextEncoder()
