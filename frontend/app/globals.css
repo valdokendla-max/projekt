@@ -465,7 +465,11 @@
   }
 
   .hero-title {
-    font-size: clamp(2.9rem, 7vw, 5.5rem);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.06em;
+    font-size: clamp(2.7rem, 5.2vw, 4.7rem);
     line-height: 0.88;
     letter-spacing: -0.06em;
     color: #68efff;
@@ -473,6 +477,16 @@
       0 0 0 rgba(0, 0, 0, 0.2),
       0 4px 18px rgba(10, 14, 22, 0.42),
       0 0 24px rgba(76, 224, 255, 0.16);
+  }
+
+  .hero-title-line {
+    display: block;
+    max-width: 100%;
+  }
+
+  .hero-title-line--long {
+    font-size: 0.82em;
+    letter-spacing: -0.045em;
   }
 
   .hero-kicker {

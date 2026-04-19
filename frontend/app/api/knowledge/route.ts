@@ -30,11 +30,24 @@ function getBearerToken(request: Request) {
   return header.slice(7).trim()
 }
 
-async function requireAdminUser(request: Request) {
+function getKnowledgeAuthMessages(mode: 'read' | 'write') {
+  return mode === 'read'
+    ? {
+        missingSession: 'Teadmistebaasi vaatamiseks logi sisse admin-kontoga.',
+        missingRole: 'Teadmistebaasi saavad vaadata ainult admin-kasutajad.',
+      }
+    : {
+        missingSession: 'Teadmistebaasi muutmiseks logi sisse admin-kontoga.',
+        missingRole: 'Teadmistebaasi saavad muuta ainult admin-kasutajad.',
+      }
+}
+
+async function requireAdminUser(request: Request, mode: 'read' | 'write' = 'write') {
+  const messages = getKnowledgeAuthMessages(mode)
   const token = getBearerToken(request)
 
   if (!token) {
-    return Response.json({ error: 'Teadmistebaasi muutmiseks logi sisse admin-kontoga.' }, { status: 401 })
+    return Response.json({ error: messages.missingSession }, { status: 401 })
   }
 
   let response: Response
@@ -51,25 +64,31 @@ async function requireAdminUser(request: Request) {
   }
 
   if (!response.ok) {
-    return Response.json({ error: 'Teadmistebaasi muutmiseks logi sisse admin-kontoga.' }, { status: 401 })
+    return Response.json({ error: messages.missingSession }, { status: 401 })
   }
 
   const payload = (await response.json()) as { user?: AuthenticatedUser }
 
   if (payload.user?.role !== 'admin') {
-    return Response.json({ error: 'Teadmistebaasi saavad muuta ainult admin-kasutajad.' }, { status: 403 })
+    return Response.json({ error: messages.missingRole }, { status: 403 })
   }
 
   return null
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const authError = await requireAdminUser(req, 'read')
+
+  if (authError) {
+    return authError
+  }
+
   const items = await knowledgeStore.getAll()
   return Response.json(items)
 }
 
 export async function POST(req: Request) {
-  const authError = await requireAdminUser(req)
+  const authError = await requireAdminUser(req, 'write')
 
   if (authError) {
     return authError
@@ -96,7 +115,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const authError = await requireAdminUser(req)
+  const authError = await requireAdminUser(req, 'write')
 
   if (authError) {
     return authError

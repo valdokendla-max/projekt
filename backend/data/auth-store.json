@@ -7,15 +7,23 @@
       "role": "admin",
       "passwordHash": "2e18ac777c15af0f06864925a3c425f6:f8e4dd4589176174eb1f0657174eef7cccc15de7fb362622b59276cb0aa75f36b4c6f32edb1f8e7c823bd1421fb834e8f204d33e5bf68dea4cefa9c376cc3086",
       "createdAt": "2026-04-19T10:07:26.314Z"
+    },
+    {
+      "id": "9f6929a1-03d0-492c-bade-061ae6b68417",
+      "name": "AIVE AVIK",
+      "email": "aiveken86@hotmail.com",
+      "role": "user",
+      "passwordHash": "a5fba947ff7787044c43cca8754df5a7:47f7ab631bd8db22ec6ceb7bc827a68a577a846bf63ded3c5cb27793403a7334f44db672d529c9390e2ef782cc5d149d31fa26e99272134dac3d4dfcf37d3cd2",
+      "createdAt": "2026-04-19T10:46:20.984Z"
     }
   ],
   "sessions": [
     {
-      "id": "901b92af-fc1d-49bb-a33c-76f54d563ba5",
+      "id": "b52c1766-4df2-4260-9091-909251652e9c",
       "userId": "e1ece93d-497f-4859-8a2e-88c7f3fb529b",
-      "tokenHash": "0452feb8889134a5552430c6175022307054be0016194011e459c3ec14007cda",
-      "createdAt": "2026-04-19T10:07:26.314Z",
-      "expiresAt": "2026-05-19T10:07:26.314Z"
+      "tokenHash": "869bc606bf14eecc9193fa4147776d91d42bfe0a91c2e10b990be47c1810ee05",
+      "createdAt": "2026-04-19T10:46:43.880Z",
+      "expiresAt": "2026-05-19T10:46:43.880Z"
     }
   ],
   "passwordResetRequests": []

@@ -128,7 +128,7 @@ function HeroDisplay({
 }) {
   return (
     <section className="hud-panel px-5 py-5 md:px-6 md:py-6">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.22fr)_minmax(320px,0.78fr)] xl:items-center">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] xl:items-center">
         <div className="hero-stage">
           <div className="hud-plate overflow-hidden">
             <span className="hud-plate-bolt left-5 top-5" />
@@ -183,14 +183,17 @@ function HeroDisplay({
           </div>
         </div>
 
-        <div className="space-y-5 xl:pr-2">
+        <div className="space-y-5 xl:pr-0">
           <span className="hud-label">
             <Sparkles className="h-3.5 w-3.5" />
             Precision Array
           </span>
 
           <div>
-            <h1 className="hero-title font-semibold uppercase">Laser<br />Graveerimine</h1>
+            <h1 className="hero-title font-semibold uppercase">
+              <span className="hero-title-line">Laser</span>
+              <span className="hero-title-line hero-title-line--long">Graveerimine</span>
+            </h1>
             <p className="mt-4 hero-kicker">Precision. Power. Control.</p>
           </div>
 
@@ -230,6 +233,7 @@ export default function LaserGraveerimiseApp() {
   const [chatInputError, setChatInputError] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const auth = useAuth()
+  const canAccessKnowledge = auth.status === 'authenticated' && auth.user?.role === 'admin'
 
   const chatTransport = useMemo(
     () =>
@@ -328,6 +332,12 @@ export default function LaserGraveerimiseApp() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!canAccessKnowledge && knowledgeOpen) {
+      setKnowledgeOpen(false)
+    }
+  }, [canAccessKnowledge, knowledgeOpen])
+
   const sendChatRequest = async (nextText?: string) => {
     const text = nextText?.trim()
 
@@ -419,7 +429,7 @@ export default function LaserGraveerimiseApp() {
       <KnowledgePanel
         authStatus={auth.status}
         currentUser={auth.user}
-        isOpen={knowledgeOpen}
+        isOpen={Boolean(canAccessKnowledge && knowledgeOpen)}
         onClose={() => setKnowledgeOpen(false)}
         sessionToken={auth.token}
       />
@@ -435,7 +445,11 @@ export default function LaserGraveerimiseApp() {
           onRegister={auth.register}
           onRequestPasswordReset={auth.requestPasswordReset}
           onReset={handleReset}
-          onOpenKnowledge={() => setKnowledgeOpen(true)}
+          onOpenKnowledge={() => {
+            if (canAccessKnowledge) {
+              setKnowledgeOpen(true)
+            }
+          }}
         />
 
         <div className="pointer-events-none fixed bottom-5 right-5 z-50 flex flex-col gap-3 md:bottom-6 md:right-6 xl:absolute xl:bottom-auto xl:right-5 xl:top-28">

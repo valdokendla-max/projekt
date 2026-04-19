@@ -36,6 +36,7 @@ export function ChatHeader({
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [dialogInstance, setDialogInstance] = useState(0)
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
+  const showKnowledgeButton = authStatus === 'authenticated' && currentUser?.role === 'admin'
 
   const openAuthDialog = (mode: 'login' | 'register') => {
     setAuthMode(mode)
@@ -119,13 +120,15 @@ export function ChatHeader({
           </div>
 
           <div className="flex items-center gap-2 self-end xl:self-auto xl:justify-self-end">
-            <button
-              onClick={onOpenKnowledge}
-              className="inline-flex items-center gap-2 rounded-full border border-primary/14 bg-black/32 px-4 py-2 text-xs font-medium text-cyan-100/72 transition-colors hover:text-cyan-50"
-            >
-              <BookOpen className="h-3 w-3" />
-              Teadmised
-            </button>
+            {showKnowledgeButton ? (
+              <button
+                onClick={onOpenKnowledge}
+                className="inline-flex items-center gap-2 rounded-full border border-primary/14 bg-black/32 px-4 py-2 text-xs font-medium text-cyan-100/72 transition-colors hover:text-cyan-50"
+              >
+                <BookOpen className="h-3 w-3" />
+                Teadmised
+              </button>
+            ) : null}
 
             {hasMessages && (
               <button

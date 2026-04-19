@@ -79,8 +79,17 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, onClose, sessi
       : 'Avalik vaaterežiim: muutmiseks logi sisse admin-kontoga.'
 
   const fetchItems = useCallback(async () => {
+    if (!sessionToken || !canManageKnowledge) {
+      setItems([])
+      return
+    }
+
     try {
-      const res = await fetch('/api/knowledge')
+      const res = await fetch('/api/knowledge', {
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+        },
+      })
       if (!res.ok) {
         throw new Error(await getErrorMessage(res, 'Teadmiste laadimine ebaõnnestus'))
       }
@@ -90,7 +99,7 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, onClose, sessi
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Teadmiste laadimine ebaõnnestus')
     }
-  }, [])
+  }, [canManageKnowledge, sessionToken])
 
   const fetchUsers = useCallback(async () => {
     if (!sessionToken || !canManageKnowledge) {
