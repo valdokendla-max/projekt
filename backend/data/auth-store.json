@@ -19,11 +19,11 @@
   ],
   "sessions": [
     {
-      "id": "b52c1766-4df2-4260-9091-909251652e9c",
+      "id": "87c3304c-a91f-46b1-ae7b-ed72e9daa152",
       "userId": "e1ece93d-497f-4859-8a2e-88c7f3fb529b",
-      "tokenHash": "869bc606bf14eecc9193fa4147776d91d42bfe0a91c2e10b990be47c1810ee05",
-      "createdAt": "2026-04-19T10:46:43.880Z",
-      "expiresAt": "2026-05-19T10:46:43.880Z"
+      "tokenHash": "d4472dba893803247f703e0fd846cd71bda3fbf010c2508a752ec41ac4bad4a3",
+      "createdAt": "2026-04-21T19:37:00.594Z",
+      "expiresAt": "2026-05-21T19:37:00.595Z"
     }
   ],
   "passwordResetRequests": []
