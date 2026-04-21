@@ -1,7 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Flame, Layers, Settings2 } from 'lucide-react'
+import {
+  clearSavedLaserSettings,
+  readSavedLaserSettings,
+  writeSavedLaserSettings,
+  type StoredLaserSettingsRecommendation,
+} from '@/lib/engraving/saved-settings-storage'
 import { cn } from '@/lib/utils'
 
 type LaserMode = 'engrave' | 'cut'
@@ -49,6 +55,7 @@ interface Recommendation {
 
 interface LaserSettingsPanelProps {
   className?: string
+  savedSettingsSummary?: string
   onSavedSettingsSummaryChange?: (summary: string) => void
 }
 
@@ -221,7 +228,11 @@ function isRecommendation(value: Recommendation | { error?: string } | null): va
   )
 }
 
-export function LaserSettingsPanel({ className, onSavedSettingsSummaryChange }: LaserSettingsPanelProps) {
+export function LaserSettingsPanel({
+  className,
+  savedSettingsSummary,
+  onSavedSettingsSummaryChange,
+}: LaserSettingsPanelProps) {
   const { machines, loading: loadingMachines, error: machinesError } = useBackendMachines()
   const { materials, loading: loadingMaterials, error: materialsError } = useBackendMaterials()
 
@@ -232,6 +243,10 @@ export function LaserSettingsPanel({ className, onSavedSettingsSummaryChange }: 
   const [loadingRecommendation, setLoadingRecommendation] = useState(false)
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null)
   const [error, setError] = useState('')
+  const [statusMessage, setStatusMessage] = useState('')
+  const [pendingStoredSettings, setPendingStoredSettings] = useState(() => readSavedLaserSettings())
+  const [hasHydratedStoredSettings, setHasHydratedStoredSettings] = useState(() => readSavedLaserSettings() === null)
+  const isRestoringSavedSettings = useRef(false)
 
   useEffect(() => {
     if (!machineId && machines.length > 0) {
@@ -254,21 +269,82 @@ export function LaserSettingsPanel({ className, onSavedSettingsSummaryChange }: 
     [materials, materialId],
   )
 
-  useEffect(() => {
-    setRecommendation(null)
-  }, [machineId, materialId, thicknessMm, mode])
+  const currentSummary = useMemo(
+    () => buildSavedSettingsSummary({
+      selectedMachine,
+      selectedMaterial,
+      thicknessMm,
+      mode,
+      recommendation,
+    }),
+    [mode, recommendation, selectedMachine, selectedMaterial, thicknessMm],
+  )
+
+  const isDirty = hasHydratedStoredSettings && currentSummary !== String(savedSettingsSummary || '')
 
   useEffect(() => {
-    onSavedSettingsSummaryChange?.(
-      buildSavedSettingsSummary({
-        selectedMachine,
-        selectedMaterial,
-        thicknessMm,
-        mode,
-        recommendation,
-      }),
+    if (!pendingStoredSettings || machines.length === 0 || materials.length === 0) {
+      return
+    }
+
+    const hasStoredMachine = machines.some((machine) => machine.id === pendingStoredSettings.machineId)
+    const hasStoredMaterial = materials.some((material) => material.id === pendingStoredSettings.materialId)
+
+    isRestoringSavedSettings.current = true
+    setMachineId(
+      hasStoredMachine ? pendingStoredSettings.machineId : machines[0]?.id || '',
     )
-  }, [mode, onSavedSettingsSummaryChange, recommendation, selectedMachine, selectedMaterial, thicknessMm])
+    setMaterialId(
+      hasStoredMaterial ? pendingStoredSettings.materialId : materials[0]?.id || '',
+    )
+    setThicknessMm(pendingStoredSettings.thicknessMm > 0 ? pendingStoredSettings.thicknessMm : 0.1)
+    setMode(pendingStoredSettings.mode)
+    setRecommendation(
+      hasStoredMachine
+        && hasStoredMaterial
+        && isRecommendation(
+        pendingStoredSettings.recommendation as Recommendation | StoredLaserSettingsRecommendation | null,
+      )
+        ? (pendingStoredSettings.recommendation as Recommendation)
+        : null,
+    )
+    setPendingStoredSettings(null)
+    setHasHydratedStoredSettings(true)
+  }, [machines, materials, pendingStoredSettings])
+
+  useEffect(() => {
+    if (isRestoringSavedSettings.current) {
+      isRestoringSavedSettings.current = false
+      return
+    }
+
+    setRecommendation(null)
+    setStatusMessage('')
+  }, [machineId, materialId, thicknessMm, mode])
+
+  const handleSave = () => {
+    if (!selectedMachine || !selectedMaterial || !currentSummary) {
+      return
+    }
+
+    writeSavedLaserSettings({
+      machineId,
+      materialId,
+      thicknessMm,
+      mode,
+      recommendation,
+      summary: currentSummary,
+      savedAt: new Date().toISOString(),
+    })
+    onSavedSettingsSummaryChange?.(currentSummary)
+    setStatusMessage('Seadistus salvestati ja on nüüd aktiivne.')
+  }
+
+  const handleClearSavedSettings = () => {
+    clearSavedLaserSettings()
+    onSavedSettingsSummaryChange?.('')
+    setStatusMessage('Salvestatud seadistus eemaldati.')
+  }
 
   const handleCalculate = async () => {
     if (!machineId || !materialId) {
@@ -418,15 +494,50 @@ export function LaserSettingsPanel({ className, onSavedSettingsSummaryChange }: 
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => void handleCalculate()}
-          disabled={loadingRecommendation || !machineId || !materialId}
-          className="inline-flex items-center justify-center gap-2 rounded-[20px] border border-primary/18 bg-linear-to-r from-cyan-300/90 via-primary to-cyan-400/80 px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_0_24px_rgba(84,244,255,0.25)] transition-opacity hover:opacity-92 disabled:opacity-45"
-        >
-          <Flame className="h-4 w-4" />
-          {loadingRecommendation ? 'Arvutan...' : 'Arvuta seaded'}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!machineId || !materialId || !currentSummary}
+            className="inline-flex items-center justify-center gap-2 rounded-[20px] border border-primary/14 bg-black/30 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:border-primary/28 disabled:opacity-45"
+          >
+            <Settings2 className="h-4 w-4" />
+            Salvesta seadistus
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void handleCalculate()}
+            disabled={loadingRecommendation || !machineId || !materialId}
+            className="inline-flex items-center justify-center gap-2 rounded-[20px] border border-primary/18 bg-linear-to-r from-cyan-300/90 via-primary to-cyan-400/80 px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_0_24px_rgba(84,244,255,0.25)] transition-opacity hover:opacity-92 disabled:opacity-45"
+          >
+            <Flame className="h-4 w-4" />
+            {loadingRecommendation ? 'Arvutan...' : 'Arvuta seaded'}
+          </button>
+
+          {savedSettingsSummary ? (
+            <button
+              type="button"
+              onClick={handleClearSavedSettings}
+              className="inline-flex items-center justify-center rounded-[20px] border border-white/10 bg-black/24 px-4 py-3 text-sm font-semibold text-slate-300 transition-colors hover:border-white/18 hover:text-slate-100"
+            >
+              Eemalda salvestus
+            </button>
+          ) : null}
+        </div>
+
+        <div className="rounded-[18px] border border-primary/12 bg-black/24 px-3 py-3 text-xs leading-relaxed text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">Salvestuse olek</div>
+          <p className="mt-2 text-sm text-cyan-50">
+            {statusMessage
+              ? statusMessage
+              : savedSettingsSummary
+                ? isDirty
+                  ? 'Paneelis on muudatused, mis pole veel salvestatud.'
+                  : 'Salvestatud seadistus on aktiivne ja taastub ka pärast refreshi.'
+                : 'Ühtegi salvestatud seadistust pole.'}
+          </p>
+        </div>
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-3">

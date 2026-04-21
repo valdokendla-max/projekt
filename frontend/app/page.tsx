@@ -11,6 +11,7 @@ import { EngravingOptimizerPanel } from '@/components/engraving-optimizer-panel'
 import { ChatMessage } from '@/components/chat-message'
 import { KnowledgePanel } from '@/components/knowledge-panel'
 import { LaserSettingsPanel } from '@/components/laser-settings-panel'
+import { readSavedLaserSettings } from '@/lib/engraving/saved-settings-storage'
 import type { ImageAsset } from '@/lib/engraving/types'
 import { useAuth } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
@@ -313,6 +314,14 @@ export default function LaserGraveerimiseApp() {
   ]
 
   useEffect(() => {
+    const storedSettings = readSavedLaserSettings()
+
+    if (storedSettings?.summary) {
+      setSavedSettingsSummary(storedSettings.summary)
+    }
+  }, [])
+
+  useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
@@ -499,7 +508,7 @@ export default function LaserGraveerimiseApp() {
                       className="hud-chip rounded-[18px] px-3 py-2 text-left transition-colors hover:border-primary/24"
                     >
                       <span className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">Seaded</span>
-                      <strong className="text-cyan-50">{savedSettingsSummary ? 'Aktiivne' : 'Ava paneel'}</strong>
+                      <strong className="text-cyan-50">{savedSettingsSummary ? 'Salvestatud' : 'Ava paneel'}</strong>
                     </button>
                     <button
                       type="button"
@@ -581,7 +590,10 @@ export default function LaserGraveerimiseApp() {
             description="Ava laserimasina, materjali ja soovituslike seadete paneel ainult siis, kui seda päriselt vajad."
             onClose={() => setActiveRightPanel(null)}
           >
-            <LaserSettingsPanel onSavedSettingsSummaryChange={setSavedSettingsSummary} />
+            <LaserSettingsPanel
+              savedSettingsSummary={savedSettingsSummary}
+              onSavedSettingsSummaryChange={setSavedSettingsSummary}
+            />
           </RightPanelShell>
         )}
 
