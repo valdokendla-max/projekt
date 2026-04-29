@@ -947,6 +947,72 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function normalizeOptionalDimension(value) {
+  if (!Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+
+  return round(value * 10) / 10;
+}
+
+function formatDurationLabel(durationMinutes) {
+  if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+    return null;
+  }
+
+  if (durationMinutes < 1) {
+    return "alla 1 min";
+  }
+
+  if (durationMinutes < 10) {
+    return `${Math.round(durationMinutes * 10) / 10} min`;
+  }
+
+  const roundedMinutes = round(durationMinutes);
+  if (roundedMinutes < 60) {
+    return `${roundedMinutes} min`;
+  }
+
+  const hours = Math.floor(roundedMinutes / 60);
+  const minutes = roundedMinutes % 60;
+  return minutes > 0 ? `${hours} h ${minutes} min` : `${hours} h`;
+}
+
+function estimateJobDuration({ mode, widthMm, heightMm, settings }) {
+  const normalizedWidthMm = normalizeOptionalDimension(widthMm);
+  const normalizedHeightMm = normalizeOptionalDimension(heightMm);
+
+  if (!normalizedWidthMm || !normalizedHeightMm) {
+    return {
+      widthMm: normalizedWidthMm,
+      heightMm: normalizedHeightMm,
+      durationMinutes: null,
+      durationLabel: null,
+      requiresDimensions: true,
+    };
+  }
+
+  let travelDistanceMm;
+
+  if (mode === "cut") {
+    const perimeterMm = 2 * (normalizedWidthMm + normalizedHeightMm);
+    travelDistanceMm = perimeterMm * settings.passes * 1.08;
+  } else {
+    const scanLines = Math.max(1, normalizedHeightMm / Math.max(settings.lineIntervalMm, 0.01));
+    travelDistanceMm = normalizedWidthMm * scanLines * settings.passes * 1.12;
+  }
+
+  const durationMinutes = travelDistanceMm / Math.max(settings.speedMmpm, 1);
+
+  return {
+    widthMm: normalizedWidthMm,
+    heightMm: normalizedHeightMm,
+    durationMinutes: Math.round(durationMinutes * 10) / 10,
+    durationLabel: formatDurationLabel(durationMinutes),
+    requiresDimensions: false,
+  };
+}
+
 function formatExports(mode, laserType) {
   const base = ["png", "svg", "dxf", "settings.json"];
   const machineFormats = laserType === "fiber" ? ["ezcad"] : ["gcode", "lbrn2"];
@@ -956,7 +1022,7 @@ function formatExports(mode, laserType) {
   return [...base, ...machineFormats];
 }
 
-function getRecommendation({ machineId, materialId, thicknessMm, mode }) {
+function getRecommendation({ machineId, materialId, thicknessMm, mode, widthMm, heightMm }) {
   const machine = LASER_MACHINES.find((m) => m.id === machineId);
   if (!machine) {
     return { error: "Valitud masinat ei leitud." };
@@ -996,6 +1062,21 @@ function getRecommendation({ machineId, materialId, thicknessMm, mode }) {
     round(profile.passes * thicknessFactor * clamp(profile.referencePowerW / machine.powerW, 0.6, 1.8))
   );
 
+  const settings = {
+    speedMmpm,
+    powerPct,
+    passes,
+    lineIntervalMm: profile.lineIntervalMm,
+    airAssist: profile.airAssist,
+  };
+
+  const estimates = estimateJobDuration({
+    mode,
+    widthMm,
+    heightMm,
+    settings,
+  });
+
   const warnings = [];
   const [minT, maxT] = material.thicknessRangeMm;
   if (thicknessMm < minT || thicknessMm > maxT) {
@@ -1005,6 +1086,11 @@ function getRecommendation({ machineId, materialId, thicknessMm, mode }) {
   }
   if (mode === "cut" && material.id === "anodized-aluminum") {
     warnings.push("Anodeeritud alumiiniumi lõikamine pole soovituslik. Kasuta graveerimist.");
+  }
+  if (estimates.requiresDimensions) {
+    warnings.push("Hinnangulise tööaja jaoks lisa pildi või tööala laius ja kõrgus millimeetrites.");
+  } else {
+    warnings.push(`Hinnanguline tööaeg eeldab tööala ${estimates.widthMm} x ${estimates.heightMm} mm ja on ligikaudne.`);
   }
 
   return {
@@ -1021,13 +1107,8 @@ function getRecommendation({ machineId, materialId, thicknessMm, mode }) {
       note: material.note,
     },
     mode,
-    settings: {
-      speedMmpm,
-      powerPct,
-      passes,
-      lineIntervalMm: profile.lineIntervalMm,
-      airAssist: profile.airAssist,
-    },
+    settings,
+    estimates,
     exports: formatExports(mode, machine.laserType),
     warnings,
   };

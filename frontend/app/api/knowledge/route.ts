@@ -1,137 +1,56 @@
-import {
-  KNOWLEDGE_CATEGORIES,
-  knowledgeStore,
-  type KnowledgeCategory,
-} from '@/lib/knowledge-store'
+import { getServerBackendUrl } from '@/lib/backend-url'
 
 export const runtime = 'nodejs'
 
-const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000').replace(/\/$/, '')
+const BACKEND_URL = getServerBackendUrl()
 
-interface AuthenticatedUser {
-  id: string
-  name: string
-  email: string
-  role: 'admin' | 'user'
-  createdAt: string
-}
+function buildProxyHeaders(request: Request) {
+  const headers = new Headers()
+  const authorization = request.headers.get('authorization')
+  const contentType = request.headers.get('content-type')
 
-function isKnowledgeCategory(value: unknown): value is KnowledgeCategory {
-  return typeof value === 'string' && KNOWLEDGE_CATEGORIES.includes(value as KnowledgeCategory)
-}
-
-function getBearerToken(request: Request) {
-  const header = request.headers.get('authorization') || ''
-
-  if (!header.startsWith('Bearer ')) {
-    return ''
+  if (authorization) {
+    headers.set('authorization', authorization)
   }
 
-  return header.slice(7).trim()
-}
-
-function getKnowledgeAuthMessages(mode: 'read' | 'write') {
-  return mode === 'read'
-    ? {
-        missingSession: 'Teadmistebaasi vaatamiseks logi sisse admin-kontoga.',
-        missingRole: 'Teadmistebaasi saavad vaadata ainult admin-kasutajad.',
-      }
-    : {
-        missingSession: 'Teadmistebaasi muutmiseks logi sisse admin-kontoga.',
-        missingRole: 'Teadmistebaasi saavad muuta ainult admin-kasutajad.',
-      }
-}
-
-async function requireAdminUser(request: Request, mode: 'read' | 'write' = 'write') {
-  const messages = getKnowledgeAuthMessages(mode)
-  const token = getBearerToken(request)
-
-  if (!token) {
-    return Response.json({ error: messages.missingSession }, { status: 401 })
+  if (contentType) {
+    headers.set('content-type', contentType)
   }
 
-  let response: Response
+  return headers
+}
+
+async function proxyKnowledgeRequest(request: Request) {
+  const targetUrl = `${BACKEND_URL}/api/knowledge${new URL(request.url).search}`
+  const body = request.method === 'POST' ? await request.text() : undefined
 
   try {
-    response = await fetch(`${BACKEND_URL}/api/auth/me`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    const response = await fetch(targetUrl, {
+      method: request.method,
+      headers: buildProxyHeaders(request),
+      body,
       cache: 'no-store',
     })
+
+    return new Response(await response.text(), {
+      status: response.status,
+      headers: {
+        'Content-Type': response.headers.get('content-type') || 'application/json; charset=utf-8',
+      },
+    })
   } catch {
-    return Response.json({ error: 'Autentimisteenusega ei saanud ühendust.' }, { status: 503 })
+    return Response.json({ error: 'Teadmistebaasi teenusega ei saanud ühendust.' }, { status: 503 })
   }
-
-  if (!response.ok) {
-    return Response.json({ error: messages.missingSession }, { status: 401 })
-  }
-
-  const payload = (await response.json()) as { user?: AuthenticatedUser }
-
-  if (payload.user?.role !== 'admin') {
-    return Response.json({ error: messages.missingRole }, { status: 403 })
-  }
-
-  return null
 }
 
 export async function GET(req: Request) {
-  const authError = await requireAdminUser(req, 'read')
-
-  if (authError) {
-    return authError
-  }
-
-  const items = await knowledgeStore.getAll()
-  return Response.json(items)
+  return proxyKnowledgeRequest(req)
 }
 
 export async function POST(req: Request) {
-  const authError = await requireAdminUser(req, 'write')
-
-  if (authError) {
-    return authError
-  }
-
-  const body = (await req.json()) as Record<string, unknown>
-  const title = typeof body.title === 'string' ? body.title.trim() : ''
-  const content = typeof body.content === 'string' ? body.content.trim() : ''
-  const category = body.category
-
-  if (!title || !content || !category) {
-    return Response.json({ error: 'Pealkiri, sisu ja kategooria on kohustuslikud.' }, { status: 400 })
-  }
-
-  if (!isKnowledgeCategory(category)) {
-    return Response.json(
-      { error: 'Kategooria peab olema üks väärtustest: juhis, naidis, fakt või stiil.' },
-      { status: 400 },
-    )
-  }
-
-  const item = await knowledgeStore.add({ title, content, category })
-  return Response.json(item, { status: 201 })
+  return proxyKnowledgeRequest(req)
 }
 
 export async function DELETE(req: Request) {
-  const authError = await requireAdminUser(req, 'write')
-
-  if (authError) {
-    return authError
-  }
-
-  const { searchParams } = new URL(req.url)
-  const id = searchParams.get('id')
-
-  if (!id) {
-    return Response.json({ error: 'ID on kohustuslik' }, { status: 400 })
-  }
-
-  const removed = await knowledgeStore.remove(id)
-  if (!removed) {
-    return Response.json({ error: 'Sellist kirjet ei leitud.' }, { status: 404 })
-  }
-
-  return Response.json({ success: true })
+  return proxyKnowledgeRequest(req)
 }

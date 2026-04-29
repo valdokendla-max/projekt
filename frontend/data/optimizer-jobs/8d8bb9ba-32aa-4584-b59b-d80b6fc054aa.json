@@ -1,0 +1,129 @@
+{
+  "jobId": "8d8bb9ba-32aa-4584-b59b-d80b6fc054aa",
+  "status": "failed",
+  "createdAt": "2026-04-24T22:11:45.940Z",
+  "updatedAt": "2026-04-24T22:11:45.957Z",
+  "requestedMode": "threshold",
+  "processingStrategy": "direct",
+  "pipelineResult": {
+    "preset": null,
+    "optimizedPrompt": null,
+    "normalizationPlan": {
+      "targetMimeType": "image/png",
+      "convertToGrayscale": true,
+      "flattenAlphaTo": "transparent",
+      "preserveAspectRatio": true,
+      "targetLongEdgePx": 2048,
+      "steps": [
+        "auto-orient image to a canonical upright state",
+        "convert to a stable PNG working format",
+        "normalize color profile to sRGB-compatible output",
+        "prepare grayscale workspace for deterministic processing"
+      ]
+    },
+    "analysisReport": {
+      "classification": "mixed",
+      "contrastScore": 48,
+      "noiseScore": 64,
+      "edgeClarityScore": 68,
+      "backgroundComplexity": "medium",
+      "detailDensity": "medium",
+      "risks": [],
+      "notes": []
+    },
+    "modeDecision": {
+      "mode": "threshold",
+      "thresholdBias": "balanced",
+      "vectorAllowed": false,
+      "reasons": [
+        "Mixed content should be simplified before engraving."
+      ]
+    },
+    "lineDensityPlan": {
+      "targetDpi": 222,
+      "effectiveLineIntervalMm": 0.1,
+      "maxLinesPerCm": 100,
+      "reasons": [
+        "Base density selected for threshold mode.",
+        "Preset line interval resolved to 0.1 mm."
+      ]
+    },
+    "simulationReport": {
+      "score": 100,
+      "verdict": "pass",
+      "risks": [],
+      "notes": []
+    },
+    "vectorizationPlan": {
+      "enabled": false,
+      "targetFormats": [],
+      "strokeStrategy": "outline",
+      "reasons": [
+        "Vector output was disabled because the source is too photographic or mixed."
+      ]
+    },
+    "exportManifest": {
+      "archiveName": "engraving-package-export.zip",
+      "artifacts": [
+        {
+          "path": "exports/output.png",
+          "mediaType": "image/png",
+          "description": "Primary processed engraving raster"
+        },
+        {
+          "path": "exports/engraving-material-plan.lbrn2",
+          "mediaType": "application/xml",
+          "description": "LightBurn project file"
+        },
+        {
+          "path": "exports/settings.json",
+          "mediaType": "application/json",
+          "description": "Resolved preset and processing settings"
+        },
+        {
+          "path": "exports/export-manifest.json",
+          "mediaType": "application/json",
+          "description": "Archive manifest for the generated export bundle"
+        },
+        {
+          "path": "exports/preview.png",
+          "mediaType": "image/png",
+          "description": "Laser simulation preview"
+        }
+      ],
+      "notes": [
+        "ZIP archive is generated at request time for direct download.",
+        "Review LightBurn layer assignments before running production jobs."
+      ]
+    },
+    "nextActions": [
+      "Proceed to deterministic image processing and export."
+    ]
+  },
+  "sourceImageDataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR4nGNgYGD4z8DAwMDAAAAEAQEARwbK3gAAAABJRU5ErkJggg==",
+  "source": {
+    "sourceKind": "uploaded-image",
+    "width": 2,
+    "height": 2,
+    "hasAlpha": false,
+    "mimeType": "image/png",
+    "colorProfile": "unknown",
+    "detailDensity": "medium",
+    "backgroundComplexity": "medium",
+    "tonalRange": "full"
+  },
+  "sourceAsset": {
+    "location": "C:\\Users\\Admin\\Downloads\\projekt\\frontend\\data\\optimizer-assets\\8d8bb9ba-32aa-4584-b59b-d80b6fc054aa\\source.png",
+    "fileName": "source.png",
+    "contentType": "image/png",
+    "storageBackend": "local",
+    "pathname": "optimizer-assets/8d8bb9ba-32aa-4584-b59b-d80b6fc054aa/source.png",
+    "size": 76
+  },
+  "notes": [
+    "Optimizer job created.",
+    "Background processing started.",
+    "Worker failure: Worker service returned 500."
+  ],
+  "workerError": "Worker service returned 500."
+}

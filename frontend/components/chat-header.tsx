@@ -9,9 +9,27 @@ import { PasswordChangeDialog } from '@/components/password-change-dialog'
 
 interface ChatHeaderProps {
   authStatus: 'loading' | 'authenticated' | 'anonymous'
+  copy: {
+    subtitle: string
+    sessionActive: string
+    userRole: string
+    account: string
+    checking: string
+    login: string
+    register: string
+    changePassword: string
+    logout: string
+    knowledge: string
+    newChat: string
+    languageLabel: string
+    est: string
+    eng: string
+  }
   onChangePassword: (credentials: ChangePasswordCredentials) => Promise<AuthActionResult>
   currentUser: AuthUser | null
   hasMessages: boolean
+  language: 'et' | 'en'
+  onLanguageChange: (language: 'et' | 'en') => void
   onLogin: (credentials: LoginCredentials) => Promise<AuthActionResult>
   onLogout: () => Promise<void> | void
   onReset: () => void
@@ -22,9 +40,12 @@ interface ChatHeaderProps {
 
 export function ChatHeader({
   authStatus,
+  copy,
   onChangePassword,
   currentUser,
   hasMessages,
+  language,
+  onLanguageChange,
   onLogin,
   onLogout,
   onReset,
@@ -61,7 +82,7 @@ export function ChatHeader({
             <BrandLogo variant="header" />
             <div>
               <h1 className="text-sm font-semibold leading-none text-cyan-50">Laser Graveerimine</h1>
-              <p className="mt-1 text-xs text-cyan-100/45">Lasergraveerimise assistent</p>
+              <p className="mt-1 text-xs text-cyan-100/45">{copy.subtitle}</p>
             </div>
           </div>
 
@@ -72,11 +93,11 @@ export function ChatHeader({
                   {initials || 'LG'}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-100/52">Sessioon aktiivne</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-100/52">{copy.sessionActive}</p>
                   <div className="mt-1 flex items-center gap-2">
                     <p className="max-w-56 truncate text-sm font-semibold text-cyan-50">{currentUser.name}</p>
                     <span className="inline-flex items-center rounded-full border border-cyan-200/18 bg-cyan-300/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-50">
-                      {currentUser.role === 'admin' ? 'Admin' : 'Kasutaja'}
+                      {currentUser.role === 'admin' ? 'Admin' : copy.userRole}
                     </span>
                   </div>
                 </div>
@@ -86,26 +107,26 @@ export function ChatHeader({
                   className="inline-flex items-center gap-2 rounded-full border border-primary/14 bg-black/32 px-4 py-2 text-xs font-medium text-cyan-100/72 transition-colors hover:text-cyan-50"
                 >
                   <KeyRound className="h-3 w-3" />
-                  Muuda parooli
+                  {copy.changePassword}
                 </button>
                 <button
                   onClick={() => void onLogout()}
                   className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/4 px-4 py-2 text-xs font-medium text-slate-300 transition-colors hover:text-white"
                 >
                   <LogOut className="h-3 w-3" />
-                  Logi välja
+                  {copy.logout}
                 </button>
               </div>
             ) : (
               <div className="flex flex-wrap items-center gap-2 rounded-3xl border border-primary/14 bg-black/30 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-100/52">Konto</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-100/52">{copy.account}</span>
                 <button
                   onClick={() => openAuthDialog('login')}
                   disabled={authStatus === 'loading'}
                   className="inline-flex items-center gap-2 rounded-full border border-primary/14 bg-black/32 px-4 py-2 text-xs font-medium text-cyan-100/72 transition-colors hover:text-cyan-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <LogIn className="h-3 w-3" />
-                  {authStatus === 'loading' ? 'Kontrollin' : 'Logi sisse'}
+                  {authStatus === 'loading' ? copy.checking : copy.login}
                 </button>
                 <button
                   onClick={() => openAuthDialog('register')}
@@ -113,20 +134,44 @@ export function ChatHeader({
                   className="inline-flex items-center gap-2 rounded-full border border-cyan-200/18 bg-cyan-300/12 px-4 py-2 text-xs font-medium text-cyan-50 transition-colors hover:bg-cyan-300/18 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <UserPlus className="h-3 w-3" />
-                  Registreeru
+                  {copy.register}
                 </button>
               </div>
             )}
           </div>
 
           <div className="flex items-center gap-2 self-end xl:self-auto xl:justify-self-end">
+            <div className="inline-flex items-center gap-1 rounded-full border border-primary/14 bg-black/32 p-1">
+              <span className="px-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-100/48">{copy.languageLabel}</span>
+              <button
+                type="button"
+                onClick={() => onLanguageChange('et')}
+                aria-pressed={language === 'et'}
+                className={language === 'et'
+                  ? 'rounded-full border border-primary/24 bg-primary/14 px-3 py-1.5 text-[11px] font-semibold text-cyan-50'
+                  : 'rounded-full border border-transparent px-3 py-1.5 text-[11px] font-semibold text-cyan-100/60 transition-colors hover:text-cyan-50'}
+              >
+                🇪🇪 {copy.est}
+              </button>
+              <button
+                type="button"
+                onClick={() => onLanguageChange('en')}
+                aria-pressed={language === 'en'}
+                className={language === 'en'
+                  ? 'rounded-full border border-primary/24 bg-primary/14 px-3 py-1.5 text-[11px] font-semibold text-cyan-50'
+                  : 'rounded-full border border-transparent px-3 py-1.5 text-[11px] font-semibold text-cyan-100/60 transition-colors hover:text-cyan-50'}
+              >
+                🇬🇧 {copy.eng}
+              </button>
+            </div>
+
             {showKnowledgeButton ? (
               <button
                 onClick={onOpenKnowledge}
                 className="inline-flex items-center gap-2 rounded-full border border-primary/14 bg-black/32 px-4 py-2 text-xs font-medium text-cyan-100/72 transition-colors hover:text-cyan-50"
               >
                 <BookOpen className="h-3 w-3" />
-                Teadmised
+                {copy.knowledge}
               </button>
             ) : null}
 
@@ -136,7 +181,7 @@ export function ChatHeader({
                 className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/4 px-4 py-2 text-xs font-medium text-slate-300 transition-colors hover:text-white"
               >
                 <RotateCcw className="h-3 w-3" />
-                Uus vestlus
+                {copy.newChat}
               </button>
             )}
           </div>
@@ -146,6 +191,7 @@ export function ChatHeader({
       <AuthDialog
         key={`${dialogInstance}-${authMode}`}
         initialMode={authMode}
+        language={language}
         onLogin={onLogin}
         onOpenChange={setAuthDialogOpen}
         onRegister={onRegister}
@@ -154,6 +200,7 @@ export function ChatHeader({
       />
 
       <PasswordChangeDialog
+        language={language}
         onOpenChange={setPasswordDialogOpen}
         onSubmit={onChangePassword}
         open={passwordDialogOpen}

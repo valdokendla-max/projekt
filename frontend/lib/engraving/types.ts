@@ -114,12 +114,52 @@ export interface ImageAsset {
   source: 'generated' | 'uploaded' | 'optimized'
 }
 
+export interface StoredAssetReference {
+  location: string
+  fileName: string
+  contentType: string
+  storageBackend: 'local' | 'vercel-blob'
+  pathname?: string
+  downloadUrl?: string
+  etag?: string
+  size?: number
+}
+
 export interface WorkerProcessingResult {
   normalizedAsset: ImageAsset
   optimizedAsset: ImageAsset
   previewAsset: ImageAsset
   width: number
   height: number
+  notes: string[]
+}
+
+export interface RemoteWorkerProcessingResult {
+  normalizedAsset: StoredAssetReference
+  optimizedAsset: StoredAssetReference
+  previewAsset: StoredAssetReference
+  width: number
+  height: number
+  notes: string[]
+}
+
+export interface OptimizerAsyncJob {
+  jobId: string
+  ownerUserId?: string
+  status: 'queued' | 'processing' | 'completed' | 'failed'
+  createdAt: string
+  updatedAt: string
+  requestedMode: EngravingMode
+  processingStrategy: 'qstash' | 'direct'
+  pipelineResult: OptimizerPipelineResult
+  sourceImageDataUrl: string
+  source: ImageMetadataInput
+  userPrompt?: string
+  savedSettingsSummary?: string
+  sourceAsset?: StoredAssetReference | null
+  workerResult?: RemoteWorkerProcessingResult | null
+  workerError?: string
+  qstashMessageId?: string
   notes: string[]
 }
 

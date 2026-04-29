@@ -1,0 +1,18 @@
+services:
+  image-optimizer-worker:
+    build:
+      context: ./workers/image_optimizer
+    container_name: image-optimizer-worker
+    environment:
+      IMAGE_OPTIMIZER_STORAGE: ${IMAGE_OPTIMIZER_STORAGE:-local}
+      IMAGE_OPTIMIZER_PUBLIC_BASE_URL: ${IMAGE_OPTIMIZER_PUBLIC_BASE_URL:-http://localhost:8000}
+      IMAGE_OPTIMIZER_BLOB_ACCESS: ${IMAGE_OPTIMIZER_BLOB_ACCESS:-public}
+      IMAGE_OPTIMIZER_BLOB_API_URL: ${IMAGE_OPTIMIZER_BLOB_API_URL:-https://vercel.com/api/blob}
+      BLOB_READ_WRITE_TOKEN: ${BLOB_READ_WRITE_TOKEN:-}
+    ports:
+      - '8000:8000'
+    volumes:
+      - worker-storage:/app/storage
+
+volumes:
+  worker-storage:

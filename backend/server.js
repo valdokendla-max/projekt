@@ -1,5 +1,5 @@
 const express = require("express");
-const {
+const authStore = {
   changePassword,
   getUserByToken,
   invalidateSession,
@@ -10,27 +10,39 @@ const {
   normalizeEmail,
   requestPasswordReset,
   registerUser,
+  resetPasswordWithToken,
   updateUserRole,
+  verifyPasswordResetToken,
 } = require("./auth-store");
-const { LASER_MACHINES, MATERIALS, getRecommendation } = require("./laser-data");
+const emailService = {
+  getMailConfig,
+  sendPasswordResetEmail,
+  sendRegistrationNotifications,
+} = require("./email-service");
+const { KNOWLEDGE_CATEGORIES, knowledgeStore } = require("./knowledge-store");
+const laserData = require("./laser-data");
 
-const app = express();
-const port = Number(process.env.PORT) || 4000;
+function createApp(dependencies = {}) {
+  const app = express();
+  const auth = dependencies.authStore || authStore;
+  const email = dependencies.emailService || emailService;
+  const knowledge = dependencies.knowledgeStore || knowledgeStore;
+  const lasers = dependencies.laserData || laserData;
 
-app.use(express.json({ limit: "1mb" }));
+  app.use(express.json({ limit: "1mb" }));
 
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  app.use((req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-  if (req.method === "OPTIONS") {
-    res.status(204).end();
-    return;
-  }
+    if (req.method === "OPTIONS") {
+      res.status(204).end();
+      return;
+    }
 
-  next();
-});
+    next();
+  });
 
 function getBearerToken(req) {
   const header = String(req.headers.authorization || "");
@@ -44,6 +56,16 @@ function sendError(res, error, fallbackMessage) {
   res.status(error?.status || 500).json({ error: error?.message || fallbackMessage });
 }
 
+function runBackground(task, label) {
+  Promise.resolve(task).catch((error) => {
+    console.error(`${label}:`, error instanceof Error ? error.message : error);
+  });
+}
+
+function isKnowledgeCategory(value) {
+  return typeof value === "string" && KNOWLEDGE_CATEGORIES.includes(value);
+}
+
 async function resolveAuthenticatedUser(req) {
   const token = getBearerToken(req);
 
@@ -51,7 +73,7 @@ async function resolveAuthenticatedUser(req) {
     throw Object.assign(new Error("Sessioon puudub."), { status: 401 });
   }
 
-  const user = await getUserByToken(token);
+  const user = await auth.getUserByToken(token);
   if (!user) {
     throw Object.assign(new Error("Sessioon on aegunud või vigane."), { status: 401 });
   }
@@ -91,8 +113,9 @@ app.post("/api/auth/register", async (req, res) => {
   }
 
   try {
-    const result = await registerUser({ name, email, password });
+    const result = await auth.registerUser({ name, email, password });
     res.status(201).json(result);
+    runBackground(email.sendRegistrationNotifications(result.user), "Registration email failed");
   } catch (error) {
     sendError(res, error, "Registreerimine ebaõnnestus.");
   }
@@ -109,7 +132,7 @@ app.post("/api/auth/login", async (req, res) => {
   }
 
   try {
-    const result = await loginUser({ email, password });
+    const result = await auth.loginUser({ email, password });
     res.json(result);
   } catch (error) {
     sendError(res, error, "Sisselogimine ebaõnnestus.");
@@ -125,7 +148,7 @@ app.get("/api/auth/me", async (req, res) => {
   }
 
   try {
-    const user = await getUserByToken(token);
+    const user = await auth.getUserByToken(token);
     if (!user) {
       res.status(401).json({ error: "Sessioon on aegunud või vigane." });
       return;
@@ -142,7 +165,7 @@ app.post("/api/auth/logout", async (req, res) => {
 
   try {
     if (token) {
-      await invalidateSession(token);
+      await auth.invalidateSession(token);
     }
     res.json({ success: true });
   } catch (error) {
@@ -171,7 +194,7 @@ app.post("/api/auth/change-password", async (req, res) => {
   }
 
   try {
-    const result = await changePassword({ token, currentPassword, nextPassword });
+    const result = await auth.changePassword({ token, currentPassword, nextPassword });
     res.json(result);
   } catch (error) {
     sendError(res, error, "Parooli vahetamine ebaõnnestus.");
@@ -180,7 +203,6 @@ app.post("/api/auth/change-password", async (req, res) => {
 
 app.post("/api/auth/request-password-reset", async (req, res) => {
   const email = normalizeEmail(req.body?.email);
-  const note = String(req.body?.note || "");
 
   if (!/^\S+@\S+\.\S+$/.test(email)) {
     res.status(400).json({ error: "Sisesta korrektne e-posti aadress." });
@@ -188,20 +210,75 @@ app.post("/api/auth/request-password-reset", async (req, res) => {
   }
 
   try {
-    await requestPasswordReset({ email, note });
+    const result = await auth.requestPasswordReset({ email });
+    if (result?.user && result?.resetToken) {
+      runBackground(email.sendPasswordResetEmail(result.user, result.resetToken), "Password reset email failed");
+    }
     res.json({
       success: true,
-      message: "Kui konto on olemas, jõuab parooli reseti taotlus adminini.",
+      message: "Kui konto on olemas, saadetakse e-postile parooli taastamise link.",
     });
   } catch (error) {
     sendError(res, error, "Parooli reseti taotluse loomine ebaõnnestus.");
   }
 });
 
+app.get("/api/auth/password-reset/verify", async (req, res) => {
+  const token = String(req.query?.token || "").trim();
+
+  if (!token) {
+    res.status(400).json({ error: "Parooli taastamise token puudub." });
+    return;
+  }
+
+  try {
+    const user = await auth.verifyPasswordResetToken(token);
+    if (!user) {
+      res.status(400).json({ error: "Parooli taastamise link on aegunud või vigane." });
+      return;
+    }
+
+    res.json({ ok: true, email: user.email });
+  } catch (error) {
+    sendError(res, error, "Parooli taastamise linki ei õnnestunud kontrollida.");
+  }
+});
+
+app.post("/api/auth/reset-password", async (req, res) => {
+  const token = String(req.body?.token || "").trim();
+  const nextPassword = String(req.body?.nextPassword || "");
+
+  if (!token) {
+    res.status(400).json({ error: "Parooli taastamise token puudub." });
+    return;
+  }
+
+  if (nextPassword.length < 8) {
+    res.status(400).json({ error: "Uus parool peab olema vähemalt 8 tähemärki pikk." });
+    return;
+  }
+
+  try {
+    const result = await auth.resetPasswordWithToken({ token, nextPassword });
+    res.json(result);
+  } catch (error) {
+    sendError(res, error, "Parooli taastamine ebaõnnestus.");
+  }
+});
+
+app.get("/api/auth/email-status", async (_req, res) => {
+  const config = email.getMailConfig();
+  res.json({
+    configured: config.isConfigured,
+    appBaseUrl: config.appBaseUrl,
+    from: config.from || "",
+  });
+});
+
 app.get("/api/auth/users", async (req, res) => {
   try {
     await requireAdminUser(req);
-    const users = await listUsers();
+    const users = await auth.listUsers();
     res.json({ users });
   } catch (error) {
     sendError(res, error, "Kasutajate laadimine ebaõnnestus.");
@@ -211,7 +288,7 @@ app.get("/api/auth/users", async (req, res) => {
 app.get("/api/auth/password-reset-requests", async (req, res) => {
   try {
     await requireAdminUser(req);
-    const requests = await listPasswordResetRequests();
+    const requests = await auth.listPasswordResetRequests();
     res.json({ requests });
   } catch (error) {
     sendError(res, error, "Parooli reseti taotluste laadimine ebaõnnestus.");
@@ -228,7 +305,7 @@ app.post("/api/auth/password-reset-requests/:requestId/issue-temp-password", asy
 
   try {
     const actingUser = await requireAdminUser(req);
-    const result = await issueTemporaryPassword({ actingUserId: actingUser.id, requestId });
+    const result = await auth.issueTemporaryPassword({ actingUserId: actingUser.id, requestId });
     res.json(result);
   } catch (error) {
     sendError(res, error, "Ajutise parooli loomine ebaõnnestus.");
@@ -246,7 +323,7 @@ app.post("/api/auth/users/:userId/role", async (req, res) => {
 
   try {
     const actingUser = await requireAdminUser(req);
-    const user = await updateUserRole({
+    const user = await auth.updateUserRole({
       actingUserId: actingUser.id,
       targetUserId,
       role,
@@ -254,6 +331,75 @@ app.post("/api/auth/users/:userId/role", async (req, res) => {
     res.json({ user });
   } catch (error) {
     sendError(res, error, "Kasutaja rolli uuendamine ebaõnnestus.");
+  }
+});
+
+app.get("/api/knowledge/context", async (_req, res) => {
+  try {
+    const items = await knowledge.getAll();
+    const context = await knowledge.getContext();
+    res.json({
+      itemCount: items.length,
+      context,
+    });
+  } catch (error) {
+    sendError(res, error, "Teadmistebaasi laadimine ebaõnnestus.");
+  }
+});
+
+app.get("/api/knowledge", async (req, res) => {
+  try {
+    await requireAdminUser(req);
+    const items = await knowledge.getAll();
+    res.json(items);
+  } catch (error) {
+    sendError(res, error, "Teadmistebaasi laadimine ebaõnnestus.");
+  }
+});
+
+app.post("/api/knowledge", async (req, res) => {
+  const title = String(req.body?.title || "").trim();
+  const content = String(req.body?.content || "").trim();
+  const category = req.body?.category;
+
+  if (!title || !content || !category) {
+    res.status(400).json({ error: "Pealkiri, sisu ja kategooria on kohustuslikud." });
+    return;
+  }
+
+  if (!isKnowledgeCategory(category)) {
+    res.status(400).json({ error: "Kategooria peab olema üks väärtustest: juhis, naidis, fakt või stiil." });
+    return;
+  }
+
+  try {
+    await requireAdminUser(req);
+    const item = await knowledge.add({ title, content, category });
+    res.status(201).json(item);
+  } catch (error) {
+    sendError(res, error, "Teadmistebaasi salvestamine ebaõnnestus.");
+  }
+});
+
+app.delete("/api/knowledge", async (req, res) => {
+  const id = String(req.query?.id || "").trim();
+
+  if (!id) {
+    res.status(400).json({ error: "ID on kohustuslik" });
+    return;
+  }
+
+  try {
+    await requireAdminUser(req);
+    const removed = await knowledge.remove(id);
+    if (!removed) {
+      res.status(404).json({ error: "Sellist kirjet ei leitud." });
+      return;
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    sendError(res, error, "Teadmistebaasi kustutamine ebaõnnestus.");
   }
 });
 
@@ -270,11 +416,11 @@ app.get("/api/health", (req, res) => {
 });
 
 app.get("/api/machines", (req, res) => {
-  res.json(LASER_MACHINES);
+  res.json(lasers.LASER_MACHINES);
 });
 
 app.get("/api/materials", (req, res) => {
-  const compact = MATERIALS.map((m) => ({
+  const compact = lasers.MATERIALS.map((m) => ({
     id: m.id,
     name: m.name,
     thicknessRangeMm: m.thicknessRangeMm,
@@ -285,13 +431,15 @@ app.get("/api/materials", (req, res) => {
 });
 
 app.post("/api/recommendation", (req, res) => {
-  const { machineId, materialId, thicknessMm, mode } = req.body || {};
+  const { machineId, materialId, thicknessMm, mode, widthMm, heightMm } = req.body || {};
 
-  const result = getRecommendation({
+  const result = lasers.getRecommendation({
     machineId: String(machineId || ""),
     materialId: String(materialId || ""),
     thicknessMm: Number(thicknessMm),
     mode: String(mode || ""),
+    widthMm: Number(widthMm),
+    heightMm: Number(heightMm),
   });
 
   if (result.error) {
@@ -302,6 +450,24 @@ app.post("/api/recommendation", (req, res) => {
   res.json(result);
 });
 
-app.listen(port, () => {
-  console.log(`Server töötab pordil ${port}`);
-});
+  return app;
+}
+
+function startServer(dependencies = {}) {
+  const port = Number(process.env.PORT) || 4000;
+  const app = createApp(dependencies);
+  const server = app.listen(port, () => {
+    console.log(`Server töötab pordil ${port}`);
+  });
+
+  return { app, server };
+}
+
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = {
+  createApp,
+  startServer,
+};

@@ -3,8 +3,13 @@
 import { useRef, useEffect } from 'react'
 import type { FileUIPart } from 'ai'
 import Image from 'next/image'
-import { ArrowUp, ImagePlus, Loader2, X } from 'lucide-react'
+import { ArrowUp, ImagePlus, Loader2, Sparkles, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+interface ImageStyleAction {
+  key: string
+  label: string
+}
 
 interface ChatInputProps {
   input: string
@@ -14,7 +19,24 @@ interface ChatInputProps {
   pendingImage: FileUIPart | null
   onImageSelect: (file: File | null) => Promise<void> | void
   onClearImage: () => void
+  onTransformImage?: (style: string) => Promise<void> | void
+  imageStyleActions?: ImageStyleAction[]
+  activeTransformStyle?: string | null
+  transformWorkingLabel?: string
   inputError?: string
+  copy: {
+    sendHint: string
+    newlineHint: string
+    imageHint: string
+    imageAlt: string
+    imageReady: string
+    imageAttachment: string
+    imageVisionHint: string
+    reliefAction: string
+    reliefWorking: string
+    placeholder: string
+    footer: string
+  }
   className?: string
 }
 
@@ -26,7 +48,12 @@ export function ChatInput({
   pendingImage,
   onImageSelect,
   onClearImage,
+  onTransformImage,
+  imageStyleActions,
+  activeTransformStyle = null,
+  transformWorkingLabel,
   inputError,
+  copy,
   className,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -77,29 +104,35 @@ export function ChatInput({
     fileInputRef.current?.click()
   }
 
+  const canSubmit = Boolean(input.trim() || pendingImage)
+
   return (
     <div className={cn('pt-4', className)}>
       <div className="mb-3 flex flex-wrap gap-2 px-1">
-        {[
-          { label: 'Enter = saada', onClick: handleSubmit, disabled: (!input.trim() && !pendingImage) || isLoading },
-          { label: 'Shift+Enter = uus rida', onClick: handleInsertNewLine, disabled: isLoading },
-          { label: 'Pilt = vision', onClick: handleOpenImagePicker, disabled: isLoading },
-        ].map((action, index) => (
-          <button
-            key={action.label}
-            type="button"
-            onClick={action.onClick}
-            disabled={action.disabled}
-            className={cn(
-              'inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] transition-colors disabled:cursor-not-allowed disabled:opacity-45',
-              index === 0
-                ? 'border-primary/16 bg-cyan-300/8 text-cyan-100/68 hover:border-primary/28 hover:text-cyan-50'
-                : 'border-white/8 bg-white/4 text-cyan-100/36 hover:border-primary/18 hover:text-cyan-50'
-            )}
-          >
-            {action.label}
-          </button>
-        ))}
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!canSubmit || isLoading}
+          className="inline-flex items-center rounded-full border border-primary/16 bg-cyan-300/8 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/68 transition-colors hover:border-primary/28 hover:text-cyan-50 disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          {copy.sendHint}
+        </button>
+        <button
+          type="button"
+          onClick={handleInsertNewLine}
+          disabled={isLoading}
+          className="inline-flex items-center rounded-full border border-white/8 bg-white/4 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/36 transition-colors hover:border-primary/18 hover:text-cyan-50 disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          {copy.newlineHint}
+        </button>
+        <button
+          type="button"
+          onClick={handleOpenImagePicker}
+          disabled={isLoading}
+          className="inline-flex items-center rounded-full border border-white/8 bg-white/4 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/36 transition-colors hover:border-primary/18 hover:text-cyan-50 disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          {copy.imageHint}
+        </button>
       </div>
 
       <div className="rounded-[26px] border border-primary/12 bg-black/30 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.22)]">
@@ -120,18 +153,36 @@ export function ChatInput({
             <div className="flex items-start gap-3">
               <Image
                 src={pendingImage.url}
-                alt={pendingImage.filename || 'Laaditud pilt'}
+                alt={pendingImage.filename || copy.imageAlt}
                 width={72}
                 height={72}
                 unoptimized
                 className="h-18 w-18 rounded-2xl border border-white/8 object-cover"
               />
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-100/52">Pilt valmis</p>
-                <p className="mt-1 truncate text-sm font-medium text-cyan-50">{pendingImage.filename || 'Pildi manus'}</p>
-                <p className="mt-1 text-xs leading-relaxed text-cyan-100/42">
-                  Vision-mudel analüüsib pilti koos sinu salvestatud masina seadistusega.
-                </p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-100/52">{copy.imageReady}</p>
+                <p className="mt-1 truncate text-sm font-medium text-cyan-50">{pendingImage.filename || copy.imageAttachment}</p>
+                <p className="mt-1 text-xs leading-relaxed text-cyan-100/42">{copy.imageVisionHint}</p>
+                {onTransformImage && imageStyleActions && imageStyleActions.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {imageStyleActions.map((action) => {
+                      const isActive = activeTransformStyle === action.key
+
+                      return (
+                        <button
+                          key={action.key}
+                          type="button"
+                          onClick={() => void onTransformImage(action.key)}
+                          disabled={isLoading || Boolean(activeTransformStyle)}
+                          className="inline-flex items-center gap-2 rounded-full border border-primary/16 bg-primary/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-50 transition-colors hover:border-primary/28 hover:bg-primary/16 disabled:cursor-not-allowed disabled:opacity-45"
+                        >
+                          {isActive ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                          {isActive && transformWorkingLabel ? transformWorkingLabel : action.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
               <button
                 type="button"
@@ -159,7 +210,7 @@ export function ChatInput({
                 handleSubmit()
               }
             }}
-            placeholder="Küsi masina, materjali või seadete kohta..."
+            placeholder={copy.placeholder}
             rows={1}
             className="flex-1 resize-none bg-transparent px-1 py-2 text-sm text-slate-100 placeholder:text-cyan-100/28 focus:outline-none"
             disabled={isLoading}
@@ -176,10 +227,10 @@ export function ChatInput({
 
           <button
             onClick={handleSubmit}
-            disabled={(!input.trim() && !pendingImage) || isLoading}
+            disabled={!canSubmit || isLoading}
             className={cn(
               'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition-all',
-              (input.trim() || pendingImage) && !isLoading
+              canSubmit && !isLoading
                 ? 'border-primary/18 bg-linear-to-br from-cyan-300 via-primary to-cyan-400 text-slate-950 shadow-[0_0_24px_rgba(84,244,255,0.25)] hover:opacity-92'
                 : 'border-white/8 bg-white/4 text-slate-500'
             )}
@@ -195,7 +246,7 @@ export function ChatInput({
         )}
 
         <p className="mt-2 text-center text-[11px] font-medium uppercase tracking-[0.22em] text-cyan-100/36">
-          Laser Graveerimine - sinu lasergraveerimise abiline
+          {copy.footer}
         </p>
       </div>
     </div>

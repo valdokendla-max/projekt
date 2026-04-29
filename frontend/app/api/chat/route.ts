@@ -1,4 +1,11 @@
+import { createUIMessageStream, createUIMessageStreamResponse } from 'ai'
 import { knowledgeStore } from '@/lib/knowledge-store'
+import {
+  buildUserRateLimitKey,
+  enforceRouteRateLimit,
+  parseJsonBodyWithLimit,
+  requireAuthenticatedRouteUser,
+} from '@/lib/api-security'
 import { normalizeChatImageDataUrl } from '@/lib/engraving/chat-image-normalizer'
 
 export const maxDuration = 60
@@ -8,6 +15,9 @@ const BASE_SYSTEM = `Sa oled Laser Graveerimine - lasergraveerimise tehniline as
 Sinu fookus: lasergraveerimise seaded, materjalid, failiformaadid, toodangu kvaliteet, ohutus ja probleemide diagnoos.
 Vasta praktiliselt ja lühidalt. Kasuta tabelit või punktloendit, kui see aitab.
 Kui kasutaja ei anna piisavalt infot, küsi täpsustavaid andmeid: masin, laseri tüüp, võimsus, materjal, paksus ja eesmärk (graveerimine või lõikamine).
+Kui kasutaja küsib tööaja, paigutuse või tootmisplaani kohta ning pildi või tööala laius ja kõrgus millimeetrites puuduvad, küsi need enne täpsemat hinnangut.
+Kui laius ja kõrgus on teada, anna ligikaudne graveerimis- või lõikeaja hinnang ning ütle selgelt, et see on hinnang.
+Kui kasutaja küsib graveerimissoovitust kujundile, logole või tootetööle, paku vajadusel lisaks eraldi lõikeseadete variant ja märgista see selgelt.
 Kui kasutaja kirjutab eesti keeles, vasta eesti keeles. Kui inglise keeles, vasta inglise keeles.
 Kui kasutaja lisab pildi, analüüsi selle sobivust lasergraveerimiseks ning kirjelda konkreetsed muudatused kasutaja masina ja materjali jaoks: kontrast, detaili tase, tausta eemaldus, threshold/grayscale, mõõtkava, DPI ja paigutus.
 Kui kasutaja palub pilti masina jaoks kohandada, anna praktiline töötlusplaan ja laserile sobiv ettevalmistus. Ära väida, et genereerisid või muutsid valmis pildifaili, kui sa tegelikult andsid ainult juhised.
@@ -204,7 +214,34 @@ function resolveProvider(usesVision: boolean): ProviderConfig | null {
 }
 
 export async function POST(req: Request) {
-  const { messages, savedSettingsSummary }: { messages: UIMessage[]; savedSettingsSummary?: string } = await req.json()
+  const auth = await requireAuthenticatedRouteUser(req)
+  if (!auth.ok) {
+    return auth.response
+  }
+
+  const rateLimitResponse = await enforceRouteRateLimit({
+    routeId: 'chat',
+    actorKey: buildUserRateLimitKey(req, auth.value.user),
+    maxRequests: 30,
+    windowSeconds: 300,
+  })
+  if (rateLimitResponse) {
+    return rateLimitResponse
+  }
+
+  const parsed = await parseJsonBodyWithLimit<{ messages: UIMessage[]; savedSettingsSummary?: string }>(req, {
+    maxBytes: 4 * 1024 * 1024,
+    routeLabel: '/api/chat',
+  })
+  if ('response' in parsed) {
+    return parsed.response
+  }
+
+  const { messages = [], savedSettingsSummary } = parsed.data
+  if (!Array.isArray(messages)) {
+    return Response.json({ error: 'messages peab olema massiiv.' }, { status: 400 })
+  }
+
   let normalizedMessages = messages
 
   try {
@@ -255,18 +292,35 @@ export async function POST(req: Request) {
     return new Response(JSON.stringify({ error: formatProviderError(providerMessage, provider) }), { status: response.status })
   }
 
-  const encoder = new TextEncoder()
-
-  const stream = new ReadableStream({
-    async start(controller) {
+  const stream = createUIMessageStream({
+    execute: async ({ writer }) => {
       const reader = response.body!.getReader()
       const decoder = new TextDecoder()
+      const textId = 'text-1'
       let buffer = ''
+      let isFinished = false
+
+      const finish = () => {
+        if (isFinished) {
+          return
+        }
+
+        isFinished = true
+        writer.write({ type: 'text-end', id: textId })
+        writer.write({ type: 'finish-step' })
+        writer.write({ type: 'finish', finishReason: 'stop' })
+      }
+
+      writer.write({ type: 'start' })
+      writer.write({ type: 'start-step' })
+      writer.write({ type: 'text-start', id: textId })
 
       try {
         while (true) {
           const { done, value } = await reader.read()
-          if (done) break
+          if (done) {
+            break
+          }
 
           buffer += decoder.decode(value, { stream: true })
           const lines = buffer.split('\n')
@@ -274,41 +328,41 @@ export async function POST(req: Request) {
 
           for (const line of lines) {
             const trimmed = line.trim()
-            if (!trimmed || !trimmed.startsWith('data:')) continue
+            if (!trimmed || !trimmed.startsWith('data:')) {
+              continue
+            }
+
             const data = trimmed.slice(5).trim()
 
             if (data === '[DONE]') {
-              controller.enqueue(encoder.encode('0:""\n'))
-              controller.enqueue(encoder.encode('d:{"finishReason":"stop"}\n'))
-              controller.close()
+              finish()
               return
             }
 
             try {
               const parsed = JSON.parse(data)
               const delta = parsed.choices?.[0]?.delta?.content
-              if (delta) {
-                const escaped = JSON.stringify(delta)
-                controller.enqueue(encoder.encode(`0:${escaped}\n`))
+
+              if (typeof delta === 'string' && delta.length > 0) {
+                writer.write({ type: 'text-delta', id: textId, delta })
               }
             } catch {
-              // skip broken chunks
+              // Skip malformed upstream chunks and keep streaming.
             }
           }
         }
 
-        controller.enqueue(encoder.encode('d:{"finishReason":"stop"}\n'))
-        controller.close()
-      } catch (err) {
-        controller.error(err)
+        finish()
+      } catch (error) {
+        writer.write({
+          type: 'error',
+          errorText: error instanceof Error ? error.message : 'Vastuse voog katkes.',
+        })
+      } finally {
+        reader.releaseLock()
       }
     },
   })
 
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'X-Vercel-AI-Data-Stream': 'v1',
-    },
-  })
+  return createUIMessageStreamResponse({ stream })
 }

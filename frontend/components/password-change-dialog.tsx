@@ -14,7 +14,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
+type UiLanguage = 'et' | 'en'
+
 interface PasswordChangeDialogProps {
+  language?: UiLanguage
   onOpenChange: (open: boolean) => void
   onSubmit: (credentials: ChangePasswordCredentials) => Promise<AuthActionResult>
   open: boolean
@@ -26,7 +29,61 @@ const emptyForm = {
   confirmPassword: '',
 }
 
-export function PasswordChangeDialog({ onOpenChange, onSubmit, open }: PasswordChangeDialogProps) {
+const PASSWORD_DIALOG_COPY = {
+  et: {
+    security: 'Konto turve',
+    title: 'Muuda parooli',
+    description: 'Pärast parooli vahetust uuendatakse sinu aktiivne sessioon ja vanad sessioonid lõpetatakse.',
+    fillAll: 'Täida kõik parooliväljad.',
+    minLength: 'Uus parool peab olema vähemalt 8 tähemärki pikk.',
+    mismatch: 'Uued paroolid ei kattu.',
+    changeFailed: 'Parooli vahetamine ebaõnnestus.',
+    currentPassword: 'Praegune parool',
+    currentPasswordPlaceholder: 'Sisesta praegune parool',
+    newPassword: 'Uus parool',
+    minChars: 'Vähemalt 8 märki',
+    repeatNewPassword: 'Korda uut parooli',
+    repeatNewPasswordPlaceholder: 'Korda uut parooli',
+    info: 'Turvalisuse huvides logitakse teised sama konto sessioonid pärast paroolivahetust välja.',
+    save: 'Salvesta uus parool',
+  },
+  en: {
+    security: 'Account security',
+    title: 'Change password',
+    description: 'After changing the password, your active session is refreshed and old sessions are terminated.',
+    fillAll: 'Fill in all password fields.',
+    minLength: 'The new password must be at least 8 characters long.',
+    mismatch: 'The new passwords do not match.',
+    changeFailed: 'Password change failed.',
+    currentPassword: 'Current password',
+    currentPasswordPlaceholder: 'Enter current password',
+    newPassword: 'New password',
+    minChars: 'At least 8 characters',
+    repeatNewPassword: 'Repeat new password',
+    repeatNewPasswordPlaceholder: 'Repeat new password',
+    info: 'For security reasons, other sessions of the same account are signed out after the password change.',
+    save: 'Save new password',
+  },
+} satisfies Record<UiLanguage, {
+  security: string
+  title: string
+  description: string
+  fillAll: string
+  minLength: string
+  mismatch: string
+  changeFailed: string
+  currentPassword: string
+  currentPasswordPlaceholder: string
+  newPassword: string
+  minChars: string
+  repeatNewPassword: string
+  repeatNewPasswordPlaceholder: string
+  info: string
+  save: string
+}>
+
+export function PasswordChangeDialog({ language = 'et', onOpenChange, onSubmit, open }: PasswordChangeDialogProps) {
+  const copy = PASSWORD_DIALOG_COPY[language]
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -43,17 +100,17 @@ export function PasswordChangeDialog({ onOpenChange, onSubmit, open }: PasswordC
     setError('')
 
     if (!form.currentPassword || !form.nextPassword || !form.confirmPassword) {
-      setError('Täida kõik parooliväljad.')
+      setError(copy.fillAll)
       return
     }
 
     if (form.nextPassword.length < 8) {
-      setError('Uus parool peab olema vähemalt 8 tähemärki pikk.')
+      setError(copy.minLength)
       return
     }
 
     if (form.nextPassword !== form.confirmPassword) {
-      setError('Uued paroolid ei kattu.')
+      setError(copy.mismatch)
       return
     }
 
@@ -67,7 +124,7 @@ export function PasswordChangeDialog({ onOpenChange, onSubmit, open }: PasswordC
     setIsSubmitting(false)
 
     if (!result.ok) {
-      setError(result.error || 'Parooli vahetamine ebaõnnestus.')
+      setError(result.error || copy.changeFailed)
       return
     }
 
@@ -93,13 +150,13 @@ export function PasswordChangeDialog({ onOpenChange, onSubmit, open }: PasswordC
           <DialogHeader className="text-left">
             <span className="hud-label w-fit">
               <KeyRound className="h-3.5 w-3.5" />
-              Konto turve
+              {copy.security}
             </span>
             <DialogTitle className="text-2xl font-semibold uppercase tracking-[0.08em] text-cyan-50">
-              Muuda parooli
+              {copy.title}
             </DialogTitle>
             <DialogDescription className="max-w-md text-sm leading-relaxed text-cyan-100/55">
-              Pärast parooli vahetust uuendatakse sinu aktiivne sessioon ja vanad sessioonid lõpetatakse.
+              {copy.description}
             </DialogDescription>
           </DialogHeader>
 
@@ -107,7 +164,7 @@ export function PasswordChangeDialog({ onOpenChange, onSubmit, open }: PasswordC
             <div className="space-y-2">
               <Label htmlFor="auth-current-password" className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">
                 <LockKeyhole className="h-3.5 w-3.5 text-cyan-300" />
-                Praegune parool
+                  {copy.currentPassword}
               </Label>
               <Input
                 id="auth-current-password"
@@ -116,7 +173,7 @@ export function PasswordChangeDialog({ onOpenChange, onSubmit, open }: PasswordC
                 value={form.currentPassword}
                 onChange={(event) => setForm((current) => ({ ...current, currentPassword: event.target.value }))}
                 className="h-11 rounded-2xl border-primary/14 bg-black/36 px-4 text-cyan-50 placeholder:text-cyan-100/32"
-                placeholder="Sisesta praegune parool"
+                placeholder={copy.currentPasswordPlaceholder}
                 required
               />
             </div>
@@ -125,7 +182,7 @@ export function PasswordChangeDialog({ onOpenChange, onSubmit, open }: PasswordC
               <div className="space-y-2">
                 <Label htmlFor="auth-next-password" className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">
                   <LockKeyhole className="h-3.5 w-3.5 text-cyan-300" />
-                  Uus parool
+                  {copy.newPassword}
                 </Label>
                 <Input
                   id="auth-next-password"
@@ -134,7 +191,7 @@ export function PasswordChangeDialog({ onOpenChange, onSubmit, open }: PasswordC
                   value={form.nextPassword}
                   onChange={(event) => setForm((current) => ({ ...current, nextPassword: event.target.value }))}
                   className="h-11 rounded-2xl border-primary/14 bg-black/36 px-4 text-cyan-50 placeholder:text-cyan-100/32"
-                  placeholder="Vähemalt 8 märki"
+                  placeholder={copy.minChars}
                   required
                 />
               </div>
@@ -142,7 +199,7 @@ export function PasswordChangeDialog({ onOpenChange, onSubmit, open }: PasswordC
               <div className="space-y-2">
                 <Label htmlFor="auth-confirm-next-password" className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">
                   <LockKeyhole className="h-3.5 w-3.5 text-cyan-300" />
-                  Korda uut parooli
+                  {copy.repeatNewPassword}
                 </Label>
                 <Input
                   id="auth-confirm-next-password"
@@ -151,7 +208,7 @@ export function PasswordChangeDialog({ onOpenChange, onSubmit, open }: PasswordC
                   value={form.confirmPassword}
                   onChange={(event) => setForm((current) => ({ ...current, confirmPassword: event.target.value }))}
                   className="h-11 rounded-2xl border-primary/14 bg-black/36 px-4 text-cyan-50 placeholder:text-cyan-100/32"
-                  placeholder="Korda uut parooli"
+                  placeholder={copy.repeatNewPasswordPlaceholder}
                   required
                 />
               </div>
@@ -165,7 +222,7 @@ export function PasswordChangeDialog({ onOpenChange, onSubmit, open }: PasswordC
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs leading-relaxed text-cyan-100/45">
-                Turvalisuse huvides logitakse teised sama konto sessioonid pärast paroolivahetust välja.
+                {copy.info}
               </p>
               <Button
                 type="submit"
@@ -173,7 +230,7 @@ export function PasswordChangeDialog({ onOpenChange, onSubmit, open }: PasswordC
                 className="h-11 rounded-full bg-cyan-300 px-5 text-sm font-semibold text-slate-950 hover:bg-cyan-200"
               >
                 {isSubmitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-                Salvesta uus parool
+                {copy.save}
               </Button>
             </div>
           </form>

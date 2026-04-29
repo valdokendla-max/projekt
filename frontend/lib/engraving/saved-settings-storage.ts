@@ -19,6 +19,13 @@ export interface StoredLaserSettingsRecommendation {
     lineIntervalMm: number
     airAssist: boolean
   }
+  estimates?: {
+    widthMm: number | null
+    heightMm: number | null
+    durationMinutes: number | null
+    durationLabel: string | null
+    requiresDimensions: boolean
+  }
   exports: string[]
   warnings: string[]
 }
@@ -28,6 +35,8 @@ export interface StoredLaserSettings {
   materialId: string
   thicknessMm: number
   mode: 'engrave' | 'cut'
+  widthMm?: number | null
+  heightMm?: number | null
   recommendation: StoredLaserSettingsRecommendation | null
   summary: string
   savedAt: string
@@ -42,10 +51,15 @@ function isStoredLaserSettings(value: unknown): value is StoredLaserSettings {
 
   const candidate = value as Partial<StoredLaserSettings>
 
+  const hasValidWidth = candidate.widthMm === undefined || candidate.widthMm === null || typeof candidate.widthMm === 'number'
+  const hasValidHeight = candidate.heightMm === undefined || candidate.heightMm === null || typeof candidate.heightMm === 'number'
+
   return typeof candidate.machineId === 'string'
     && typeof candidate.materialId === 'string'
     && typeof candidate.thicknessMm === 'number'
     && (candidate.mode === 'engrave' || candidate.mode === 'cut')
+    && hasValidWidth
+    && hasValidHeight
     && (candidate.recommendation === null || typeof candidate.recommendation === 'object')
     && typeof candidate.summary === 'string'
     && typeof candidate.savedAt === 'string'

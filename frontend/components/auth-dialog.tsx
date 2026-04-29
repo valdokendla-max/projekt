@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useState } from 'react'
 import { ArrowLeft, LoaderCircle, LockKeyhole, Mail, UserRound } from 'lucide-react'
 import type { AuthActionResult, LoginCredentials, RegisterCredentials, RequestPasswordResetCredentials } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
@@ -16,9 +16,11 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 type AuthMode = 'login' | 'register'
+type UiLanguage = 'et' | 'en'
 
 interface AuthDialogProps {
   initialMode: AuthMode
+  language?: UiLanguage
   onLogin: (credentials: LoginCredentials) => Promise<AuthActionResult>
   onOpenChange: (open: boolean) => void
   onRegister: (credentials: RegisterCredentials) => Promise<AuthActionResult>
@@ -40,17 +42,128 @@ const emptyRegisterForm = {
 
 const emptyPasswordResetForm = {
   email: '',
-  note: '',
 }
+
+const AUTH_DIALOG_COPY = {
+  et: {
+    access: 'Kontojuurdepääs',
+    resetTitle: 'Taasta parool',
+    mainTitle: 'Logi sisse või loo konto',
+    resetDescription: 'Sisesta oma e-post ja saad sinna parooli taastamise lingi.',
+    mainDescription: 'Sessioon salvestatakse lokaalselt ja taastub automaatselt, kuni logid välja või token aegub.',
+    email: 'E-post',
+    backToLogin: 'Tagasi sisselogimisse',
+    sendRequest: 'Saada taastamislink',
+    login: 'Logi sisse',
+    register: 'Registreeru',
+    password: 'Parool',
+    enterPassword: 'Sisesta parool',
+    sessionHint: 'Kasuta sama kontot mitmel sessioonil. Token aegub 30 päeva jooksul.',
+    forgotPassword: 'Unustasid parooli?',
+    enter: 'Sisene',
+    name: 'Nimi',
+    enterName: 'Sisesta oma nimi',
+    minPassword: 'Vähemalt 8 märki',
+    repeatPassword: 'Korda parooli',
+    createAccountHint: 'Uus konto logitakse kohe sisse ja seanss taastatakse automaatselt järgmisel külastusel.',
+    createAccount: 'Loo konto',
+    loginFailed: 'Sisselogimine ebaõnnestus.',
+    registerFailed: 'Registreerimine ebaõnnestus.',
+    passwordMismatch: 'Paroolid ei kattu.',
+    resetFailed: 'Parooli taastamise e-kirja saatmine ebaõnnestus.',
+    resetSuccess: 'Kui konto on olemas, saadetakse sinu e-postile parooli taastamise link.',
+  },
+  en: {
+    access: 'Account access',
+    resetTitle: 'Reset password',
+    mainTitle: 'Sign in or create an account',
+    resetDescription: 'Enter your email and you will receive a password reset link.',
+    mainDescription: 'The session is stored locally and restores automatically until you sign out or the token expires.',
+    email: 'Email',
+    backToLogin: 'Back to sign in',
+    sendRequest: 'Send reset link',
+    login: 'Sign in',
+    register: 'Register',
+    password: 'Password',
+    enterPassword: 'Enter password',
+    sessionHint: 'Use the same account across multiple sessions. The token expires within 30 days.',
+    forgotPassword: 'Forgot password?',
+    enter: 'Sign in',
+    name: 'Name',
+    enterName: 'Enter your name',
+    minPassword: 'At least 8 characters',
+    repeatPassword: 'Repeat password',
+    createAccountHint: 'A new account is signed in immediately and the session restores automatically on the next visit.',
+    createAccount: 'Create account',
+    loginFailed: 'Sign-in failed.',
+    registerFailed: 'Registration failed.',
+    passwordMismatch: 'Passwords do not match.',
+    resetFailed: 'Sending the password reset email failed.',
+    resetSuccess: 'If the account exists, a password reset link will be sent to the email address.',
+  },
+} satisfies Record<UiLanguage, {
+  access: string
+  resetTitle: string
+  mainTitle: string
+  resetDescription: string
+  mainDescription: string
+  email: string
+  backToLogin: string
+  sendRequest: string
+  login: string
+  register: string
+  password: string
+  enterPassword: string
+  sessionHint: string
+  forgotPassword: string
+  enter: string
+  name: string
+  enterName: string
+  minPassword: string
+  repeatPassword: string
+  createAccountHint: string
+  createAccount: string
+  loginFailed: string
+  registerFailed: string
+  passwordMismatch: string
+  resetFailed: string
+  resetSuccess: string
+}>
 
 export function AuthDialog({
   initialMode,
+  language = 'et',
   onLogin,
   onOpenChange,
   onRegister,
   onRequestPasswordReset,
   open,
 }: AuthDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {open ? (
+        <AuthDialogContent
+          initialMode={initialMode}
+          language={language}
+          onLogin={onLogin}
+          onOpenChange={onOpenChange}
+          onRegister={onRegister}
+          onRequestPasswordReset={onRequestPasswordReset}
+        />
+      ) : null}
+    </Dialog>
+  )
+}
+
+function AuthDialogContent({
+  initialMode,
+  language = 'et',
+  onLogin,
+  onOpenChange,
+  onRegister,
+  onRequestPasswordReset,
+}: Omit<AuthDialogProps, 'open'>) {
+  const copy = AUTH_DIALOG_COPY[language]
   const [mode, setMode] = useState<AuthMode>(initialMode)
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -60,25 +173,7 @@ export function AuthDialog({
   const [showPasswordReset, setShowPasswordReset] = useState(false)
   const [passwordResetSuccess, setPasswordResetSuccess] = useState('')
 
-  useEffect(() => {
-    if (!open) {
-      setMode(initialMode)
-      setError('')
-      setIsSubmitting(false)
-      setLoginForm(emptyLoginForm)
-      setRegisterForm(emptyRegisterForm)
-      setPasswordResetForm(emptyPasswordResetForm)
-      setShowPasswordReset(false)
-      setPasswordResetSuccess('')
-    }
-  }, [initialMode, open])
-
   const closeDialog = () => {
-    setError('')
-    setIsSubmitting(false)
-    setPasswordResetSuccess('')
-    setPasswordResetForm(emptyPasswordResetForm)
-    setShowPasswordReset(false)
     onOpenChange(false)
   }
 
@@ -91,7 +186,7 @@ export function AuthDialog({
 
     setIsSubmitting(false)
     if (!result.ok) {
-      setError(result.error || 'Sisselogimine ebaõnnestus.')
+      setError(result.error || copy.loginFailed)
       return
     }
 
@@ -105,7 +200,7 @@ export function AuthDialog({
     setError('')
 
     if (registerForm.password !== registerForm.confirmPassword) {
-      setError('Paroolid ei kattu.')
+      setError(copy.passwordMismatch)
       return
     }
 
@@ -119,7 +214,7 @@ export function AuthDialog({
 
     setIsSubmitting(false)
     if (!result.ok) {
-      setError(result.error || 'Registreerimine ebaõnnestus.')
+      setError(result.error || copy.registerFailed)
       return
     }
 
@@ -138,16 +233,15 @@ export function AuthDialog({
 
     setIsSubmitting(false)
     if (!result.ok) {
-      setError(result.error || 'Parooli reseti taotlus ebaõnnestus.')
+      setError(result.error || copy.resetFailed)
       return
     }
 
-    setPasswordResetSuccess('Kui konto on olemas, jõuab parooli reseti taotlus adminini. Admin saab sulle luua ajutise parooli, millega sisse logida ja seejärel parool kohe ära vahetada.')
+    setPasswordResetSuccess(copy.resetSuccess)
     setPasswordResetForm(emptyPasswordResetForm)
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="overflow-hidden border border-primary/14 bg-[radial-gradient(circle_at_top,rgba(84,244,255,0.16),rgba(3,9,16,0.98)_42%),linear-gradient(180deg,rgba(5,15,24,0.98),rgba(2,7,12,0.98))] p-0 text-cyan-50 shadow-[0_32px_90px_rgba(0,0,0,0.5)] sm:max-w-140"
         showCloseButton={false}
@@ -156,14 +250,14 @@ export function AuthDialog({
 
         <div className="p-6 sm:p-7">
           <DialogHeader className="text-left">
-            <span className="hud-label w-fit">Kontojuurdepääs</span>
+            <span className="hud-label w-fit">{copy.access}</span>
             <DialogTitle className="text-2xl font-semibold uppercase tracking-[0.08em] text-cyan-50">
-              {showPasswordReset ? 'Taotle parooli resetti' : 'Logi sisse või loo konto'}
+              {showPasswordReset ? copy.resetTitle : copy.mainTitle}
             </DialogTitle>
             <DialogDescription className="max-w-md text-sm leading-relaxed text-cyan-100/55">
               {showPasswordReset
-                ? 'Mailiserveri asemel läheb taotlus adminile, kes saab sulle luua ajutise parooli.'
-                : 'Sessioon salvestatakse lokaalselt ja taastub automaatselt, kuni logid välja või token aegub.'}
+                ? copy.resetDescription
+                : copy.mainDescription}
             </DialogDescription>
           </DialogHeader>
 
@@ -172,7 +266,7 @@ export function AuthDialog({
               <div className="space-y-2">
                 <Label htmlFor="auth-reset-email" className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">
                   <Mail className="h-3.5 w-3.5 text-cyan-300" />
-                  E-post
+                  {copy.email}
                 </Label>
                 <Input
                   id="auth-reset-email"
@@ -183,21 +277,6 @@ export function AuthDialog({
                   className="h-11 rounded-2xl border-primary/14 bg-black/36 px-4 text-cyan-50 placeholder:text-cyan-100/32"
                   placeholder="nimi@domeen.ee"
                   required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="auth-reset-note" className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">
-                  <UserRound className="h-3.5 w-3.5 text-cyan-300" />
-                  Märkus adminile
-                </Label>
-                <textarea
-                  id="auth-reset-note"
-                  value={passwordResetForm.note}
-                  onChange={(event) => setPasswordResetForm((current) => ({ ...current, note: event.target.value }))}
-                  className="min-h-28 w-full resize-none rounded-2xl border border-primary/14 bg-black/36 px-4 py-3 text-sm text-cyan-50 placeholder:text-cyan-100/32 focus:outline-none focus:ring-1 focus:ring-ring"
-                  placeholder="Soovi korral lisa märkus, näiteks et vajad uut ajutist parooli."
-                  maxLength={500}
                 />
               </div>
 
@@ -224,7 +303,7 @@ export function AuthDialog({
                   className="inline-flex items-center gap-2 text-xs font-medium text-cyan-100/55 transition-colors hover:text-cyan-50"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
-                  Tagasi sisselogimisse
+                  {copy.backToLogin}
                 </button>
                 <Button
                   type="submit"
@@ -232,7 +311,7 @@ export function AuthDialog({
                   className="h-11 rounded-full bg-cyan-300 px-5 text-sm font-semibold text-slate-950 hover:bg-cyan-200"
                 >
                   {isSubmitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-                  Saada taotlus
+                  {copy.sendRequest}
                 </Button>
               </div>
             </form>
@@ -246,13 +325,13 @@ export function AuthDialog({
                   value="login"
                   className="rounded-full border-0 px-4 py-2 text-sm text-cyan-100/68 data-[state=active]:bg-cyan-300 data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
                 >
-                  Logi sisse
+                  {copy.login}
                 </TabsTrigger>
                 <TabsTrigger
                   value="register"
                   className="rounded-full border-0 px-4 py-2 text-sm text-cyan-100/68 data-[state=active]:bg-cyan-300 data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
                 >
-                  Registreeru
+                  {copy.register}
                 </TabsTrigger>
               </TabsList>
 
@@ -261,7 +340,7 @@ export function AuthDialog({
                   <div className="space-y-2">
                     <Label htmlFor="auth-login-email" className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">
                       <Mail className="h-3.5 w-3.5 text-cyan-300" />
-                      E-post
+                      {copy.email}
                     </Label>
                     <Input
                       id="auth-login-email"
@@ -278,7 +357,7 @@ export function AuthDialog({
                   <div className="space-y-2">
                     <Label htmlFor="auth-login-password" className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">
                       <LockKeyhole className="h-3.5 w-3.5 text-cyan-300" />
-                      Parool
+                      {copy.password}
                     </Label>
                     <Input
                       id="auth-login-password"
@@ -287,7 +366,7 @@ export function AuthDialog({
                       value={loginForm.password}
                       onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
                       className="h-11 rounded-2xl border-primary/14 bg-black/36 px-4 text-cyan-50 placeholder:text-cyan-100/32"
-                      placeholder="Sisesta parool"
+                      placeholder={copy.enterPassword}
                       required
                     />
                   </div>
@@ -301,7 +380,7 @@ export function AuthDialog({
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-2">
                       <p className="text-xs leading-relaxed text-cyan-100/45">
-                        Kasuta sama kontot mitmel sessioonil. Token aegub 30 päeva jooksul.
+                        {copy.sessionHint}
                       </p>
                       <button
                         type="button"
@@ -312,7 +391,7 @@ export function AuthDialog({
                         }}
                         className="text-xs font-medium text-cyan-100/65 transition-colors hover:text-cyan-50"
                       >
-                        Unustasid parooli?
+                        {copy.forgotPassword}
                       </button>
                     </div>
                     <Button
@@ -321,7 +400,7 @@ export function AuthDialog({
                       className="h-11 rounded-full bg-cyan-300 px-5 text-sm font-semibold text-slate-950 hover:bg-cyan-200"
                     >
                       {isSubmitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-                      Sisene
+                      {copy.enter}
                     </Button>
                   </div>
                 </form>
@@ -333,7 +412,7 @@ export function AuthDialog({
                   <div className="space-y-2 sm:col-span-2">
                     <Label htmlFor="auth-register-name" className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">
                       <UserRound className="h-3.5 w-3.5 text-cyan-300" />
-                      Nimi
+                      {copy.name}
                     </Label>
                     <Input
                       id="auth-register-name"
@@ -342,7 +421,7 @@ export function AuthDialog({
                       value={registerForm.name}
                       onChange={(event) => setRegisterForm((current) => ({ ...current, name: event.target.value }))}
                       className="h-11 rounded-2xl border-primary/14 bg-black/36 px-4 text-cyan-50 placeholder:text-cyan-100/32"
-                      placeholder="Sisesta oma nimi"
+                      placeholder={copy.enterName}
                       required
                     />
                   </div>
@@ -350,7 +429,7 @@ export function AuthDialog({
                   <div className="space-y-2 sm:col-span-2">
                     <Label htmlFor="auth-register-email" className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">
                       <Mail className="h-3.5 w-3.5 text-cyan-300" />
-                      E-post
+                      {copy.email}
                     </Label>
                     <Input
                       id="auth-register-email"
@@ -367,7 +446,7 @@ export function AuthDialog({
                   <div className="space-y-2">
                     <Label htmlFor="auth-register-password" className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">
                       <LockKeyhole className="h-3.5 w-3.5 text-cyan-300" />
-                      Parool
+                      {copy.password}
                     </Label>
                     <Input
                       id="auth-register-password"
@@ -376,7 +455,7 @@ export function AuthDialog({
                       value={registerForm.password}
                       onChange={(event) => setRegisterForm((current) => ({ ...current, password: event.target.value }))}
                       className="h-11 rounded-2xl border-primary/14 bg-black/36 px-4 text-cyan-50 placeholder:text-cyan-100/32"
-                      placeholder="Vähemalt 8 märki"
+                      placeholder={copy.minPassword}
                       required
                     />
                   </div>
@@ -384,7 +463,7 @@ export function AuthDialog({
                   <div className="space-y-2">
                     <Label htmlFor="auth-register-confirm" className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">
                       <LockKeyhole className="h-3.5 w-3.5 text-cyan-300" />
-                      Korda parooli
+                      {copy.repeatPassword}
                     </Label>
                     <Input
                       id="auth-register-confirm"
@@ -393,7 +472,7 @@ export function AuthDialog({
                       value={registerForm.confirmPassword}
                       onChange={(event) => setRegisterForm((current) => ({ ...current, confirmPassword: event.target.value }))}
                       className="h-11 rounded-2xl border-primary/14 bg-black/36 px-4 text-cyan-50 placeholder:text-cyan-100/32"
-                      placeholder="Korda parooli"
+                      placeholder={copy.repeatPassword}
                       required
                     />
                   </div>
@@ -407,7 +486,7 @@ export function AuthDialog({
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs leading-relaxed text-cyan-100/45">
-                    Uus konto logitakse kohe sisse ja seanss taastatakse automaatselt järgmisel külastusel.
+                    {copy.createAccountHint}
                   </p>
                   <Button
                     type="submit"
@@ -415,7 +494,7 @@ export function AuthDialog({
                     className="h-11 rounded-full bg-cyan-300 px-5 text-sm font-semibold text-slate-950 hover:bg-cyan-200"
                   >
                     {isSubmitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-                    Loo konto
+                    {copy.createAccount}
                   </Button>
                 </div>
                 </form>
@@ -424,6 +503,5 @@ export function AuthDialog({
           )}
         </div>
       </DialogContent>
-    </Dialog>
   )
 }

@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { getClientBackendUrl } from '@/lib/backend-url'
 
-const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000').replace(/\/$/, '')
+const BACKEND_URL = getClientBackendUrl()
 const AUTH_TOKEN_KEY = 'lasergraveerimine.auth-token'
 
 export type UserRole = 'admin' | 'user'

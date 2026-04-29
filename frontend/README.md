@@ -9,7 +9,8 @@ See frontend on Next.js rakendus lasergraveerimise assistendi jaoks. Avalehel on
 ## Eeldused
 
 - Node.js 20+
-- töötav backend aadressil `http://localhost:4000` või `NEXT_PUBLIC_BACKEND_URL` kaudu määratud URL
+- töötav backend aadressil `http://localhost:4000` või Next proxy kaudu `/backend`
+- PostgreSQL andmebaas koos `DATABASE_URL` ühendusstringiga
 - Groq API võti, kui soovid chat-funktsiooni kasutada
 - OpenAI API võti, kui soovid kasutada pildigeneraatorit `/api/image-generation` route'i kaudu
 
@@ -27,7 +28,14 @@ Loo fail `frontend/.env.local` faili `frontend/.env.example` põhjal ja määra 
 
 ```bash
 GROQ_API_KEY=...
-NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+NEXT_PUBLIC_BACKEND_URL=/backend
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/laser_graveerimine
+```
+
+Kui soovid frontendi arenduses backendi suunata mõnele muule aadressile kui lokaalne `http://localhost:4000`, lisa ka:
+
+```bash
+BACKEND_PROXY_TARGET=https://your-backend-host.example.com
 ```
 
 Kui soovid pildigeneratsiooni kasutada, lisa samuti:
@@ -37,6 +45,8 @@ OPENAI_API_KEY=...
 ```
 
 Windowsis võid `GROQ_API_KEY` asemel hoida võtme ka kasutaja keskkonnamuutujana. Frontendi `npm run dev` skript proovib selle sel juhul automaatselt kasutaja keskkonnast laadida, nii et võti ei pea projektifaili jääma.
+
+Vaikimisi kasutab browser nüüd sama domeeni teed `/backend`, mis teeb production deploy lihtsamaks. Arenduses suunab Next selle tee automaatselt lokaalsele backendile `http://localhost:4000`, kui `BACKEND_PROXY_TARGET` pole eraldi määratud.
 
 Admin-konto jaoks on projektis vaikimisi lukustatud e-post `valdokendla@gmail.com`. Soovi korral saad lisada või muuta admin-e-posti loendit keskkonnamuutujaga `AUTH_ADMIN_EMAILS`, kus väärtused on komadega eraldatud.
 
@@ -71,8 +81,8 @@ npm run build --prefix frontend
 ## Mida frontend eeldab
 
 - backend pakub route'e `/api/machines`, `/api/materials` ja `/api/recommendation`
-- teadmistebaasi route `/api/knowledge` salvestab kirjed faili `frontend/data/knowledge-store.json`
-- teadmiste kirjed püsivad ka pärast serveri restarti, kui rakendus töötab tavalises Node.js keskkonnas
+- teadmistebaasi route `/api/knowledge` proxib kirjed backend teenusesse, mis salvestab need püsivalt failina `backend/data/knowledge-store.json`
+- optimizer job'id salvestatakse PostgreSQL andmebaasi; binaarsed source assetid jäävad lokaalsesse storage'i või Vercel Blob'i
 - admin saab teadmistepaneelis hallata ka kasutajate rolle; teadmistebaasi muutmine on lubatud ainult admin-kontole
 
 ## Süsteemi olek
