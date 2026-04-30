@@ -17,6 +17,7 @@ const authStore = {
 } = require("./auth-store");
 const emailService = {
   getMailConfig,
+  sendEmail,
   sendPasswordResetEmail,
   sendRegistrationNotifications,
 } = require("./email-service");
@@ -453,6 +454,32 @@ app.get("/", (req, res) => {
     service: "laser-settings-api",
     message: "Lasergraveerimise API töötab.",
   });
+});
+
+app.post("/api/auth/test-email", async (req, res) => {
+  try {
+    await requireAdminUser(req);
+  } catch (error) {
+    sendError(res, error, "Admin õigused puuduvad.");
+    return;
+  }
+
+  const config = email.getMailConfig();
+  if (!config.isConfigured) {
+    res.status(400).json({ ok: false, error: "E-post pole seadistatud (SMTP_HOST, SMTP_PORT, SMTP_FROM puuduvad).", config: { host: config.host, port: config.port, from: config.from } });
+    return;
+  }
+
+  try {
+    await email.sendEmail({
+      to: config.from,
+      subject: "Test e-kiri | Laser Graveerimine",
+      text: "See on test e-kiri. Kui sa seda näed, töötab e-posti seadistus.",
+    });
+    res.json({ ok: true, message: "Test e-kiri saadetud.", to: config.from, from: config.from });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error?.message || String(error), code: error?.code });
+  }
 });
 
 app.get("/api/health", async (req, res) => {

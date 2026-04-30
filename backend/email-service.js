@@ -163,6 +163,7 @@ async function sendPasswordResetEmail(user, resetToken) {
 module.exports = {
   buildPasswordResetUrl,
   getMailConfig,
+  sendEmail,
   sendPasswordResetEmail,
   sendRegistrationNotifications,
 };
