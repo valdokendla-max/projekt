@@ -8,7 +8,7 @@ const BUNDLED_AUTH_STORE_PATH = path.join(__dirname, "data", "auth-store.json");
 const AUTH_STORE_PATH = "postgresql";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const PASSWORD_RESET_TTL_MS = 1000 * 60 * 30;
-const DEFAULT_ADMIN_EMAILS = ["valdokendla@gmail.com"];
+const DEFAULT_ADMIN_EMAILS = [];
 
 let authInitializationPromise = null;
 let authInitialized = false;
@@ -43,10 +43,19 @@ function shouldUseSsl(databaseUrl) {
 
   try {
     const parsed = new URL(databaseUrl);
-    return !["localhost", "127.0.0.1"].includes(parsed.hostname);
+    return !["localhost", "127.0.0.1"].includes(parsed.hostname) &&
+      !parsed.hostname.endsWith(".railway.internal");
   } catch {
     return true;
   }
+}
+
+function getSslConfig(databaseUrl) {
+  if (!shouldUseSsl(databaseUrl)) {
+    return undefined;
+  }
+  const rejectUnauthorized = normalizeStorePath(process.env.DATABASE_SSL_REJECT_UNAUTHORIZED).toLowerCase();
+  return { rejectUnauthorized: rejectUnauthorized !== "false" };
 }
 
 function getPool() {
@@ -54,7 +63,7 @@ function getPool() {
     const databaseUrl = getDatabaseUrl();
     global.__laserGraveerimineBackendPool = new Pool({
       connectionString: databaseUrl,
-      ssl: shouldUseSsl(databaseUrl) ? { rejectUnauthorized: false } : undefined,
+      ssl: getSslConfig(databaseUrl),
       max: 10,
     });
   }

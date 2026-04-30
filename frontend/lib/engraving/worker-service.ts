@@ -55,6 +55,7 @@ export async function processImageWithWorkerService(args: {
       outputPrefix: args.outputPrefix,
     }),
     cache: 'no-store',
+    signal: AbortSignal.timeout(120_000),
   })
 
   if (!response.ok) {
@@ -76,6 +77,7 @@ export async function processImageWithWorkerService(args: {
 export async function getWorkerServiceHealth() {
   const response = await fetch(`${getWorkerServiceUrl()}/health`, {
     cache: 'no-store',
+    signal: AbortSignal.timeout(10_000),
   })
 
   if (!response.ok) {

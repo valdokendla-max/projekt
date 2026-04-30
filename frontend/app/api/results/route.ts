@@ -20,15 +20,20 @@ export async function POST(req: Request) {
   const hasQStashSignature = Boolean(req.headers.get('upstash-signature'))
   const rawBody = parsed.rawBody
 
-  if (hasQStashSigningKeys && hasQStashSignature) {
+  if (hasQStashSigningKeys) {
+    if (!hasQStashSignature) {
+      return Response.json({ error: 'QStash signature puudub.' }, { status: 401 })
+    }
     const verificationError = await verifyQStashRequest(req, rawBody)
     if (verificationError) {
       return verificationError
     }
   }
 
+  const qstashVerified = hasQStashSigningKeys && hasQStashSignature
+
   const internalAuth = await requireInternalRouteAuthorization(req, {
-    qstashVerified: hasQStashSigningKeys && hasQStashSignature,
+    qstashVerified,
   })
   if (!internalAuth.ok) {
     return internalAuth.response

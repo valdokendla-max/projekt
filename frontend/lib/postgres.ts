@@ -34,10 +34,19 @@ function shouldUseSsl(databaseUrl: string) {
 
   try {
     const parsed = new URL(databaseUrl)
-    return !['localhost', '127.0.0.1'].includes(parsed.hostname)
+    return !['localhost', '127.0.0.1'].includes(parsed.hostname) &&
+      !parsed.hostname.endsWith('.railway.internal')
   } catch {
     return true
   }
+}
+
+function getSslConfig(databaseUrl: string) {
+  if (!shouldUseSsl(databaseUrl)) {
+    return undefined
+  }
+  const rejectUnauthorized = normalizeEnvValue(process.env.DATABASE_SSL_REJECT_UNAUTHORIZED).toLowerCase()
+  return { rejectUnauthorized: rejectUnauthorized !== 'false' }
 }
 
 export function getPostgresPool() {
@@ -48,7 +57,7 @@ export function getPostgresPool() {
 
     globalCache.__laserGraveeriminePgPool = new Pool({
       connectionString: databaseUrl,
-      ssl: shouldUseSsl(databaseUrl) ? { rejectUnauthorized: false } : undefined,
+      ssl: getSslConfig(databaseUrl),
       max: 10,
     })
   }

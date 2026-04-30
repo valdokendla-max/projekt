@@ -1,7 +1,7 @@
 const nodemailer = require("nodemailer");
 
 const DEFAULT_APP_BASE_URL = "https://vkengraveai.eu";
-const DEFAULT_ADMIN_EMAILS = ["valdokendla@gmail.com"];
+const DEFAULT_ADMIN_EMAILS = [];
 
 let cachedTransporter = null;
 

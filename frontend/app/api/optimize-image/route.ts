@@ -69,6 +69,10 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Source image is required.' }, { status: 400 })
   }
 
+  if (!sourceImageDataUrl.startsWith('data:image/')) {
+    return Response.json({ error: 'Source image must be a valid image data URL.' }, { status: 400 })
+  }
+
   const source = buildSource(body.source)
   const pipelineResult = runEngravingOptimizerPipeline({
     userPrompt: body.userPrompt,

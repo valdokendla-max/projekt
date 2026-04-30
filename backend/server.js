@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const authStore = {
   changePassword,
@@ -31,9 +32,11 @@ function createApp(dependencies = {}) {
 
   app.use(express.json({ limit: "1mb" }));
 
+  const allowedOrigin = String(process.env.ALLOWED_ORIGIN || "*").trim();
+
   app.use((req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
     if (req.method === "OPTIONS") {
@@ -43,6 +46,44 @@ function createApp(dependencies = {}) {
 
     next();
   });
+
+const authRateLimitStore = new Map();
+
+function getClientIp(req) {
+  const forwarded = String(req.headers["x-forwarded-for"] || "");
+  return forwarded.split(",")[0]?.trim() || req.socket?.remoteAddress || "unknown";
+}
+
+function checkAuthRateLimit(req, res) {
+  const ip = getClientIp(req);
+  const now = Date.now();
+  const windowMs = 15 * 60 * 1000;
+  const maxRequests = 20;
+  const entry = authRateLimitStore.get(ip) || { count: 0, windowStart: now };
+
+  if (now - entry.windowStart > windowMs) {
+    entry.count = 0;
+    entry.windowStart = now;
+  }
+
+  entry.count += 1;
+  authRateLimitStore.set(ip, entry);
+
+  if (authRateLimitStore.size > 10000) {
+    for (const [key, val] of authRateLimitStore) {
+      if (now - val.windowStart > windowMs) {
+        authRateLimitStore.delete(key);
+      }
+    }
+  }
+
+  if (entry.count > maxRequests) {
+    res.status(429).json({ error: "Liiga palju katseid. Proovi 15 minuti pärast uuesti." });
+    return false;
+  }
+
+  return true;
+}
 
 function getBearerToken(req) {
   const header = String(req.headers.authorization || "");
@@ -92,9 +133,10 @@ async function requireAdminUser(req) {
 }
 
 app.post("/api/auth/register", async (req, res) => {
+  if (!checkAuthRateLimit(req, res)) return;
   const body = req.body || {};
   const name = String(body.name || "").trim();
-  const email = normalizeEmail(body.email);
+  const emailAddress = normalizeEmail(body.email);
   const password = String(body.password || "");
 
   if (name.length < 2) {
@@ -102,7 +144,7 @@ app.post("/api/auth/register", async (req, res) => {
     return;
   }
 
-  if (!/^\S+@\S+\.\S+$/.test(email)) {
+  if (!/^\S+@\S+\.\S+$/.test(emailAddress)) {
     res.status(400).json({ error: "Sisesta korrektne e-posti aadress." });
     return;
   }
@@ -113,7 +155,7 @@ app.post("/api/auth/register", async (req, res) => {
   }
 
   try {
-    const result = await auth.registerUser({ name, email, password });
+    const result = await auth.registerUser({ name, email: emailAddress, password });
     res.status(201).json(result);
     runBackground(email.sendRegistrationNotifications(result.user), "Registration email failed");
   } catch (error) {
@@ -122,6 +164,7 @@ app.post("/api/auth/register", async (req, res) => {
 });
 
 app.post("/api/auth/login", async (req, res) => {
+  if (!checkAuthRateLimit(req, res)) return;
   const body = req.body || {};
   const email = normalizeEmail(body.email);
   const password = String(body.password || "");
@@ -202,15 +245,16 @@ app.post("/api/auth/change-password", async (req, res) => {
 });
 
 app.post("/api/auth/request-password-reset", async (req, res) => {
-  const email = normalizeEmail(req.body?.email);
+  if (!checkAuthRateLimit(req, res)) return;
+  const emailAddress = normalizeEmail(req.body?.email);
 
-  if (!/^\S+@\S+\.\S+$/.test(email)) {
+  if (!/^\S+@\S+\.\S+$/.test(emailAddress)) {
     res.status(400).json({ error: "Sisesta korrektne e-posti aadress." });
     return;
   }
 
   try {
-    const result = await auth.requestPasswordReset({ email });
+    const result = await auth.requestPasswordReset({ email: emailAddress });
     if (result?.user && result?.resetToken) {
       runBackground(email.sendPasswordResetEmail(result.user, result.resetToken), "Password reset email failed");
     }
@@ -411,8 +455,22 @@ app.get("/", (req, res) => {
   });
 });
 
-app.get("/api/health", (req, res) => {
-  res.json({ ok: true, timestamp: new Date().toISOString() });
+app.get("/api/health", async (req, res) => {
+  const status = { ok: true, timestamp: new Date().toISOString(), db: "unknown" };
+  try {
+    const { Pool } = require("pg");
+    const pool = global.__laserGraveerimineBackendPool;
+    if (pool) {
+      await pool.query("SELECT 1");
+      status.db = "ok";
+    } else {
+      status.db = "not_initialized";
+    }
+  } catch {
+    status.ok = false;
+    status.db = "error";
+  }
+  res.status(status.ok ? 200 : 503).json(status);
 });
 
 app.get("/api/machines", (req, res) => {
