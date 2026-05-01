@@ -10,6 +10,7 @@ const contentSecurityPolicy = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  serverExternalPackages: ['sharp', 'pg'],
   typescript: {
     ignoreBuildErrors: false,
   },
