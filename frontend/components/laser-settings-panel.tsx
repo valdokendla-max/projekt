@@ -3,13 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Flame, Layers, Settings2 } from 'lucide-react'
 import { getClientBackendUrl } from '@/lib/backend-url'
-
-const AUTH_TOKEN_KEY = 'lasergraveerimine.auth-token'
-
-function getAuthHeaders(): Record<string, string> {
-  const token = typeof window !== 'undefined' ? window.localStorage.getItem(AUTH_TOKEN_KEY) : null
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
 import {
   clearSavedLaserSettings,
   readSavedLaserSettings,
@@ -18,6 +11,13 @@ import {
   type StoredLaserSettingsRecommendation,
 } from '@/lib/engraving/saved-settings-storage'
 import { cn } from '@/lib/utils'
+
+const AUTH_TOKEN_KEY = 'lasergraveerimine.auth-token'
+
+function getAuthHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? window.localStorage.getItem(AUTH_TOKEN_KEY) : null
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
 type LaserMode = 'engrave' | 'cut'
 type UiLanguage = 'et' | 'en'
