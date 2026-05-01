@@ -382,8 +382,9 @@ app.post("/api/auth/users/:userId/role", async (req, res) => {
   }
 });
 
-app.get("/api/knowledge/context", async (_req, res) => {
+app.get("/api/knowledge/context", async (req, res) => {
   try {
+    await resolveAuthenticatedUser(req);
     const items = await knowledge.getAll();
     const context = await knowledge.getContext();
     res.json({
@@ -503,22 +504,38 @@ app.get("/api/health", async (req, res) => {
   res.status(status.ok ? 200 : 503).json(status);
 });
 
-app.get("/api/machines", (req, res) => {
-  res.json(lasers.LASER_MACHINES);
+app.get("/api/machines", async (req, res) => {
+  try {
+    await resolveAuthenticatedUser(req);
+    res.json(lasers.LASER_MACHINES);
+  } catch (error) {
+    sendError(res, error, "Masinad pole kättesaadavad.");
+  }
 });
 
-app.get("/api/materials", (req, res) => {
-  const compact = lasers.MATERIALS.map((m) => ({
-    id: m.id,
-    name: m.name,
-    thicknessRangeMm: m.thicknessRangeMm,
-    note: m.note,
-    supportedLaserTypes: Object.keys(m.profiles),
-  }));
-  res.json(compact);
+app.get("/api/materials", async (req, res) => {
+  try {
+    await resolveAuthenticatedUser(req);
+    const compact = lasers.MATERIALS.map((m) => ({
+      id: m.id,
+      name: m.name,
+      thicknessRangeMm: m.thicknessRangeMm,
+      note: m.note,
+      supportedLaserTypes: Object.keys(m.profiles),
+    }));
+    res.json(compact);
+  } catch (error) {
+    sendError(res, error, "Materjalid pole kättesaadavad.");
+  }
 });
 
-app.post("/api/recommendation", (req, res) => {
+app.post("/api/recommendation", async (req, res) => {
+  try {
+    await resolveAuthenticatedUser(req);
+  } catch (error) {
+    sendError(res, error, "Soovitused pole kättesaadavad.");
+    return;
+  }
   const { machineId, materialId, thicknessMm, mode, widthMm, heightMm } = req.body || {};
 
   const result = lasers.getRecommendation({

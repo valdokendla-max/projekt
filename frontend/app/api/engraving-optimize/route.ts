@@ -1,3 +1,4 @@
+import { requireAuthenticatedRouteUser } from '@/lib/api-security'
 import { runEngravingOptimizerPipeline } from '@/lib/engraving/optimizer-pipeline'
 import { runImageOptimizerWorker } from '@/lib/engraving/python-worker'
 import type { ImageMetadataInput } from '@/lib/engraving/types'
@@ -26,6 +27,9 @@ function buildSource(source: Partial<ImageMetadataInput> | undefined): ImageMeta
 }
 
 export async function POST(req: Request) {
+  const auth = await requireAuthenticatedRouteUser(req)
+  if (!auth.ok) return auth.response
+
   const body = (await req.json().catch(() => ({}))) as RequestBody
   const result = runEngravingOptimizerPipeline({
     userPrompt: body.userPrompt,
