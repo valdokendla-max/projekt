@@ -322,6 +322,8 @@ function useBackendMachines(token: string | null | undefined) {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (!token) return
+
     let cancelled = false
 
     fetch(`${BACKEND_URL}/api/machines`, { headers: buildAuthHeaders(token) })
@@ -333,10 +335,7 @@ function useBackendMachines(token: string | null | undefined) {
         return response.json() as Promise<Machine[]>
       })
       .then((data) => {
-        if (cancelled) {
-          return
-        }
-
+        if (cancelled) return
         setMachines(sortMachines(data))
         setError('')
       })
@@ -346,9 +345,7 @@ function useBackendMachines(token: string | null | undefined) {
         }
       })
       .finally(() => {
-        if (!cancelled) {
-          setLoading(false)
-        }
+        if (!cancelled) setLoading(false)
       })
 
     return () => {
@@ -365,6 +362,8 @@ function useBackendMaterials(token: string | null | undefined) {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (!token) return
+
     let cancelled = false
 
     fetch(`${BACKEND_URL}/api/materials`, { headers: buildAuthHeaders(token) })
@@ -376,10 +375,7 @@ function useBackendMaterials(token: string | null | undefined) {
         return response.json() as Promise<Material[]>
       })
       .then((data) => {
-        if (cancelled) {
-          return
-        }
-
+        if (cancelled) return
         setMaterials(data)
         setError('')
       })
@@ -389,9 +385,7 @@ function useBackendMaterials(token: string | null | undefined) {
         }
       })
       .finally(() => {
-        if (!cancelled) {
-          setLoading(false)
-        }
+        if (!cancelled) setLoading(false)
       })
 
     return () => {
