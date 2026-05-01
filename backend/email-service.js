@@ -24,6 +24,22 @@ function getConfiguredAdminEmails() {
   return [...emails];
 }
 
+function getAppBaseUrl() {
+  return normalize(
+    process.env.APP_BASE_URL || process.env.QSTASH_CALLBACK_BASE_URL || DEFAULT_APP_BASE_URL
+  ).replace(/\/$/, "");
+}
+
+function getResendConfig() {
+  const apiKey = normalize(process.env.RESEND_API_KEY);
+  const from = normalize(process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.MAIL_FROM);
+  return {
+    apiKey,
+    from,
+    isConfigured: Boolean(apiKey && from),
+  };
+}
+
 function getMailConfig() {
   const host = normalize(process.env.SMTP_HOST);
   const port = Number(process.env.SMTP_PORT || 587);
@@ -31,9 +47,8 @@ function getMailConfig() {
   const pass = normalize(process.env.SMTP_PASS);
   const from = normalize(process.env.SMTP_FROM || process.env.MAIL_FROM);
   const secure = normalize(process.env.SMTP_SECURE) === "true" || port === 465;
-  const appBaseUrl = normalize(
-    process.env.APP_BASE_URL || process.env.QSTASH_CALLBACK_BASE_URL || DEFAULT_APP_BASE_URL
-  ).replace(/\/$/, "");
+  const resend = getResendConfig();
+  const appBaseUrl = getAppBaseUrl();
 
   return {
     host,
@@ -41,15 +56,16 @@ function getMailConfig() {
     secure,
     user,
     pass,
-    from,
+    from: resend.isConfigured ? resend.from : from,
     appBaseUrl,
-    isConfigured: Boolean(host && port && from),
+    isConfigured: resend.isConfigured || Boolean(host && port && from),
+    provider: resend.isConfigured ? "resend" : "smtp",
   };
 }
 
 function getTransporter() {
   const config = getMailConfig();
-  if (!config.isConfigured) {
+  if (config.provider !== "smtp" || !config.isConfigured) {
     return null;
   }
 
@@ -61,10 +77,7 @@ function getTransporter() {
       requireTLS: !config.secure,
       family: 4,
       auth: config.user && config.pass
-        ? {
-            user: config.user,
-            pass: config.pass,
-          }
+        ? { user: config.user, pass: config.pass }
         : undefined,
     });
   }
@@ -72,19 +85,51 @@ function getTransporter() {
   return cachedTransporter;
 }
 
+async function sendViaResend(message) {
+  const resend = getResendConfig();
+
+  const to = Array.isArray(message.to) ? message.to : [message.to];
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${resend.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: resend.from,
+      to,
+      subject: message.subject,
+      text: message.text,
+      html: message.html,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Resend API error ${response.status}: ${body}`);
+  }
+}
+
 async function sendEmail(message) {
   const config = getMailConfig();
-  const transporter = getTransporter();
 
-  if (!config.isConfigured || !transporter) {
+  if (!config.isConfigured) {
+    return { sent: false, skipped: true };
+  }
+
+  if (config.provider === "resend") {
+    await sendViaResend(message);
+    return { sent: true };
+  }
+
+  const transporter = getTransporter();
+  if (!transporter) {
     return { sent: false, skipped: true };
   }
 
   try {
-    await transporter.sendMail({
-      from: config.from,
-      ...message,
-    });
+    await transporter.sendMail({ from: config.from, ...message });
   } catch (error) {
     cachedTransporter = null;
     throw error;
@@ -94,8 +139,7 @@ async function sendEmail(message) {
 }
 
 function buildPasswordResetUrl(resetToken) {
-  const config = getMailConfig();
-  return `${config.appBaseUrl}/parooli-taastamine?token=${encodeURIComponent(resetToken)}`;
+  return `${getAppBaseUrl()}/parooli-taastamine?token=${encodeURIComponent(resetToken)}`;
 }
 
 async function sendRegistrationNotifications(user) {
