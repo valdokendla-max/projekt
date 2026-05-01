@@ -1327,6 +1327,7 @@ export default function LaserGraveerimiseApp() {
           >
             <LaserSettingsPanel
               language={language}
+              authToken={auth.token}
               savedSettingsSummary={savedSettingsSummary}
               onSavedSettingsChange={setSavedSettings}
               onSavedSettingsSummaryChange={setSavedSettingsSummary}

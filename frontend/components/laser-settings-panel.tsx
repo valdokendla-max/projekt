@@ -12,10 +12,7 @@ import {
 } from '@/lib/engraving/saved-settings-storage'
 import { cn } from '@/lib/utils'
 
-const AUTH_TOKEN_KEY = 'lasergraveerimine.auth-token'
-
-function getAuthHeaders(): Record<string, string> {
-  const token = typeof window !== 'undefined' ? window.localStorage.getItem(AUTH_TOKEN_KEY) : null
+function buildAuthHeaders(token: string | null | undefined): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
@@ -73,6 +70,7 @@ interface Recommendation {
 interface LaserSettingsPanelProps {
   className?: string
   language?: UiLanguage
+  authToken?: string | null
   savedSettingsSummary?: string
   onSavedSettingsSummaryChange?: (summary: string) => void
   onSavedSettingsChange?: (settings: StoredLaserSettings | null) => void
@@ -318,7 +316,7 @@ function formatNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
 }
 
-function useBackendMachines() {
+function useBackendMachines(token: string | null | undefined) {
   const [machines, setMachines] = useState<Machine[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -326,7 +324,7 @@ function useBackendMachines() {
   useEffect(() => {
     let cancelled = false
 
-    fetch(`${BACKEND_URL}/api/machines`, { headers: getAuthHeaders() })
+    fetch(`${BACKEND_URL}/api/machines`, { headers: buildAuthHeaders(token) })
       .then(async (response) => {
         if (!response.ok) {
           throw new Error('Masinate laadimine ebaõnnestus.')
@@ -356,12 +354,12 @@ function useBackendMachines() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [token])
 
   return { machines, loading, error }
 }
 
-function useBackendMaterials() {
+function useBackendMaterials(token: string | null | undefined) {
   const [materials, setMaterials] = useState<Material[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -369,7 +367,7 @@ function useBackendMaterials() {
   useEffect(() => {
     let cancelled = false
 
-    fetch(`${BACKEND_URL}/api/materials`, { headers: getAuthHeaders() })
+    fetch(`${BACKEND_URL}/api/materials`, { headers: buildAuthHeaders(token) })
       .then(async (response) => {
         if (!response.ok) {
           throw new Error('Materjalide laadimine ebaõnnestus.')
@@ -399,7 +397,7 @@ function useBackendMaterials() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [token])
 
   return { materials, loading, error }
 }
@@ -418,13 +416,14 @@ function isRecommendation(value: Recommendation | { error?: string } | null): va
 export function LaserSettingsPanel({
   className,
   language = 'et',
+  authToken,
   savedSettingsSummary,
   onSavedSettingsSummaryChange,
   onSavedSettingsChange,
 }: LaserSettingsPanelProps) {
   const copy = PANEL_COPY[language]
-  const { machines, loading: loadingMachines, error: machinesError } = useBackendMachines()
-  const { materials, loading: loadingMaterials, error: materialsError } = useBackendMaterials()
+  const { machines, loading: loadingMachines, error: machinesError } = useBackendMachines(authToken)
+  const { materials, loading: loadingMaterials, error: materialsError } = useBackendMaterials(authToken)
 
   const [machineId, setMachineId] = useState('')
   const [materialId, setMaterialId] = useState('')
@@ -574,7 +573,7 @@ export function LaserSettingsPanel({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...getAuthHeaders(),
+          ...buildAuthHeaders(authToken),
         },
         body: JSON.stringify({
           machineId,
