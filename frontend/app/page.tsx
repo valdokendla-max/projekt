@@ -840,12 +840,12 @@ export default function LaserGraveerimiseApp() {
     () =>
       new DefaultChatTransport({
         api: '/api/chat',
-        prepareSendMessagesRequest: ({ api, messages, body, headers }) => ({
-          api,
-          messages,
-          body: savedSettingsSummaryRef.current
-            ? { ...body, savedSettingsSummary: savedSettingsSummaryRef.current }
-            : (body ?? {}),
+        prepareSendMessagesRequest: ({ messages, body, headers }) => ({
+          body: {
+            ...(body ?? {}),
+            messages,
+            ...(savedSettingsSummaryRef.current ? { savedSettingsSummary: savedSettingsSummaryRef.current } : {}),
+          },
           headers: authTokenRef.current
             ? { ...headers, Authorization: `Bearer ${authTokenRef.current}` }
             : headers,
