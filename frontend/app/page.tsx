@@ -131,6 +131,8 @@ const PAGE_COPY = {
       imageVisionHint: 'Vision-mudel analüüsib pilti koos sinu salvestatud masina seadistusega.',
       reliefAction: 'Genereeri reljeef',
       reliefWorking: 'Töötlen stiili',
+      analyzeImageLabel: 'Anna parimad seadistused sellele pildile',
+      analyzeImageSubLabel: 'Kiirus · Võimsus · DPI · Passid · Soovitused',
       placeholder: 'Küsi masina, materjali või seadete kohta...',
       footer: 'Laser Graveerimine - sinu lasergraveerimise abiline',
     },
@@ -290,6 +292,8 @@ const PAGE_COPY = {
       imageVisionHint: 'The vision model analyzes the image together with your saved machine settings.',
       reliefAction: 'Generate relief',
       reliefWorking: 'Transforming style',
+      analyzeImageLabel: 'Get best settings for this image',
+      analyzeImageSubLabel: 'Speed · Power · DPI · Passes · Recommendations',
       placeholder: 'Ask about machine, material, or settings...',
       footer: 'Laser Graveerimine - your laser engraving assistant',
     },
@@ -449,6 +453,8 @@ const PAGE_COPY = {
     imageVisionHint: string
     reliefAction: string
     reliefWorking: string
+    analyzeImageLabel: string
+    analyzeImageSubLabel: string
     placeholder: string
     footer: string
   }
@@ -963,6 +969,35 @@ export default function LaserGraveerimiseApp() {
     }
   }
 
+  const handleAnalyzeImage = async () => {
+    if (!pendingImage || isLoading) return
+    const settingsCtx = savedSettingsSummary
+      ? language === 'en'
+        ? `My active machine and material settings: ${savedSettingsSummary}.`
+        : `Minu aktiivne masina ja materjali seadistus: ${savedSettingsSummary}.`
+      : language === 'en'
+        ? 'No machine/material settings saved yet — give general recommendations.'
+        : 'Masina ja materjali seadistus puudub — anna üldised soovitused.'
+
+    const prompt = language === 'en'
+      ? `Analyze this image for laser engraving. ${settingsCtx}
+
+Please provide in a clear structured format:
+1. **Image quality assessment** — Is this image suitable for engraving as-is? What are the main issues (contrast, detail, background, gradients)?
+2. **Preparation steps** — Exact steps to prepare this image: contrast adjustment, threshold, background removal, recommended resolution (DPI), and output format (PNG/BMP/SVG).
+3. **Laser settings** — Based on my machine and material, give concrete starting values: speed (mm/min), power (%), passes, line interval (mm), DPI, and air assist on/off.
+4. **Tips** — Any specific notes for this image/material combination to get the best result.`
+      : `Analüüsi seda pilti lasergraveerimiseks. ${settingsCtx}
+
+Anna selges struktureeritud formaadis:
+1. **Pildi kvaliteedi hinnang** — Kas pilt sobib graveerimiseks sellisena nagu on? Mis on peamised probleemid (kontrast, detail, taust, gradandid)?
+2. **Ettevalmistuse sammud** — Täpsed sammud pildi ettevalmistamiseks: kontrastikorrektioon, threshold, tausta eemaldus, soovituslik resolutsioon (DPI) ja väljundformaat (PNG/BMP/SVG).
+3. **Laseri seadistused** — Anna minu masina ja materjali põhjal konkreetsed lähteseaded: kiirus (mm/min), võimsus (%), passid, joone vahe (mm), DPI ja air assist sees/väljas.
+4. **Soovitused** — Erilised märkused selle pildi ja materjali kombinatsiooni jaoks parima tulemuse saavutamiseks.`
+
+    await sendChatRequest(prompt)
+  }
+
   const handleSubmit = async () => {
     await sendChatRequest(input)
   }
@@ -1295,6 +1330,7 @@ export default function LaserGraveerimiseApp() {
                   onImageSelect={handleImageSelect}
                   onClearImage={handleClearPendingImage}
                   onTransformImage={(style) => void handleTransformImage(style as ImageTransformStyle)}
+                  onAnalyzeImage={pendingImage ? handleAnalyzeImage : undefined}
                   imageStyleActions={imageStyleActions}
                   activeTransformStyle={activeTransformStyle}
                   transformWorkingLabel={copy.chatInput.reliefWorking}
@@ -1313,6 +1349,7 @@ export default function LaserGraveerimiseApp() {
                 onImageSelect={handleImageSelect}
                 onClearImage={handleClearPendingImage}
                 onTransformImage={(style) => void handleTransformImage(style as ImageTransformStyle)}
+                onAnalyzeImage={pendingImage ? handleAnalyzeImage : undefined}
                 imageStyleActions={imageStyleActions}
                 activeTransformStyle={activeTransformStyle}
                 transformWorkingLabel={copy.chatInput.reliefWorking}

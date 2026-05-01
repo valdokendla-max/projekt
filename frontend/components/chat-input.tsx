@@ -3,7 +3,7 @@
 import { useRef, useEffect } from 'react'
 import type { FileUIPart } from 'ai'
 import Image from 'next/image'
-import { ArrowUp, ImagePlus, Loader2, Sparkles, X } from 'lucide-react'
+import { ArrowUp, ImagePlus, Loader2, ScanSearch, Sparkles, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface ImageStyleAction {
@@ -20,6 +20,7 @@ interface ChatInputProps {
   onImageSelect: (file: File | null) => Promise<void> | void
   onClearImage: () => void
   onTransformImage?: (style: string) => Promise<void> | void
+  onAnalyzeImage?: () => Promise<void> | void
   imageStyleActions?: ImageStyleAction[]
   activeTransformStyle?: string | null
   transformWorkingLabel?: string
@@ -34,6 +35,8 @@ interface ChatInputProps {
     imageVisionHint: string
     reliefAction: string
     reliefWorking: string
+    analyzeImageLabel: string
+    analyzeImageSubLabel: string
     placeholder: string
     footer: string
   }
@@ -49,6 +52,7 @@ export function ChatInput({
   onImageSelect,
   onClearImage,
   onTransformImage,
+  onAnalyzeImage,
   imageStyleActions,
   activeTransformStyle = null,
   transformWorkingLabel,
@@ -184,6 +188,23 @@ export function ChatInput({
                   </div>
                 )}
               </div>
+
+              {onAnalyzeImage && (
+                <button
+                  type="button"
+                  onClick={() => void onAnalyzeImage()}
+                  disabled={isLoading || Boolean(activeTransformStyle)}
+                  className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-cyan-400/22 bg-cyan-400/10 px-4 py-3 text-left transition-all hover:border-cyan-400/40 hover:bg-cyan-400/18 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-400/28 bg-cyan-400/14 text-cyan-300">
+                    {isLoading ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <ScanSearch className="h-4.5 w-4.5" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-cyan-50">{copy.analyzeImageLabel}</p>
+                    <p className="mt-0.5 text-[11px] text-cyan-100/52">{copy.analyzeImageSubLabel}</p>
+                  </div>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onClearImage}
