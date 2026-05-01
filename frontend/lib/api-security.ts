@@ -180,25 +180,36 @@ async function ensureRateLimitSchema() {
 }
 
 export async function enforceRouteRateLimit(options: RateLimitOptions) {
-  await ensureRateLimitSchema()
+  try {
+    await ensureRateLimitSchema()
+  } catch {
+    // If database is unavailable, skip rate limiting gracefully.
+    return null
+  }
 
   const actorKeyHash = hashActorKey(options.actorKey)
   const windowStart = new Date(
     Math.floor(Date.now() / (options.windowSeconds * 1000)) * options.windowSeconds * 1000,
   ).toISOString()
 
-  const result = await queryPostgres<{ request_count: number }>(
-    `
-      INSERT INTO app_rate_limits (route_id, actor_key, window_start, request_count, updated_at)
-      VALUES ($1, $2, $3::timestamptz, 1, NOW())
-      ON CONFLICT (route_id, actor_key, window_start)
-      DO UPDATE
-        SET request_count = app_rate_limits.request_count + 1,
-            updated_at = NOW()
-      RETURNING request_count
-    `,
-    [options.routeId, actorKeyHash, windowStart],
-  )
+  let result: Awaited<ReturnType<typeof queryPostgres<{ request_count: number }>>>
+  try {
+    result = await queryPostgres<{ request_count: number }>(
+      `
+        INSERT INTO app_rate_limits (route_id, actor_key, window_start, request_count, updated_at)
+        VALUES ($1, $2, $3::timestamptz, 1, NOW())
+        ON CONFLICT (route_id, actor_key, window_start)
+        DO UPDATE
+          SET request_count = app_rate_limits.request_count + 1,
+              updated_at = NOW()
+        RETURNING request_count
+      `,
+      [options.routeId, actorKeyHash, windowStart],
+    )
+  } catch {
+    // If the query fails, skip rate limiting gracefully.
+    return null
+  }
 
   const requestCount = result.rows[0]?.request_count || 0
   if (requestCount > options.maxRequests) {
