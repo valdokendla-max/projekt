@@ -328,6 +328,14 @@ async function ensureAuthSchema() {
         )
       `);
 
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS app_user_laser_settings (
+          user_id text PRIMARY KEY REFERENCES app_auth_users(id) ON DELETE CASCADE,
+          settings jsonb NOT NULL,
+          updated_at timestamptz NOT NULL DEFAULT NOW()
+        )
+      `);
+
       const countResult = await client.query("SELECT COUNT(*)::text AS count FROM app_auth_users");
       const userCount = Number(countResult.rows[0]?.count || "0");
 
@@ -1043,6 +1051,7 @@ module.exports = {
   AUTH_STORE_PATH,
   changePassword,
   createHttpError,
+  getPool,
   getUserByToken,
   invalidateSession,
   issueTemporaryPassword,

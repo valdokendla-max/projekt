@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const authStore = {
   changePassword,
+  getPool,
   getUserByToken,
   invalidateSession,
   issueTemporaryPassword,
@@ -501,6 +502,38 @@ app.get("/api/health", async (req, res) => {
     status.db = "error";
   }
   res.status(status.ok ? 200 : 503).json(status);
+});
+
+app.get("/api/user/laser-settings", async (req, res) => {
+  try {
+    const user = await resolveAuthenticatedUser(req);
+    const pool = getPool();
+    const result = await pool.query(
+      "SELECT settings FROM app_user_laser_settings WHERE user_id = $1",
+      [user.id]
+    );
+    res.json(result.rows.length > 0 ? result.rows[0].settings : null);
+  } catch (error) {
+    sendError(res, error, "Seadistuste laadimine ebaõnnestus.");
+  }
+});
+
+app.put("/api/user/laser-settings", async (req, res) => {
+  try {
+    const user = await resolveAuthenticatedUser(req);
+    const settings = req.body;
+    const pool = getPool();
+    await pool.query(
+      `INSERT INTO app_user_laser_settings (user_id, settings, updated_at)
+       VALUES ($1, $2::jsonb, NOW())
+       ON CONFLICT (user_id)
+       DO UPDATE SET settings = $2::jsonb, updated_at = NOW()`,
+      [user.id, JSON.stringify(settings)]
+    );
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error, "Seadistuste salvestamine ebaõnnestus.");
+  }
 });
 
 app.get("/api/machines", (req, res) => {

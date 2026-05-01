@@ -432,18 +432,46 @@ export function LaserSettingsPanel({
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null)
   const [error, setError] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
-  const [pendingStoredSettings, setPendingStoredSettings] = useState(() => readSavedLaserSettings())
-  const [hasHydratedStoredSettings, setHasHydratedStoredSettings] = useState(() => readSavedLaserSettings() === null)
+  const [pendingStoredSettings, setPendingStoredSettings] = useState<StoredLaserSettings | null>(null)
+  const [hasHydratedStoredSettings, setHasHydratedStoredSettings] = useState(false)
   const isRestoringSavedSettings = useRef(false)
 
+  // Load settings: from server if logged in, otherwise from localStorage
   useEffect(() => {
-    const storedSettings = readSavedLaserSettings()
-
-    setPendingStoredSettings(storedSettings)
-    setHasHydratedStoredSettings(storedSettings === null)
-    onSavedSettingsSummaryChange?.(storedSettings?.summary || '')
-    onSavedSettingsChange?.(storedSettings)
-  }, [onSavedSettingsChange, onSavedSettingsSummaryChange])
+    if (authToken) {
+      fetch('/api/user/laser-settings', {
+        headers: { Authorization: `Bearer ${authToken}` },
+        cache: 'no-store',
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: StoredLaserSettings | null) => {
+          const settings = data && typeof data === 'object' && 'machineId' in data ? data : null
+          // Mirror to localStorage so it's available immediately on next load
+          if (settings) {
+            writeSavedLaserSettings(settings)
+          }
+          setPendingStoredSettings(settings)
+          setHasHydratedStoredSettings(settings === null)
+          onSavedSettingsSummaryChange?.(settings?.summary || '')
+          onSavedSettingsChange?.(settings)
+        })
+        .catch(() => {
+          // Fall back to localStorage if server is unreachable
+          const local = readSavedLaserSettings()
+          setPendingStoredSettings(local)
+          setHasHydratedStoredSettings(local === null)
+          onSavedSettingsSummaryChange?.(local?.summary || '')
+          onSavedSettingsChange?.(local)
+        })
+    } else {
+      const local = readSavedLaserSettings()
+      setPendingStoredSettings(local)
+      setHasHydratedStoredSettings(local === null)
+      onSavedSettingsSummaryChange?.(local?.summary || '')
+      onSavedSettingsChange?.(local)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authToken])
 
   useEffect(() => {
     if (!machineId && machines.length > 0) {
@@ -549,6 +577,14 @@ export function LaserSettingsPanel({
     onSavedSettingsSummaryChange?.(currentSummary)
     onSavedSettingsChange?.(nextStoredSettings)
     setStatusMessage(copy.savedNowActive)
+
+    if (authToken) {
+      fetch('/api/user/laser-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify(nextStoredSettings),
+      }).catch(() => { /* localStorage already saved */ })
+    }
   }
 
   const handleClearSavedSettings = () => {
@@ -556,6 +592,14 @@ export function LaserSettingsPanel({
     onSavedSettingsSummaryChange?.('')
     onSavedSettingsChange?.(null)
     setStatusMessage(copy.savedRemoved)
+
+    if (authToken) {
+      fetch('/api/user/laser-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify(null),
+      }).catch(() => { /* ignore */ })
+    }
   }
 
   const handleCalculate = async () => {
