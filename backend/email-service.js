@@ -32,11 +32,11 @@ function getAppBaseUrl() {
 
 function getResendConfig() {
   const apiKey = normalize(process.env.RESEND_API_KEY);
-  const from = normalize(process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.MAIL_FROM);
+  const from = normalize(process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.MAIL_FROM) || "onboarding@resend.dev";
   return {
     apiKey,
     from,
-    isConfigured: Boolean(apiKey && from),
+    isConfigured: Boolean(apiKey),
   };
 }
 
