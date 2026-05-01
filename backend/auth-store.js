@@ -106,7 +106,7 @@ function readConfiguredAdminEmails() {
     DEFAULT_ADMIN_EMAILS.map((email) => normalizeEmail(email)).filter(Boolean)
   );
 
-  for (const email of String(process.env.AUTH_ADMIN_EMAILS || "")
+  for (const email of String(process.env.ADMIN_EMAILS || "")
     .split(",")
     .map((value) => normalizeEmail(value))
     .filter(Boolean)) {

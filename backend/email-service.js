@@ -14,7 +14,7 @@ function getConfiguredAdminEmails() {
     DEFAULT_ADMIN_EMAILS.map((email) => normalize(email).toLowerCase()).filter(Boolean)
   );
 
-  for (const email of normalize(process.env.AUTH_ADMIN_EMAILS)
+  for (const email of normalize(process.env.ADMIN_EMAILS)
     .split(",")
     .map((value) => normalize(value).toLowerCase())
     .filter(Boolean)) {
