@@ -59,6 +59,7 @@ function getTransporter() {
       port: config.port,
       secure: config.secure,
       requireTLS: !config.secure,
+      family: 4,
       auth: config.user && config.pass
         ? {
             user: config.user,
