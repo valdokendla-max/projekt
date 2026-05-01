@@ -3,6 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Flame, Layers, Settings2 } from 'lucide-react'
 import { getClientBackendUrl } from '@/lib/backend-url'
+
+const AUTH_TOKEN_KEY = 'lasergraveerimine.auth-token'
+
+function getAuthHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? window.localStorage.getItem(AUTH_TOKEN_KEY) : null
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 import {
   clearSavedLaserSettings,
   readSavedLaserSettings,
@@ -319,7 +326,7 @@ function useBackendMachines() {
   useEffect(() => {
     let cancelled = false
 
-    fetch(`${BACKEND_URL}/api/machines`)
+    fetch(`${BACKEND_URL}/api/machines`, { headers: getAuthHeaders() })
       .then(async (response) => {
         if (!response.ok) {
           throw new Error('Masinate laadimine ebaõnnestus.')
@@ -362,7 +369,7 @@ function useBackendMaterials() {
   useEffect(() => {
     let cancelled = false
 
-    fetch(`${BACKEND_URL}/api/materials`)
+    fetch(`${BACKEND_URL}/api/materials`, { headers: getAuthHeaders() })
       .then(async (response) => {
         if (!response.ok) {
           throw new Error('Materjalide laadimine ebaõnnestus.')
@@ -567,6 +574,7 @@ export function LaserSettingsPanel({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...getAuthHeaders(),
         },
         body: JSON.stringify({
           machineId,

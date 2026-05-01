@@ -382,9 +382,8 @@ app.post("/api/auth/users/:userId/role", async (req, res) => {
   }
 });
 
-app.get("/api/knowledge/context", async (req, res) => {
+app.get("/api/knowledge/context", async (_req, res) => {
   try {
-    await resolveAuthenticatedUser(req);
     const items = await knowledge.getAll();
     const context = await knowledge.getContext();
     res.json({
