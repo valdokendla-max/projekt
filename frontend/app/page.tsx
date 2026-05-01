@@ -845,7 +845,7 @@ export default function LaserGraveerimiseApp() {
           messages,
           body: savedSettingsSummaryRef.current
             ? { ...body, savedSettingsSummary: savedSettingsSummaryRef.current }
-            : body,
+            : (body ?? {}),
           headers: authTokenRef.current
             ? { ...headers, Authorization: `Bearer ${authTokenRef.current}` }
             : headers,
