@@ -826,18 +826,26 @@ export default function LaserGraveerimiseApp() {
   const canAccessKnowledge = auth.status === 'authenticated' && auth.user?.role === 'admin'
   const copy = PAGE_COPY[language]
 
+  const authTokenRef = useRef(auth.token)
+  useEffect(() => {
+    authTokenRef.current = auth.token
+  }, [auth.token])
+
+  const savedSettingsSummaryRef = useRef(savedSettingsSummary)
+  useEffect(() => {
+    savedSettingsSummaryRef.current = savedSettingsSummary
+  }, [savedSettingsSummary])
+
   const chatTransport = useMemo(
     () =>
       new DefaultChatTransport({
         api: '/api/chat',
-        body: savedSettingsSummary ? { savedSettingsSummary } : undefined,
-        headers: auth.token
-          ? {
-              Authorization: `Bearer ${auth.token}`,
-            }
-          : undefined,
+        body: () => savedSettingsSummaryRef.current ? { savedSettingsSummary: savedSettingsSummaryRef.current } : undefined,
+        headers: () => authTokenRef.current
+          ? { Authorization: `Bearer ${authTokenRef.current}` }
+          : {},
       }),
-    [auth.token, savedSettingsSummary]
+    []
   )
 
   const { messages, sendMessage, status, setMessages, error: chatStreamError } = useChat({
