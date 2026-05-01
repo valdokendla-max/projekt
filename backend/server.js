@@ -313,10 +313,13 @@ app.post("/api/auth/reset-password", async (req, res) => {
 
 app.get("/api/auth/email-status", async (_req, res) => {
   const config = email.getMailConfig();
+  const from = String(config.from || "");
+  const safeFrom = from.includes("@") ? from : "";
   res.json({
     configured: config.isConfigured,
     appBaseUrl: config.appBaseUrl,
-    from: config.from || "",
+    provider: config.provider,
+    from: safeFrom,
   });
 });
 
