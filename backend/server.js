@@ -518,13 +518,7 @@ app.get("/api/materials", (req, res) => {
   res.json(compact);
 });
 
-app.post("/api/recommendation", async (req, res) => {
-  try {
-    await resolveAuthenticatedUser(req);
-  } catch (error) {
-    sendError(res, error, "Soovitused pole kättesaadavad.");
-    return;
-  }
+app.post("/api/recommendation", (req, res) => {
   const { machineId, materialId, thicknessMm, mode, widthMm, heightMm } = req.body || {};
 
   const result = lasers.getRecommendation({

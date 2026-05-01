@@ -834,9 +834,15 @@ export default function LaserGraveerimiseApp() {
     [auth.token, savedSettingsSummary]
   )
 
-  const { messages, sendMessage, status, setMessages } = useChat({
+  const { messages, sendMessage, status, setMessages, error: chatStreamError } = useChat({
     transport: chatTransport,
   })
+
+  useEffect(() => {
+    if (chatStreamError) {
+      setChatInputError(chatStreamError.message || copy.errors.sendMessage)
+    }
+  }, [chatStreamError, copy.errors.sendMessage])
 
   const hasMessages = messages.length > 0
   const hasImageContext = Boolean(pendingImage) || messages.some(messageHasImage)

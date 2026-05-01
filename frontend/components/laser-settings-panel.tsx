@@ -288,7 +288,11 @@ function buildSavedSettingsSummary(args: {
 }
 
 function sortMachines(machines: Machine[]) {
+  const typePriority: Record<string, number> = { diode: 0, co2: 1, fiber: 2, infrared: 3 }
   return [...machines].sort((left, right) => {
+    const leftPriority = typePriority[left.laserType] ?? 9
+    const rightPriority = typePriority[right.laserType] ?? 9
+    if (leftPriority !== rightPriority) return leftPriority - rightPriority
     const leftLabel = `${left.brand} ${left.model}`
     const rightLabel = `${right.brand} ${right.model}`
     return leftLabel.localeCompare(rightLabel)
@@ -521,6 +525,7 @@ export function LaserSettingsPanel({
 
     setRecommendation(null)
     setStatusMessage('')
+    setError('')
   }, [heightMmInput, machineId, materialId, thicknessMm, mode, widthMmInput])
 
   const handleSave = () => {
