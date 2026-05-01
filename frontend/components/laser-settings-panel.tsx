@@ -319,23 +319,15 @@ function formatNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
 }
 
-function useBackendMachines(token: string | null | undefined) {
+function useBackendMachines() {
   const [machines, setMachines] = useState<Machine[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!token) {
-      setLoading(false)
-      setMachines([])
-      setError('')
-      return
-    }
-
-    setLoading(true)
     let cancelled = false
 
-    fetch(`${BACKEND_URL}/api/machines`, { headers: buildAuthHeaders(token) })
+    fetch(`${BACKEND_URL}/api/machines`)
       .then(async (response) => {
         if (!response.ok) {
           throw new Error('Masinate laadimine ebaõnnestus.')
@@ -360,28 +352,20 @@ function useBackendMachines(token: string | null | undefined) {
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [])
 
   return { machines, loading, error }
 }
 
-function useBackendMaterials(token: string | null | undefined) {
+function useBackendMaterials() {
   const [materials, setMaterials] = useState<Material[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!token) {
-      setLoading(false)
-      setMaterials([])
-      setError('')
-      return
-    }
-
-    setLoading(true)
     let cancelled = false
 
-    fetch(`${BACKEND_URL}/api/materials`, { headers: buildAuthHeaders(token) })
+    fetch(`${BACKEND_URL}/api/materials`)
       .then(async (response) => {
         if (!response.ok) {
           throw new Error('Materjalide laadimine ebaõnnestus.')
@@ -406,7 +390,7 @@ function useBackendMaterials(token: string | null | undefined) {
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [])
 
   return { materials, loading, error }
 }
@@ -431,8 +415,8 @@ export function LaserSettingsPanel({
   onSavedSettingsChange,
 }: LaserSettingsPanelProps) {
   const copy = PANEL_COPY[language]
-  const { machines, loading: loadingMachines, error: machinesError } = useBackendMachines(authToken)
-  const { materials, loading: loadingMaterials, error: materialsError } = useBackendMaterials(authToken)
+  const { machines, loading: loadingMachines, error: machinesError } = useBackendMachines()
+  const { materials, loading: loadingMaterials, error: materialsError } = useBackendMaterials()
 
   const [machineId, setMachineId] = useState('')
   const [materialId, setMaterialId] = useState('')
@@ -610,14 +594,6 @@ export function LaserSettingsPanel({
     } finally {
       setLoadingRecommendation(false)
     }
-  }
-
-  if (!authToken) {
-    return (
-      <section className={cn('hud-panel p-4 md:p-5', className)}>
-        <p className="text-sm text-slate-300">{copy.loginRequired}</p>
-      </section>
-    )
   }
 
   if (loadingMachines || loadingMaterials) {
