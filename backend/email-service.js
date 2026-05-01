@@ -58,6 +58,7 @@ function getTransporter() {
       host: config.host,
       port: config.port,
       secure: config.secure,
+      requireTLS: !config.secure,
       auth: config.user && config.pass
         ? {
             user: config.user,
@@ -78,10 +79,15 @@ async function sendEmail(message) {
     return { sent: false, skipped: true };
   }
 
-  await transporter.sendMail({
-    from: config.from,
-    ...message,
-  });
+  try {
+    await transporter.sendMail({
+      from: config.from,
+      ...message,
+    });
+  } catch (error) {
+    cachedTransporter = null;
+    throw error;
+  }
 
   return { sent: true };
 }
