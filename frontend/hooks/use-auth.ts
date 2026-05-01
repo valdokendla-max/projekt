@@ -118,19 +118,16 @@ export function useAuth() {
       return
     }
 
-    persistToken(storedToken)
-
     void (async () => {
       const currentUser = await fetchCurrentUser(storedToken)
 
       if (!currentUser) {
         window.localStorage.removeItem(AUTH_TOKEN_KEY)
-        setToken(null)
-        setUser(null)
         setStatus('anonymous')
         return
       }
 
+      persistToken(storedToken)
       setUser(currentUser)
       setStatus('authenticated')
     })()
