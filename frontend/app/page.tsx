@@ -23,6 +23,25 @@ import { cn } from '@/lib/utils'
 
 const MAX_CHAT_IMAGE_BYTES = 3 * 1024 * 1024
 const QUICK_ACTIONS_STORAGE_KEY = 'laser-graveerimine:quick-actions'
+
+const PRESET_PROMPTS: Record<UiLanguage, Array<{ label: string; prompt: string }>> = {
+  et: [
+    { label: 'Seadistusoovitus', prompt: 'Koosta seadistusoovitus minu aktiivse masina ja materjali jaoks koos kiiruse, võimsuse ja passide soovitusega.' },
+    { label: 'Logo ettevalmistus', prompt: 'Anna juhised logo või märgistuse faili ettevalmistamiseks lasergraveerimiseks minu aktiivse masina jaoks.' },
+    { label: 'Foto puhastus', prompt: 'Puhasta see foto lasergraveerimiseks sobivaks — suurenda kontrasti, muuda must-valgeks ja soovita DPI.' },
+    { label: 'LightBurn eksport', prompt: 'Selgita LightBurn ekspordi seadistust minu aktiivse masina ja materjali jaoks ning millised formaadid valida.' },
+    { label: 'Ohutuskontroll', prompt: 'Tee ohutuskontroll minu aktiivse masina ja materjali jaoks enne graveerimise alustamist.' },
+    { label: 'Materjali presetid', prompt: 'Anna minu aktiivse masina jaoks konkreetsed lähteseaded erinevate materjalide jaoks.' },
+  ],
+  en: [
+    { label: 'Settings advice', prompt: 'Build a settings recommendation for my active machine and material including speed, power, and passes.' },
+    { label: 'Logo prep', prompt: 'Give guidance on preparing a logo or marking file for laser engraving with my active machine.' },
+    { label: 'Photo cleanup', prompt: 'Clean up this photo for laser engraving — boost contrast, convert to B&W, and recommend DPI.' },
+    { label: 'LightBurn export', prompt: 'Explain LightBurn export settings for my active machine and material and which formats to choose.' },
+    { label: 'Safety check', prompt: 'Run a safety check for my active machine and material before starting engraving.' },
+    { label: 'Material presets', prompt: 'Give me baseline settings for various materials with my active machine.' },
+  ],
+}
 const SUPPORTED_CHAT_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const UI_LANGUAGE_STORAGE_KEY = 'laser-graveerimine:ui-language'
 const SITE_URL = 'https://vkengraveai.eu'
@@ -93,8 +112,9 @@ const PAGE_COPY = {
     quickActionEdit: {
       title: 'Muuda kiirtoimingut',
       labelField: 'Pealkiri',
-      descriptionField: 'Kirjeldus',
-      promptField: 'Prompt',
+      promptField: 'Mis AI vastab',
+      promptPresets: 'Vali preset',
+      promptCustom: 'Või kirjuta oma tekst',
       save: 'Salvesta',
       reset: 'Taasta vaikimisi',
       cancel: 'Tühista',
@@ -251,8 +271,9 @@ const PAGE_COPY = {
     quickActionEdit: {
       title: 'Edit quick action',
       labelField: 'Title',
-      descriptionField: 'Description',
-      promptField: 'Prompt',
+      promptField: 'What AI responds with',
+      promptPresets: 'Choose preset',
+      promptCustom: 'Or write your own',
       save: 'Save',
       reset: 'Reset to default',
       cancel: 'Cancel',
@@ -433,8 +454,9 @@ const PAGE_COPY = {
   quickActionEdit: {
     title: string
     labelField: string
-    descriptionField: string
     promptField: string
+    promptPresets: string
+    promptCustom: string
     save: string
     reset: string
     cancel: string
@@ -604,6 +626,7 @@ function RightPanelShell({
 function QuickActionEditDialog({
   open,
   draft,
+  language,
   editCopy,
   onDraftChange,
   onSave,
@@ -612,6 +635,7 @@ function QuickActionEditDialog({
 }: {
   open: boolean
   draft: UseCaseAction
+  language: UiLanguage
   editCopy: (typeof PAGE_COPY)[UiLanguage]['quickActionEdit']
   onDraftChange: (next: UseCaseAction) => void
   onSave: () => void
@@ -619,13 +643,14 @@ function QuickActionEditDialog({
   onClose: () => void
 }) {
   const inputClass = 'w-full rounded-[14px] border border-primary/12 bg-black/26 px-3 py-2.5 text-sm text-cyan-50 placeholder-slate-500 outline-none transition-colors focus:border-primary/28'
+  const presets = PRESET_PROMPTS[language]
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
       <DialogContent className="max-w-lg border-primary/14 bg-slate-950 text-cyan-50">
         <DialogHeader>
           <DialogTitle className="text-base text-cyan-50">{editCopy.title}</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-3 py-1">
+        <div className="grid gap-4 py-1">
           <div className="space-y-1.5">
             <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">{editCopy.labelField}</label>
             <input
@@ -635,19 +660,30 @@ function QuickActionEditDialog({
               className={inputClass}
             />
           </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">{editCopy.descriptionField}</label>
-            <textarea
-              rows={2}
-              value={draft.description}
-              onChange={(e) => onDraftChange({ ...draft, description: e.target.value })}
-              className={inputClass + ' resize-none'}
-            />
+          <div className="space-y-2">
+            <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">{editCopy.promptPresets}</label>
+            <div className="flex flex-wrap gap-2">
+              {presets.map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => onDraftChange({ ...draft, prompt: p.prompt })}
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
+                    draft.prompt === p.prompt
+                      ? 'border-primary/50 bg-primary/20 text-cyan-200'
+                      : 'border-primary/14 bg-black/24 text-cyan-100/60 hover:border-primary/30 hover:text-cyan-100/90'
+                  )}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">{editCopy.promptField}</label>
+            <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">{editCopy.promptCustom}</label>
             <textarea
-              rows={4}
+              rows={3}
               value={draft.prompt}
               onChange={(e) => onDraftChange({ ...draft, prompt: e.target.value })}
               className={inputClass + ' resize-none'}
@@ -1384,6 +1420,7 @@ Anna selges struktureeritud formaadis:
         <QuickActionEditDialog
           open={editingActionIndex !== null}
           draft={editDraft}
+          language={language}
           editCopy={copy.quickActionEdit}
           onDraftChange={setEditDraft}
           onSave={handleSaveEdit}
