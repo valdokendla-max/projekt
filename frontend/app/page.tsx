@@ -1081,7 +1081,12 @@ Anna selges struktureeritud formaadis:
   }
 
   const handleQuickAction = async (prompt: string) => {
-    await sendChatRequest(prompt)
+    const fullPrompt = pendingImage
+      ? (language === 'en'
+          ? `${prompt}\n\n(I have attached an image — apply this to the image I uploaded.)`
+          : `${prompt}\n\n(Olen lisanud pildi — rakenda see üleslaaditud pildile.)`)
+      : prompt
+    await sendChatRequest(fullPrompt)
   }
 
   const handleImageSelect = async (file: File | null) => {
