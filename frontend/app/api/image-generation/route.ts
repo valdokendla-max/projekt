@@ -14,6 +14,7 @@ import { parseSavedSettingsSummary } from '@/lib/engraving/preset-engine'
 import { optimizeEngravingPrompt } from '@/lib/engraving/prompt-optimizer'
 
 export const runtime = 'nodejs'
+export const maxDuration = 60
 
 interface RequestBody {
   prompt?: string

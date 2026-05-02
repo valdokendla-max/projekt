@@ -14,26 +14,14 @@ function buildProxyHeaders(request: Request) {
   return headers
 }
 
-export async function GET(request: Request) {
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/user/laser-settings`, {
-      headers: buildProxyHeaders(request),
-      cache: 'no-store',
-    })
-    const text = await response.text()
-    return new Response(text, {
-      status: response.status,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-    })
-  } catch {
-    return Response.json({ error: 'Seadistuste laadimine ebaõnnestus.' }, { status: 503 })
-  }
-}
-
-export async function PUT(request: Request) {
-  try {
+    const { id } = await params
     const body = await request.text()
-    const response = await fetch(`${BACKEND_URL}/api/user/laser-settings`, {
+    const response = await fetch(`${BACKEND_URL}/api/conversations/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: buildProxyHeaders(request),
       body,
@@ -45,6 +33,27 @@ export async function PUT(request: Request) {
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
     })
   } catch {
-    return Response.json({ error: 'Seadistuste salvestamine ebaõnnestus.' }, { status: 503 })
+    return Response.json({ error: 'Vestluse salvestamine ebaõnnestus.' }, { status: 503 })
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params
+    const response = await fetch(`${BACKEND_URL}/api/conversations/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: buildProxyHeaders(request),
+      cache: 'no-store',
+    })
+    const text = await response.text()
+    return new Response(text, {
+      status: response.status,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    })
+  } catch {
+    return Response.json({ error: 'Vestluse kustutamine ebaõnnestus.' }, { status: 503 })
   }
 }

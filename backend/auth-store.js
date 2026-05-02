@@ -336,6 +336,22 @@ async function ensureAuthSchema() {
         )
       `);
 
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS app_chat_conversations (
+          id text PRIMARY KEY,
+          user_id text NOT NULL REFERENCES app_auth_users(id) ON DELETE CASCADE,
+          title text NOT NULL DEFAULT '',
+          messages jsonb NOT NULL DEFAULT '[]',
+          created_at timestamptz NOT NULL DEFAULT NOW(),
+          updated_at timestamptz NOT NULL DEFAULT NOW()
+        )
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS app_chat_conversations_user_id_idx
+          ON app_chat_conversations (user_id, updated_at DESC)
+      `);
+
       const countResult = await client.query("SELECT COUNT(*)::text AS count FROM app_auth_users");
       const userCount = Number(countResult.rows[0]?.count || "0");
 

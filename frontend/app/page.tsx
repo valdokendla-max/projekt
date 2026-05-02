@@ -3,105 +3,32 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type FileUIPart } from 'ai'
-import Image from 'next/image'
-import { Settings2, Sparkles, WandSparkles, X } from 'lucide-react'
+import { History, Pencil, Settings2, Sparkles, X } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { ChatHeader } from '@/components/chat-header'
 import { ChatInput } from '@/components/chat-input'
-import { EngravingOptimizerPanel } from '@/components/engraving-optimizer-panel'
 import { ChatMessage } from '@/components/chat-message'
 import { KnowledgePanel } from '@/components/knowledge-panel'
 import { LaserSettingsPanel } from '@/components/laser-settings-panel'
 import { SEO_GUIDE_SUMMARIES } from './seo-content'
 import { readSavedLaserSettings, type StoredLaserSettings } from '@/lib/engraving/saved-settings-storage'
-import type { ImageAsset, OptimizerAsyncJob, WorkerProcessingResult } from '@/lib/engraving/types'
 import { useAuth } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
 
 const MAX_CHAT_IMAGE_BYTES = 3 * 1024 * 1024
+const QUICK_ACTIONS_STORAGE_KEY = 'laser-graveerimine:quick-actions'
 const SUPPORTED_CHAT_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const UI_LANGUAGE_STORAGE_KEY = 'laser-graveerimine:ui-language'
 const SITE_URL = 'https://vkengraveai.eu'
-type RightUtilityPanel = 'settings' | 'optimizer'
+type RightUtilityPanel = 'settings' | 'conversations'
 type UiLanguage = 'et' | 'en'
-type ShowcaseAction = { label: string; value: string; prompt: string }
 type UseCaseAction = { label: string; description: string; prompt: string }
-type ImageTransformStyle = 'bas-relief' | 'medallion' | 'stone-carving' | 'wood-carving'
-
-const IMAGE_STYLE_OPTIONS: Record<UiLanguage, Array<{ key: ImageTransformStyle; label: string }>> = {
-  et: [
-    { key: 'bas-relief', label: 'Reljeef' },
-    { key: 'medallion', label: 'Medaljon' },
-    { key: 'stone-carving', label: 'Kivinikerdus' },
-    { key: 'wood-carving', label: 'Puunikerdus' },
-  ],
-  en: [
-    { key: 'bas-relief', label: 'Relief' },
-    { key: 'medallion', label: 'Medallion' },
-    { key: 'stone-carving', label: 'Stone carve' },
-    { key: 'wood-carving', label: 'Wood carve' },
-  ],
-}
-
-const STYLE_OPTIMIZE_PROMPTS: Record<UiLanguage, Record<ImageTransformStyle, string>> = {
-  et: {
-    'bas-relief': 'Optimeeri see reljeefne nikerduspilt lasergraveerimiseks.',
-    medallion: 'Optimeeri see medaljon-stiilis nikerduspilt lasergraveerimiseks.',
-    'stone-carving': 'Optimeeri see kivinikerdus-stiilis pilt lasergraveerimiseks.',
-    'wood-carving': 'Optimeeri see puunikerdus-stiilis pilt lasergraveerimiseks.',
-  },
-  en: {
-    'bas-relief': 'Optimize this bas-relief carving for laser engraving.',
-    medallion: 'Optimize this medallion carving for laser engraving.',
-    'stone-carving': 'Optimize this stone-carved image for laser engraving.',
-    'wood-carving': 'Optimize this wood-carved image for laser engraving.',
-  },
-}
-
-interface OptimizeImageResponse {
-  ok: boolean
-  queued: boolean
-  jobId: string
-  job: OptimizerAsyncJob
-  workerResult: WorkerProcessingResult | null
-  workerError: string
-}
-
-function wait(durationMs: number) {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, durationMs)
-  })
-}
-
-function formatModeChip(mode: 'engrave' | 'cut', language: UiLanguage) {
-  if (language === 'en') {
-    return mode === 'cut' ? 'Cut preset' : 'Engrave preset'
-  }
-
-  return mode === 'cut' ? 'Lõike preset' : 'Graveerimise preset'
-}
-
-function getPreviewSizeLabel(savedSettings: StoredLaserSettings | null, language: UiLanguage) {
-  if (!savedSettings) {
-    return language === 'en' ? 'Not set' : 'Määramata'
-  }
-
-  const widthMm = savedSettings.widthMm ?? savedSettings.recommendation?.estimates?.widthMm ?? null
-  const heightMm = savedSettings.heightMm ?? savedSettings.recommendation?.estimates?.heightMm ?? null
-
-  if (widthMm && heightMm) {
-    return `${widthMm} x ${heightMm} mm`
-  }
-
-  if (widthMm) {
-    return `${widthMm} x ? mm`
-  }
-
-  if (heightMm) {
-    return `? x ${heightMm} mm`
-  }
-
-  return language === 'en' ? 'Add size' : 'Lisa mõõt'
-}
 
 const PAGE_COPY = {
   et: {
@@ -147,23 +74,6 @@ const PAGE_COPY = {
       description: 'Reaalne tööala lasergraveerimise jaoks: vestlus, masinapõhised soovitused ja eksporditav väljund samas vaates. Avalehe hero-plokk näitab nüüd päris näidisstiili, mitte ainult dekoratiivset illustratsiooni.',
       quickActionPrefix: 'Kiirtoiming',
     },
-    showcaseActions: [
-      {
-        label: 'Materjalid',
-        value: 'Puit, metall, nahk',
-        prompt: 'Anna minu aktiivse masina ja materjali jaoks konkreetsed lähteseaded koos kiiruse, võimsuse, passide, joone vahe, air assisti ja tähelepanekutega.',
-      },
-      {
-        label: 'Töövoog',
-        value: 'Prompt -> optimize -> export',
-        prompt: 'Kirjelda mulle samm-sammult töövoogu alates pildist või promptist kuni graveerimiseks valmis faili ekspordini minu aktiivse seadistuse järgi.',
-      },
-      {
-        label: 'Väljund',
-        value: 'PNG, SVG, DXF',
-        prompt: 'Selgita, millal kasutada PNG, SVG või DXF väljundit minu aktiivse masina ja materjali puhul.',
-      },
-    ],
     useCaseActions: [
       {
         label: 'Logo ja märgistus',
@@ -180,6 +90,25 @@ const PAGE_COPY = {
         prompt: 'Koosta mulle praktiline seadistusoovitus minu aktiivse masina, materjali ja režiimi jaoks ning lisa lühike töötlusplaan.',
       },
     ],
+    quickActionEdit: {
+      title: 'Muuda kiirtoimingut',
+      labelField: 'Pealkiri',
+      descriptionField: 'Kirjeldus',
+      promptField: 'Prompt',
+      save: 'Salvesta',
+      reset: 'Taasta vaikimisi',
+      cancel: 'Tühista',
+    },
+    conversations: {
+      dock: 'Ava vestlused',
+      title: 'Salvestatud vestlused',
+      description: 'Klikka vestlusel selle laadimiseks.',
+      shell: 'Vestluste ajalugu',
+      empty: 'Salvestatud vestlusi pole veel.',
+      deleteLabel: 'Kustuta',
+      saving: 'Salvestatakse...',
+      loadError: 'Vestluste laadimine ebaõnnestus.',
+    },
     commandModes: [
       {
         label: 'Materjali presetid',
@@ -203,13 +132,10 @@ const PAGE_COPY = {
     ],
     panels: {
       settingsDock: 'Ava seadistusmoodul',
-      optimizerDock: 'Ava optimizer',
       shell: 'Parempaneel',
       closePanel: 'Sulge paneel',
       settingsTitle: 'Seadistusmoodul',
       settingsDescription: 'Ava laserimasina, materjali ja soovituslike seadete paneel ainult siis, kui seda päriselt vajad.',
-      optimizerTitle: 'Optimizer pipeline',
-      optimizerDescription: 'Ava pildi genereerimise, optimeerimise ja ekspordi tööriistad ainult kliki peale.',
     },
     chat: {
       label: 'Vestluskeskus',
@@ -217,8 +143,6 @@ const PAGE_COPY = {
       settings: 'Seaded',
       saved: 'Salvestatud',
       openPanel: 'Ava paneel',
-      optimizer: 'Optimizer',
-      processing: 'Töötlen',
     },
     errors: {
       fileRead: 'Pildi lugemine ebaõnnestus.',
@@ -308,23 +232,6 @@ const PAGE_COPY = {
       description: 'A real laser-engraving workspace: chat, machine-based recommendations, and exportable output in the same view. The homepage hero now shows an actual sample style instead of a decorative illustration.',
       quickActionPrefix: 'Quick action',
     },
-    showcaseActions: [
-      {
-        label: 'Materials',
-        value: 'Wood, metal, leather',
-        prompt: 'Give me concrete starting settings for my active machine and material, including speed, power, passes, line interval, air assist, and key notes.',
-      },
-      {
-        label: 'Workflow',
-        value: 'Prompt -> optimize -> export',
-        prompt: 'Describe the workflow step by step from an image or prompt to an engraving-ready export based on my active setup.',
-      },
-      {
-        label: 'Output',
-        value: 'PNG, SVG, DXF',
-        prompt: 'Explain when to use PNG, SVG, or DXF output for my active machine and material.',
-      },
-    ],
     useCaseActions: [
       {
         label: 'Logo and marking',
@@ -341,6 +248,25 @@ const PAGE_COPY = {
         prompt: 'Create a practical settings recommendation for my active machine, material, and mode, and include a short processing plan.',
       },
     ],
+    quickActionEdit: {
+      title: 'Edit quick action',
+      labelField: 'Title',
+      descriptionField: 'Description',
+      promptField: 'Prompt',
+      save: 'Save',
+      reset: 'Reset to default',
+      cancel: 'Cancel',
+    },
+    conversations: {
+      dock: 'Open conversations',
+      title: 'Saved conversations',
+      description: 'Click a conversation to load it.',
+      shell: 'Conversation history',
+      empty: 'No saved conversations yet.',
+      deleteLabel: 'Delete',
+      saving: 'Saving...',
+      loadError: 'Failed to load conversations.',
+    },
     commandModes: [
       {
         label: 'Material presets',
@@ -364,13 +290,10 @@ const PAGE_COPY = {
     ],
     panels: {
       settingsDock: 'Open settings module',
-      optimizerDock: 'Open optimizer',
       shell: 'Right panel',
       closePanel: 'Close panel',
       settingsTitle: 'Settings module',
       settingsDescription: 'Open the laser machine, material, and recommended settings panel only when you actually need it.',
-      optimizerTitle: 'Optimizer pipeline',
-      optimizerDescription: 'Open the image generation, optimization, and export tools on demand.',
     },
     chat: {
       label: 'Chat hub',
@@ -378,8 +301,6 @@ const PAGE_COPY = {
       settings: 'Settings',
       saved: 'Saved',
       openPanel: 'Open panel',
-      optimizer: 'Optimizer',
-      processing: 'Processing',
     },
     errors: {
       fileRead: 'Failed to read image.',
@@ -469,18 +390,14 @@ const PAGE_COPY = {
     description: string
     quickActionPrefix: string
   }
-  showcaseActions: ShowcaseAction[]
   useCaseActions: Array<Omit<UseCaseAction, 'prompt'> & { prompt?: string }>
   commandModes: Array<Omit<UseCaseAction, 'prompt'> & { prompt?: string }>
   panels: {
     settingsDock: string
-    optimizerDock: string
     shell: string
     closePanel: string
     settingsTitle: string
     settingsDescription: string
-    optimizerTitle: string
-    optimizerDescription: string
   }
   chat: {
     label: string
@@ -488,8 +405,6 @@ const PAGE_COPY = {
     settings: string
     saved: string
     openPanel: string
-    optimizer: string
-    processing: string
   }
   errors: {
     fileRead: string
@@ -514,6 +429,25 @@ const PAGE_COPY = {
       question: string
       answer: string
     }>
+  }
+  quickActionEdit: {
+    title: string
+    labelField: string
+    descriptionField: string
+    promptField: string
+    save: string
+    reset: string
+    cancel: string
+  }
+  conversations: {
+    dock: string
+    title: string
+    description: string
+    shell: string
+    empty: string
+    deleteLabel: string
+    saving: string
+    loadError: string
   }
 }>
 
@@ -667,113 +601,103 @@ function RightPanelShell({
   )
 }
 
+function QuickActionEditDialog({
+  open,
+  draft,
+  editCopy,
+  onDraftChange,
+  onSave,
+  onReset,
+  onClose,
+}: {
+  open: boolean
+  draft: UseCaseAction
+  editCopy: (typeof PAGE_COPY)[UiLanguage]['quickActionEdit']
+  onDraftChange: (next: UseCaseAction) => void
+  onSave: () => void
+  onReset: () => void
+  onClose: () => void
+}) {
+  const inputClass = 'w-full rounded-[14px] border border-primary/12 bg-black/26 px-3 py-2.5 text-sm text-cyan-50 placeholder-slate-500 outline-none transition-colors focus:border-primary/28'
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+      <DialogContent className="max-w-lg border-primary/14 bg-slate-950 text-cyan-50">
+        <DialogHeader>
+          <DialogTitle className="text-base text-cyan-50">{editCopy.title}</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3 py-1">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">{editCopy.labelField}</label>
+            <input
+              type="text"
+              value={draft.label}
+              onChange={(e) => onDraftChange({ ...draft, label: e.target.value })}
+              className={inputClass}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">{editCopy.descriptionField}</label>
+            <textarea
+              rows={2}
+              value={draft.description}
+              onChange={(e) => onDraftChange({ ...draft, description: e.target.value })}
+              className={inputClass + ' resize-none'}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">{editCopy.promptField}</label>
+            <textarea
+              rows={4}
+              value={draft.prompt}
+              onChange={(e) => onDraftChange({ ...draft, prompt: e.target.value })}
+              className={inputClass + ' resize-none'}
+            />
+          </div>
+        </div>
+        <DialogFooter className="flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={onReset}
+            className="inline-flex items-center justify-center rounded-[18px] border border-white/10 bg-black/24 px-4 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-white/18 hover:text-slate-100 mr-auto"
+          >
+            {editCopy.reset}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center justify-center rounded-[18px] border border-white/10 bg-black/24 px-4 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-white/18 hover:text-slate-100"
+          >
+            {editCopy.cancel}
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={!draft.label.trim() || !draft.prompt.trim()}
+            className="inline-flex items-center justify-center rounded-[18px] border border-primary/18 bg-linear-to-r from-cyan-300/90 via-primary to-cyan-400/80 px-4 py-2.5 text-sm font-semibold text-slate-950 transition-opacity hover:opacity-92 disabled:opacity-45"
+          >
+            {editCopy.save}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function HeroDisplay({
   copy,
-  showcaseActions,
   useCaseActions,
-  language,
-  savedSettings,
   onQuickAction,
+  onEditAction,
 }: {
   copy: (typeof PAGE_COPY)[UiLanguage]['hero']
-  showcaseActions: ShowcaseAction[]
   useCaseActions: UseCaseAction[]
-  language: UiLanguage
-  savedSettings: StoredLaserSettings | null
   onQuickAction: (prompt: string) => void
+  onEditAction: (index: number) => void
 }) {
-  const recommendation = savedSettings?.recommendation
-  const hasSavedPreview = Boolean(savedSettings && recommendation)
-  const timeLabel = recommendation?.estimates?.durationLabel || (language === 'en' ? 'Add size for estimate' : 'Lisa mõõt aja jaoks')
-  const sizeLabel = getPreviewSizeLabel(savedSettings, language)
-  const previewModeLabel = savedSettings ? formatModeChip(savedSettings.mode, language) : ''
 
   return (
     <section className="hud-panel px-5 py-5 md:px-6 md:py-6">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] xl:items-center">
-        <div className="hero-stage">
-          <div className="hud-plate overflow-hidden">
-            <span className="hud-plate-bolt left-5 top-5" />
-            <span className="hud-plate-bolt right-5 top-5" />
-            <span className="hud-plate-bolt bottom-5 left-5" />
-            <span className="hud-plate-bolt bottom-5 right-5" />
-            <div className="hero-plate-code">{copy.plateCode}</div>
-            <div className="hero-plate-status">{copy.plateStatus}</div>
-
-            <div
-              className="absolute z-0 overflow-hidden rounded-[18px] border border-white/10"
-              style={{ inset: '18px' }}
-            >
-              {hasSavedPreview ? (
-                <div className="relative h-full w-full overflow-hidden bg-[radial-gradient(circle_at_top,rgba(84,244,255,0.18),transparent_38%),linear-gradient(135deg,rgba(2,6,13,0.95),rgba(7,20,29,0.92)_45%,rgba(5,14,24,0.98))]">
-                  <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'linear-gradient(rgba(84,244,255,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(84,244,255,0.08) 1px, transparent 1px)', backgroundSize: '26px 26px' }} />
-                  <div className="absolute left-[14%] top-[20%] h-[52%] w-[46%] rounded-[20px] border border-cyan-300/35 bg-cyan-300/8 shadow-[0_0_40px_rgba(84,244,255,0.18)]">
-                    <div className="absolute inset-x-3 top-3 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/70">
-                      <span>{previewModeLabel}</span>
-                      <span>{recommendation?.machine.powerW}W</span>
-                    </div>
-                    <div className="absolute inset-x-6 top-[34%] h-0.5 bg-linear-to-r from-transparent via-cyan-300/75 to-transparent shadow-[0_0_18px_rgba(84,244,255,0.7)]" />
-                    <div className="absolute left-[20%] top-[20%] h-[56%] w-0.5 bg-linear-to-b from-transparent via-cyan-300/55 to-transparent" />
-                  </div>
-                  <div className="absolute bottom-4 left-4 right-4 grid gap-2 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-primary/12 bg-black/45 px-3 py-3 backdrop-blur-sm">
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-100/44">{language === 'en' ? 'Machine' : 'Masin'}</div>
-                      <div className="mt-1 text-sm font-semibold text-cyan-50">{recommendation?.machine.label}</div>
-                    </div>
-                    <div className="rounded-2xl border border-primary/12 bg-black/45 px-3 py-3 backdrop-blur-sm">
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-100/44">{language === 'en' ? 'Size' : 'Suurus'}</div>
-                      <div className="mt-1 text-sm font-semibold text-cyan-50">{sizeLabel}</div>
-                    </div>
-                    <div className="rounded-2xl border border-primary/12 bg-black/45 px-3 py-3 backdrop-blur-sm">
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-100/44">{language === 'en' ? 'Estimate' : 'Aeg'}</div>
-                      <div className="mt-1 text-sm font-semibold text-cyan-50">{timeLabel}</div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <Image
-                  src="/laser-graveerimine-logo.svg"
-                  alt={copy.imageAlt}
-                  fill
-                  priority
-                  className="object-cover opacity-90"
-                  sizes="(max-width: 1280px) 100vw, 55vw"
-                />
-              )}
-              <div
-                className="absolute inset-0"
-                style={{ background: 'linear-gradient(to top, rgba(3, 7, 15, 0.82), rgba(5, 10, 18, 0.16), rgba(224, 255, 255, 0.04))' }}
-              />
-              <div
-                className="absolute inset-x-0 bottom-0 h-30"
-                style={{ background: 'linear-gradient(to top, #02060d, rgba(2, 6, 13, 0.72), transparent)' }}
-              />
-            </div>
-
-            <div className="hero-plate-spectrum">
-              <span />
-              <span />
-              <span />
-              <span />
-            </div>
-
-            <div className="absolute inset-x-7 bottom-7 z-10 grid gap-3 sm:grid-cols-3">
-              {showcaseActions.map((item) => (
-                <button
-                  key={item.label}
-                  type="button"
-                  onClick={() => onQuickAction(item.prompt)}
-                  className="rounded-[18px] border border-primary/12 bg-black/50 px-3 py-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm transition-colors hover:border-primary/24 hover:bg-black/58"
-                >
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/44">{item.label}</div>
-                  <div className="mt-1 text-sm font-semibold text-cyan-50">{item.value}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-5 xl:pr-0">
+      <div className="space-y-5">
           <span className="hud-label">
             <Sparkles className="h-3.5 w-3.5" />
             {copy.label}
@@ -791,21 +715,28 @@ function HeroDisplay({
 
           <div className="grid gap-3">
             {useCaseActions.map((item, index) => (
-              <button
-                key={item.label}
-                type="button"
-                onClick={() => onQuickAction(item.prompt)}
-                className="rounded-[20px] border border-primary/12 bg-black/24 px-4 py-3 text-left text-sm leading-relaxed text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors hover:border-primary/24 hover:bg-black/32"
-              >
-                <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/44">{copy.quickActionPrefix} {index + 1}</div>
-                <p className="mt-1 font-semibold text-cyan-50">{item.label}</p>
-                <p className="mt-1">{item.description}</p>
-              </button>
+              <div key={item.label} className="group relative">
+                <button
+                  type="button"
+                  onClick={() => onQuickAction(item.prompt)}
+                  className="w-full rounded-[20px] border border-primary/12 bg-black/24 px-4 py-3 pr-12 text-left text-sm leading-relaxed text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors hover:border-primary/24 hover:bg-black/32"
+                >
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/44">{copy.quickActionPrefix} {index + 1}</div>
+                  <p className="mt-1 font-semibold text-cyan-50">{item.label}</p>
+                  <p className="mt-1">{item.description}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onEditAction(index)}
+                  className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-xl border border-primary/10 bg-black/40 text-cyan-100/36 opacity-0 transition-all hover:border-primary/24 hover:text-cyan-100/80 group-hover:opacity-100"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              </div>
             ))}
           </div>
 
           <div className="hud-divider" />
-        </div>
       </div>
     </section>
   )
@@ -819,8 +750,14 @@ export default function LaserGraveerimiseApp() {
   const [pendingImage, setPendingImage] = useState<FileUIPart | null>(null)
   const [savedSettingsSummary, setSavedSettingsSummary] = useState('')
   const [savedSettings, setSavedSettings] = useState<StoredLaserSettings | null>(null)
-  const [activeTransformStyle, setActiveTransformStyle] = useState<ImageTransformStyle | null>(null)
   const [chatInputError, setChatInputError] = useState('')
+  const [customQuickActions, setCustomQuickActions] = useState<(UseCaseAction | null)[]>([null, null, null])
+  const [editingActionIndex, setEditingActionIndex] = useState<number | null>(null)
+  const [editDraft, setEditDraft] = useState<UseCaseAction>({ label: '', description: '', prompt: '' })
+  const [conversationId, setConversationId] = useState<string | null>(null)
+  const [conversationsList, setConversationsList] = useState<Array<{ id: string; title: string; updated_at: string }>>([])
+  const [conversationsLoading, setConversationsLoading] = useState(false)
+  const [conversationsError, setConversationsError] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const auth = useAuth()
   const canAccessKnowledge = auth.status === 'authenticated' && auth.user?.role === 'admin'
@@ -867,11 +804,53 @@ export default function LaserGraveerimiseApp() {
   const hasMessages = messages.length > 0
   const hasImageContext = Boolean(pendingImage) || messages.some(messageHasImage)
   const isLoading = status === 'streaming' || status === 'submitted'
-  const showcaseActions = copy.showcaseActions
-  const imageStyleActions = IMAGE_STYLE_OPTIONS[language]
+
+  // Auto-save conversation after AI finishes responding
+  const prevStatusRef = useRef(status)
+  const messagesRef = useRef(messages)
+  useEffect(() => { messagesRef.current = messages }, [messages])
+
+  useEffect(() => {
+    const wasStreaming = prevStatusRef.current === 'streaming' || prevStatusRef.current === 'submitted'
+    prevStatusRef.current = status
+
+    if (!wasStreaming || status !== 'ready') return
+    if (!auth.token || messagesRef.current.length === 0) return
+
+    const currentMessages = messagesRef.current
+    const firstUserParts = currentMessages.find(m => m.role === 'user')?.parts
+    const firstUserTextPart = Array.isArray(firstUserParts)
+      ? (firstUserParts as Array<{ type: string; text?: string }>).find(p => p.type === 'text')
+      : null
+    const firstUserText = firstUserTextPart?.text || ''
+    const title = String(firstUserText).slice(0, 80) || new Date().toLocaleDateString()
+
+    const safeMessages = currentMessages.map(m => ({
+      ...m,
+      parts: Array.isArray(m.parts)
+        ? (m.parts as Array<{ type: string; mediaType?: string }>).filter(p => !(p.type === 'file' && p.mediaType?.startsWith('image/')))
+        : m.parts,
+    }))
+
+    let id = conversationId
+    if (!id) {
+      id = crypto.randomUUID()
+      setConversationId(id)
+    }
+
+    fetch(`/api/conversations/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+      body: JSON.stringify({ title, messages: safeMessages }),
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status])
   const structuredData = useMemo(() => buildStructuredData(language, copy.seo), [copy.seo, language])
   const useCaseActions = useMemo(
     () => copy.useCaseActions.map((item, index) => {
+      const custom = customQuickActions[index]
+      if (custom) return custom
+
       if (index !== 1) {
         return item as UseCaseAction
       }
@@ -887,7 +866,7 @@ export default function LaserGraveerimiseApp() {
             : 'Kirjelda, kuidas valmistada foto lasergraveerimiseks ette minu aktiivse masina ja materjali jaoks, sh kontrast, threshold, taust ja DPI.',
       }
     }),
-    [copy.useCaseActions, hasImageContext, language],
+    [copy.useCaseActions, customQuickActions, hasImageContext, language],
   )
   const commandModes = useMemo(
     () => copy.commandModes.map((item, index) => {
@@ -919,6 +898,20 @@ export default function LaserGraveerimiseApp() {
 
     if (window.navigator.language.toLowerCase().startsWith('en')) {
       setLanguage('en')
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(QUICK_ACTIONS_STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as (UseCaseAction | null)[]
+        if (Array.isArray(parsed) && parsed.length === 3) {
+          setCustomQuickActions(parsed)
+        }
+      }
+    } catch {
+      // ignore
     }
   }, [])
 
@@ -960,6 +953,31 @@ export default function LaserGraveerimiseApp() {
     }
   }, [canAccessKnowledge, knowledgeOpen])
 
+  const handleEditAction = (index: number) => {
+    const defaultAction = copy.useCaseActions[index] as UseCaseAction
+    const current = customQuickActions[index] ?? defaultAction
+    setEditDraft({ label: current.label, description: current.description, prompt: current.prompt || '' })
+    setEditingActionIndex(index)
+  }
+
+  const handleSaveEdit = () => {
+    if (editingActionIndex === null) return
+    const next = [...customQuickActions] as (UseCaseAction | null)[]
+    next[editingActionIndex] = { ...editDraft }
+    setCustomQuickActions(next)
+    window.localStorage.setItem(QUICK_ACTIONS_STORAGE_KEY, JSON.stringify(next))
+    setEditingActionIndex(null)
+  }
+
+  const handleResetEdit = () => {
+    if (editingActionIndex === null) return
+    const next = [...customQuickActions] as (UseCaseAction | null)[]
+    next[editingActionIndex] = null
+    setCustomQuickActions(next)
+    window.localStorage.setItem(QUICK_ACTIONS_STORAGE_KEY, JSON.stringify(next))
+    setEditingActionIndex(null)
+  }
+
   const sendChatRequest = async (nextText?: string) => {
     const text = nextText?.trim()
 
@@ -968,6 +986,11 @@ export default function LaserGraveerimiseApp() {
     }
 
     setChatInputError('')
+
+    if (!auth.token) {
+      setChatInputError(language === 'en' ? 'Please log in to use the chat.' : 'Vestluse kasutamiseks logi sisse.')
+      return
+    }
 
     try {
       if (text) {
@@ -978,8 +1001,13 @@ export default function LaserGraveerimiseApp() {
 
       setInput('')
       setPendingImage(null)
-    } catch {
-      setChatInputError(copy.errors.sendMessage)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : ''
+      if (message.includes('401') || message.includes('Sessioon') || message.includes('logi sisse')) {
+        setChatInputError(language === 'en' ? 'Session expired. Please log in again.' : 'Sessioon on aegunud. Logi uuesti sisse.')
+      } else {
+        setChatInputError(copy.errors.sendMessage)
+      }
     }
   }
 
@@ -1055,150 +1083,60 @@ Anna selges struktureeritud formaadis:
     setChatInputError('')
   }
 
-  const handleTransformImage = async (style: ImageTransformStyle) => {
-    if (!pendingImage || activeTransformStyle || isLoading) {
-      return
-    }
-
-    setActiveTransformStyle(style)
-    setChatInputError('')
-
-    try {
-      const response = await fetch('/api/image-generation', {
-        method: 'POST',
-        headers: {
-          ...(auth.token
-            ? {
-                Authorization: `Bearer ${auth.token}`,
-              }
-            : {}),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: input.trim() || undefined,
-          sourceImageDataUrl: pendingImage.url,
-          transformStyle: style,
-          savedSettingsSummary: savedSettingsSummary || undefined,
-        }),
-      })
-
-      const data = (await response.json().catch(() => null)) as {
-        error?: string
-        generatedAsset?: {
-          dataUrl: string
-          mediaType: string
-          fileName: string
-        }
-      } | null
-
-      if (!response.ok || !data?.generatedAsset) {
-        throw new Error(data?.error || (language === 'en' ? 'Failed to generate relief image.' : 'Reljeefse pildi genereerimine ebaõnnestus.'))
-      }
-
-      const optimizeResponse = await fetch('/api/optimize-image', {
-        method: 'POST',
-        headers: {
-          ...(auth.token
-            ? {
-                Authorization: `Bearer ${auth.token}`,
-              }
-            : {}),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userPrompt: STYLE_OPTIMIZE_PROMPTS[language][style],
-          savedSettingsSummary: savedSettingsSummary || undefined,
-          sourceImageDataUrl: data.generatedAsset.dataUrl,
-          source: {
-            sourceKind: 'generated-text',
-            width: 1024,
-            height: 1024,
-            hasAlpha: data.generatedAsset.mediaType !== 'image/jpeg',
-            mimeType: data.generatedAsset.mediaType || 'image/png',
-          },
-        }),
-      })
-
-      let optimized = (await optimizeResponse.json().catch(() => null)) as (OptimizeImageResponse & {
-        error?: string
-      }) | null
-
-      if (!optimizeResponse.ok && !optimized?.jobId) {
-        setPendingImage({
-          type: 'file',
-          filename: data.generatedAsset.fileName,
-          mediaType: data.generatedAsset.mediaType,
-          url: data.generatedAsset.dataUrl,
-        })
-        throw new Error(optimized?.error || (language === 'en' ? 'Image optimization failed.' : 'Pildi optimeerimine ebaõnnestus.'))
-      }
-
-      if (optimized?.queued && optimized.jobId) {
-        for (let attempt = 0; attempt < 40; attempt += 1) {
-          await wait(1500)
-
-          const pollResponse = await fetch(`/api/optimize-image?jobId=${encodeURIComponent(optimized.jobId)}`, {
-            headers: auth.token
-              ? {
-                  Authorization: `Bearer ${auth.token}`,
-                }
-              : undefined,
-            cache: 'no-store',
-          })
-
-          const polled = (await pollResponse.json().catch(() => null)) as OptimizeImageResponse | null
-
-          if (!pollResponse.ok || !polled) {
-            break
-          }
-
-          optimized = polled
-
-          if (polled.job.status === 'completed' || polled.job.status === 'failed') {
-            break
-          }
-        }
-      }
-
-      const finalAsset = optimized?.workerResult?.optimizedAsset || data.generatedAsset
-
-      setPendingImage({
-        type: 'file',
-        filename: finalAsset.fileName,
-        mediaType: finalAsset.mediaType,
-        url: finalAsset.dataUrl,
-      })
-
-      if (optimized?.job?.status === 'failed') {
-        setChatInputError(optimized.workerError || (language === 'en' ? 'Image optimization failed, using the styled image instead.' : 'Pildi optimeerimine ebaõnnestus, kasutan stiilitud pilti.'))
-      } else if (optimized?.workerError) {
-        setChatInputError(optimized.workerError)
-      }
-    } catch (error) {
-      setChatInputError(error instanceof Error ? error.message : copy.errors.imageLoadFailed)
-    } finally {
-      setActiveTransformStyle(null)
-    }
-  }
-
-  const handlePromoteOptimizerImage = (asset: Pick<ImageAsset, 'dataUrl' | 'fileName' | 'mediaType'>) => {
-    setPendingImage({
-      type: 'file',
-      filename: asset.fileName,
-      mediaType: asset.mediaType,
-      url: asset.dataUrl,
-    })
-    setChatInputError('')
-  }
-
   const handleReset = () => {
     setMessages([])
     setPendingImage(null)
     setChatInputError('')
+    setConversationId(null)
+  }
+
+  const loadConversations = async () => {
+    if (!auth.token) return
+    setConversationsLoading(true)
+    setConversationsError('')
+    try {
+      const res = await fetch('/api/conversations', {
+        headers: { Authorization: `Bearer ${auth.token}` },
+        cache: 'no-store',
+      })
+      if (!res.ok) throw new Error()
+      const data = await res.json() as Array<{ id: string; title: string; updated_at: string }>
+      setConversationsList(data)
+    } catch {
+      setConversationsError(copy.conversations.loadError)
+    } finally {
+      setConversationsLoading(false)
+    }
+  }
+
+  const handleDeleteConversation = async (id: string) => {
+    if (!auth.token) return
+    await fetch(`/api/conversations/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${auth.token}` },
+    }).catch(() => {})
+    setConversationsList((prev) => prev.filter((c) => c.id !== id))
+    if (conversationId === id) {
+      setConversationId(null)
+    }
+  }
+
+  const handleLoadConversation = (conv: { id: string; messages?: unknown[] }) => {
+    if (!Array.isArray(conv.messages)) return
+    setMessages(conv.messages as Parameters<typeof setMessages>[0])
+    setConversationId(conv.id)
+    setActiveRightPanel(null)
   }
 
   const toggleRightPanel = (panel: RightUtilityPanel) => {
-    setActiveRightPanel((currentPanel) => (currentPanel === panel ? null : panel))
+    setActiveRightPanel((currentPanel) => {
+      if (currentPanel === panel) return null
+      if (panel === 'conversations') {
+        // Load fresh list when opening
+        setTimeout(() => loadConversations(), 0)
+      }
+      return panel
+    })
   }
 
   return (
@@ -1241,6 +1179,15 @@ Anna selges struktureeritud formaadis:
 
         <div className="pointer-events-none fixed bottom-5 right-5 z-50 flex flex-col gap-3 md:bottom-6 md:right-6 xl:absolute xl:bottom-auto xl:right-5 xl:top-28">
           <div className="pointer-events-auto flex flex-col gap-3">
+            {auth.status === 'authenticated' && (
+              <RightDockButton
+                active={activeRightPanel === 'conversations'}
+                label={copy.conversations.dock}
+                onClick={() => toggleRightPanel('conversations')}
+              >
+                <History className="h-5 w-5" />
+              </RightDockButton>
+            )}
             <RightDockButton
               active={activeRightPanel === 'settings'}
               label={copy.panels.settingsDock}
@@ -1248,26 +1195,17 @@ Anna selges struktureeritud formaadis:
             >
               <Settings2 className="h-5 w-5" />
             </RightDockButton>
-            <RightDockButton
-              active={activeRightPanel === 'optimizer'}
-              label={copy.panels.optimizerDock}
-              onClick={() => toggleRightPanel('optimizer')}
-            >
-              <WandSparkles className="h-5 w-5" />
-            </RightDockButton>
           </div>
         </div>
 
         <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4">
           <HeroDisplay
             copy={copy.hero}
-            language={language}
-            savedSettings={savedSettings}
-            showcaseActions={showcaseActions}
             useCaseActions={useCaseActions}
             onQuickAction={(prompt) => {
               void handleQuickAction(prompt)
             }}
+            onEditAction={handleEditAction}
           />
 
           <section className={hasMessages ? 'hud-panel flex min-h-0 flex-1 flex-col p-4 md:p-5' : 'hud-panel p-4 md:p-5'}>
@@ -1288,14 +1226,7 @@ Anna selges struktureeritud formaadis:
                       <span className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">{copy.chat.settings}</span>
                       <strong className="text-cyan-50">{savedSettingsSummary ? copy.chat.saved : copy.chat.openPanel}</strong>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => toggleRightPanel('optimizer')}
-                      className="hud-chip rounded-[18px] px-3 py-2 text-left transition-colors hover:border-primary/24"
-                    >
-                      <span className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/58">{copy.chat.optimizer}</span>
-                      <strong className="text-cyan-50">{isLoading ? copy.chat.processing : copy.chat.openPanel}</strong>
-                    </button>
+
                   </div>
                 </div>
 
@@ -1343,11 +1274,7 @@ Anna selges struktureeritud formaadis:
                   pendingImage={pendingImage}
                   onImageSelect={handleImageSelect}
                   onClearImage={handleClearPendingImage}
-                  onTransformImage={(style) => void handleTransformImage(style as ImageTransformStyle)}
                   onAnalyzeImage={pendingImage ? handleAnalyzeImage : undefined}
-                  imageStyleActions={imageStyleActions}
-                  activeTransformStyle={activeTransformStyle}
-                  transformWorkingLabel={copy.chatInput.reliefWorking}
                   inputError={chatInputError}
                   copy={copy.chatInput}
                   className="mt-4"
@@ -1362,11 +1289,7 @@ Anna selges struktureeritud formaadis:
                 pendingImage={pendingImage}
                 onImageSelect={handleImageSelect}
                 onClearImage={handleClearPendingImage}
-                onTransformImage={(style) => void handleTransformImage(style as ImageTransformStyle)}
                 onAnalyzeImage={pendingImage ? handleAnalyzeImage : undefined}
-                imageStyleActions={imageStyleActions}
-                activeTransformStyle={activeTransformStyle}
-                transformWorkingLabel={copy.chatInput.reliefWorking}
                 inputError={chatInputError}
                 copy={copy.chatInput}
               />
@@ -1392,25 +1315,82 @@ Anna selges struktureeritud formaadis:
           </RightPanelShell>
         )}
 
-        {activeRightPanel === 'optimizer' && (
+        {activeRightPanel === 'conversations' && (
           <RightPanelShell
-            shellLabel={copy.panels.shell}
-            title={copy.panels.optimizerTitle}
-            description={copy.panels.optimizerDescription}
+            shellLabel={copy.conversations.shell}
+            title={copy.conversations.title}
+            description={copy.conversations.description}
             closeLabel={copy.panels.closePanel}
             onClose={() => setActiveRightPanel(null)}
           >
-            <EngravingOptimizerPanel
-              language={language}
-              prompt={input}
-              pendingImage={pendingImage}
-              onPromoteImage={handlePromoteOptimizerImage}
-              savedSettingsSummary={savedSettingsSummary}
-              sessionToken={auth.token}
-            />
+            <div className="space-y-2 pb-2">
+              {conversationsLoading && (
+                <p className="px-1 text-sm text-slate-400">{copy.conversations.saving}</p>
+              )}
+              {conversationsError && (
+                <p className="px-1 text-sm text-red-400">{conversationsError}</p>
+              )}
+              {!conversationsLoading && !conversationsError && conversationsList.length === 0 && (
+                <p className="px-1 text-sm text-slate-400">{copy.conversations.empty}</p>
+              )}
+              {conversationsList.map((conv) => (
+                <div
+                  key={conv.id}
+                  className={cn(
+                    'group flex items-start justify-between gap-2 rounded-[18px] border px-4 py-3 transition-colors',
+                    conv.id === conversationId
+                      ? 'border-primary/28 bg-primary/8'
+                      : 'border-primary/12 bg-black/24 hover:border-primary/22 hover:bg-black/32',
+                  )}
+                >
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 text-left"
+                    onClick={() => {
+                      fetch(`/api/conversations/${conv.id}`, {
+                        headers: { Authorization: `Bearer ${auth.token}` },
+                        cache: 'no-store',
+                      })
+                        .then((r) => r.ok ? r.json() : null)
+                        .then((data) => { if (data) handleLoadConversation(data as { id: string; messages: unknown[] }) })
+                        .catch(() => {})
+                    }}
+                  >
+                    <p className="truncate text-sm font-semibold text-cyan-50">{conv.title || conv.id}</p>
+                    <p className="mt-0.5 text-[11px] text-cyan-100/44">
+                      {new Date(conv.updated_at).toLocaleString(language === 'et' ? 'et-EE' : 'en-GB', {
+                        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                      })}
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={copy.conversations.deleteLabel}
+                    onClick={() => void handleDeleteConversation(conv.id)}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-black/30 text-slate-400 opacity-0 transition-all hover:border-red-500/30 hover:text-red-400 group-hover:opacity-100"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </RightPanelShell>
         )}
+
+
       </div>
+
+      {editingActionIndex !== null && (
+        <QuickActionEditDialog
+          open={editingActionIndex !== null}
+          draft={editDraft}
+          editCopy={copy.quickActionEdit}
+          onDraftChange={setEditDraft}
+          onSave={handleSaveEdit}
+          onReset={handleResetEdit}
+          onClose={() => setEditingActionIndex(null)}
+        />
+      )}
 
     </div>
   )

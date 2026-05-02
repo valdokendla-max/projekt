@@ -16,7 +16,7 @@ function buildProxyHeaders(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/user/laser-settings`, {
+    const response = await fetch(`${BACKEND_URL}/api/conversations`, {
       headers: buildProxyHeaders(request),
       cache: 'no-store',
     })
@@ -26,25 +26,6 @@ export async function GET(request: Request) {
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
     })
   } catch {
-    return Response.json({ error: 'Seadistuste laadimine ebaõnnestus.' }, { status: 503 })
-  }
-}
-
-export async function PUT(request: Request) {
-  try {
-    const body = await request.text()
-    const response = await fetch(`${BACKEND_URL}/api/user/laser-settings`, {
-      method: 'PUT',
-      headers: buildProxyHeaders(request),
-      body,
-      cache: 'no-store',
-    })
-    const text = await response.text()
-    return new Response(text, {
-      status: response.status,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-    })
-  } catch {
-    return Response.json({ error: 'Seadistuste salvestamine ebaõnnestus.' }, { status: 503 })
+    return Response.json({ error: 'Vestluste laadimine ebaõnnestus.' }, { status: 503 })
   }
 }

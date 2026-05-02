@@ -568,7 +568,7 @@ export function EngravingOptimizerPanel({
         includeVector: optimization.result.vectorizationPlan.enabled,
         mode: optimization.result.modeDecision.mode,
         savedSettingsSummary: savedSettingsSummary || undefined,
-      }, copy.requestFailed, copy.noResponse)
+      }, copy.requestFailed, copy.noResponse, sessionToken)
 
       downloadBase64Archive(data.archiveBase64, data.exportManifest.archiveName)
       setExportPlan(data)

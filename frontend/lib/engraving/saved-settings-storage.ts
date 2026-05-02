@@ -40,6 +40,8 @@ export interface StoredLaserSettings {
   recommendation: StoredLaserSettingsRecommendation | null
   summary: string
   savedAt: string
+  machineName?: string
+  materialName?: string
 }
 
 const STORAGE_KEY = 'laser-graveerimine:saved-settings'

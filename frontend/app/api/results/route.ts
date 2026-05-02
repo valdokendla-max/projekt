@@ -6,6 +6,7 @@ import {
 import { processOptimizerJob, verifyQStashRequest } from '@/lib/engraving/optimizer-async'
 
 export const runtime = 'nodejs'
+export const maxDuration = 120
 
 export async function POST(req: Request) {
   const parsed = await parseJsonBodyWithLimit<{ jobId?: string }>(req, {

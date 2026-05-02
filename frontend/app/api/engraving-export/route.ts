@@ -9,6 +9,7 @@ import { renderVectorAssetsFromRaster } from '@/lib/engraving/vector-engraving'
 import { buildZipExportPlan } from '@/lib/engraving/zip-export'
 
 export const runtime = 'nodejs'
+export const maxDuration = 60
 
 interface RequestBody {
   savedSettingsSummary?: string

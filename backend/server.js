@@ -536,6 +536,59 @@ app.put("/api/user/laser-settings", async (req, res) => {
   }
 });
 
+app.get("/api/conversations", async (req, res) => {
+  try {
+    const user = await resolveAuthenticatedUser(req);
+    const pool = getPool();
+    const result = await pool.query(
+      "SELECT id, title, updated_at FROM app_chat_conversations WHERE user_id = $1 ORDER BY updated_at DESC LIMIT 50",
+      [user.id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    sendError(res, error, "Vestluste laadimine ebaõnnestus.");
+  }
+});
+
+app.put("/api/conversations/:id", async (req, res) => {
+  try {
+    const user = await resolveAuthenticatedUser(req);
+    const { id } = req.params;
+    if (!id || typeof id !== "string" || id.length > 120 || !/^[a-z0-9_-]+$/i.test(id)) {
+      res.status(400).json({ error: "Vigane vestluse ID." });
+      return;
+    }
+    const { title, messages } = req.body || {};
+    const pool = getPool();
+    await pool.query(
+      `INSERT INTO app_chat_conversations (id, user_id, title, messages, created_at, updated_at)
+       VALUES ($1, $2, $3, $4::jsonb, NOW(), NOW())
+       ON CONFLICT (id) DO UPDATE
+         SET title = EXCLUDED.title, messages = EXCLUDED.messages, updated_at = NOW()
+         WHERE app_chat_conversations.user_id = $2`,
+      [id, user.id, String(title || "").slice(0, 120), JSON.stringify(messages || [])]
+    );
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error, "Vestluse salvestamine ebaõnnestus.");
+  }
+});
+
+app.delete("/api/conversations/:id", async (req, res) => {
+  try {
+    const user = await resolveAuthenticatedUser(req);
+    const { id } = req.params;
+    const pool = getPool();
+    await pool.query(
+      "DELETE FROM app_chat_conversations WHERE id = $1 AND user_id = $2",
+      [id, user.id]
+    );
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error, "Vestluse kustutamine ebaõnnestus.");
+  }
+});
+
 app.get("/api/machines", (req, res) => {
   res.json(lasers.LASER_MACHINES);
 });

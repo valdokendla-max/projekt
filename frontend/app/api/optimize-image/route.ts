@@ -12,6 +12,7 @@ import { buildOptimizeImageApiResponse } from '@/lib/engraving/optimizer-respons
 import type { ImageMetadataInput, OptimizerAsyncJob } from '@/lib/engraving/types'
 
 export const runtime = 'nodejs'
+export const maxDuration = 60
 
 interface RequestBody {
   userPrompt?: string
