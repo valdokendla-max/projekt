@@ -73,9 +73,9 @@ export function ChatMessage({ message }: { message: UIMessage }) {
                     unoptimized
                     className="max-h-70 w-full object-cover"
                   />
-                  <div className="flex items-center justify-between px-3 py-2">
-                    {image.filename && <span className="text-xs text-cyan-100/52">{image.filename}</span>}
-                    {image.url.startsWith('data:') && (
+                  {!isUser && image.url.startsWith('data:') && (
+                    <div className="flex items-center justify-between px-3 py-2">
+                      {image.filename && <span className="text-xs text-cyan-100/52">{image.filename}</span>}
                       <a
                         href={image.url}
                         download={image.filename || 'image.png'}
@@ -84,8 +84,8 @@ export function ChatMessage({ message }: { message: UIMessage }) {
                         <Download className="h-3 w-3" />
                         Laadi alla
                       </a>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </figure>
               ))}
             </div>
