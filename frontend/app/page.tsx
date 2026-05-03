@@ -23,12 +23,13 @@ import { cn } from '@/lib/utils'
 
 const MAX_CHAT_IMAGE_BYTES = 3 * 1024 * 1024
 const QUICK_ACTIONS_STORAGE_KEY = 'laser-graveerimine:quick-actions'
+const IMAGE_CLEANUP_PROMPT_MARKER = '__IMAGE_CLEANUP__'
 
 const PRESET_PROMPTS: Record<UiLanguage, Array<{ label: string; prompt: string }>> = {
   et: [
     { label: 'Seadistusoovitus', prompt: 'Koosta seadistusoovitus minu aktiivse masina ja materjali jaoks koos kiiruse, võimsuse ja passide soovitusega.' },
     { label: 'Logo ettevalmistus', prompt: 'Anna juhised logo või märgistuse faili ettevalmistamiseks lasergraveerimiseks minu aktiivse masina jaoks.' },
-    { label: 'Foto puhastus', prompt: 'Puhasta see foto lasergraveerimiseks sobivaks — suurenda kontrasti, muuda must-valgeks ja soovita DPI.' },
+    { label: 'Foto puhastus (AI)', prompt: IMAGE_CLEANUP_PROMPT_MARKER },
     { label: 'LightBurn eksport', prompt: 'Selgita LightBurn ekspordi seadistust minu aktiivse masina ja materjali jaoks ning millised formaadid valida.' },
     { label: 'Ohutuskontroll', prompt: 'Tee ohutuskontroll minu aktiivse masina ja materjali jaoks enne graveerimise alustamist.' },
     { label: 'Materjali presetid', prompt: 'Anna minu aktiivse masina jaoks konkreetsed lähteseaded erinevate materjalide jaoks.' },
@@ -36,7 +37,7 @@ const PRESET_PROMPTS: Record<UiLanguage, Array<{ label: string; prompt: string }
   en: [
     { label: 'Settings advice', prompt: 'Build a settings recommendation for my active machine and material including speed, power, and passes.' },
     { label: 'Logo prep', prompt: 'Give guidance on preparing a logo or marking file for laser engraving with my active machine.' },
-    { label: 'Photo cleanup', prompt: 'Clean up this photo for laser engraving — boost contrast, convert to B&W, and recommend DPI.' },
+    { label: 'Photo cleanup (AI)', prompt: IMAGE_CLEANUP_PROMPT_MARKER },
     { label: 'LightBurn export', prompt: 'Explain LightBurn export settings for my active machine and material and which formats to choose.' },
     { label: 'Safety check', prompt: 'Run a safety check for my active machine and material before starting engraving.' },
     { label: 'Material presets', prompt: 'Give me baseline settings for various materials with my active machine.' },
@@ -794,6 +795,7 @@ export default function LaserGraveerimiseApp() {
   const [conversationsList, setConversationsList] = useState<Array<{ id: string; title: string; updated_at: string }>>([])
   const [conversationsLoading, setConversationsLoading] = useState(false)
   const [conversationsError, setConversationsError] = useState('')
+  const [photoCleanupLoading, setPhotoCleanupLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const auth = useAuth()
   const canAccessKnowledge = auth.status === 'authenticated' && auth.user?.role === 'admin'
@@ -1081,6 +1083,50 @@ Anna selges struktureeritud formaadis:
   }
 
   const handleQuickAction = async (prompt: string) => {
+    if (prompt === IMAGE_CLEANUP_PROMPT_MARKER) {
+      if (!pendingImage) {
+        setChatInputError(language === 'en' ? 'Please add an image first to use photo cleanup.' : 'Foto puhastuseks lisa esmalt pilt.')
+        return
+      }
+      if (!auth.token) {
+        setChatInputError(language === 'en' ? 'Please log in to use the chat.' : 'Vestluse kasutamiseks logi sisse.')
+        return
+      }
+      setPhotoCleanupLoading(true)
+      setChatInputError('')
+      try {
+        const res = await fetch('/api/photo-cleanup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+          body: JSON.stringify({ sourceImageDataUrl: pendingImage.url, language }),
+        })
+        const data = await res.json()
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Pildi töötlemine ebaõnnestus.')
+        // Add user message + AI image response into chat
+        await sendMessage({
+          text: language === 'en' ? 'Clean up this photo for laser engraving.' : 'Puhasta see foto lasergraveerimiseks.',
+          files: [pendingImage],
+        })
+        // Inject processed image as assistant message by adding to messages directly
+        setMessages(prev => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: 'assistant' as const,
+            parts: [
+              { type: 'text', text: language === 'en' ? '✅ Photo cleaned up for laser engraving:' : '✅ Foto puhastatud lasergraveerimiseks:' },
+              { type: 'file', url: data.imageDataUrl, mediaType: 'image/png', filename: 'cleaned.png' },
+            ],
+          },
+        ])
+        setPendingImage(null)
+      } catch (err) {
+        setChatInputError(err instanceof Error ? err.message : 'Pildi töötlemine ebaõnnestus.')
+      } finally {
+        setPhotoCleanupLoading(false)
+      }
+      return
+    }
     const fullPrompt = pendingImage
       ? (language === 'en'
           ? `${prompt}\n\n(I have attached an image — apply this to the image I uploaded.)`
