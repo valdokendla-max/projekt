@@ -725,11 +725,15 @@ function HeroDisplay({
   useCaseActions,
   onQuickAction,
   onEditAction,
+  hasImage,
+  language,
 }: {
   copy: (typeof PAGE_COPY)[UiLanguage]['hero']
   useCaseActions: UseCaseAction[]
   onQuickAction: (prompt: string) => void
   onEditAction: (index: number) => void
+  hasImage?: boolean
+  language?: string
 }) {
 
   return (
@@ -760,7 +764,11 @@ function HeroDisplay({
                 >
                   <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/44">{copy.quickActionPrefix} {index + 1}</div>
                   <p className="mt-1 font-semibold text-cyan-50">{item.label}</p>
-                  <p className="mt-1">{item.description}</p>
+                  <p className="mt-1">
+                    {index === 1 && hasImage
+                      ? (language === 'en' ? 'AI will clean up your image for laser engraving and send you the result.' : 'AI puhastab sinu pildi lasergraveerimiseks ja saadab tulemuse.')
+                      : item.description}
+                  </p>
                 </button>
                 <button
                   type="button"
@@ -887,20 +895,24 @@ export default function LaserGraveerimiseApp() {
   const useCaseActions = useMemo(
     () => copy.useCaseActions.map((item, index) => {
       const custom = customQuickActions[index]
+
+      // Index 1 is always "Photo cleanup" — if image is pending, always use cleanup marker
+      // regardless of any custom override stored in localStorage
+      if (index === 1) {
+        const base = custom ?? item
+        return {
+          ...base,
+          prompt: pendingImage
+            ? IMAGE_CLEANUP_PROMPT_MARKER
+            : language === 'en'
+              ? 'Describe how to prepare a photo for laser engraving for my active machine and material, including contrast, threshold, background, and DPI.'
+              : 'Kirjelda, kuidas valmistada foto lasergraveerimiseks ette minu aktiivse masina ja materjali jaoks, sh kontrast, threshold, taust ja DPI.',
+        } as UseCaseAction
+      }
+
       if (custom) return custom
 
-      if (index !== 1) {
-        return item as UseCaseAction
-      }
-
-      return {
-        ...item,
-        prompt: pendingImage
-          ? IMAGE_CLEANUP_PROMPT_MARKER
-          : language === 'en'
-            ? 'Describe how to prepare a photo for laser engraving for my active machine and material, including contrast, threshold, background, and DPI.'
-            : 'Kirjelda, kuidas valmistada foto lasergraveerimiseks ette minu aktiivse masina ja materjali jaoks, sh kontrast, threshold, taust ja DPI.',
-      }
+      return item as UseCaseAction
     }),
     [copy.useCaseActions, customQuickActions, pendingImage, language],
   )
@@ -941,7 +953,10 @@ export default function LaserGraveerimiseApp() {
       if (raw) {
         const parsed = JSON.parse(raw) as (UseCaseAction | null)[]
         if (Array.isArray(parsed) && parsed.length === 3) {
-          setCustomQuickActions(parsed)
+          // Always null out index 1 (photo cleanup) from localStorage —
+          // its prompt is controlled by pendingImage state, not stored overrides
+          const sanitized = parsed.map((item, i) => (i === 1 ? null : item))
+          setCustomQuickActions(sanitized)
         }
       }
     } catch {
@@ -1300,6 +1315,8 @@ Anna selges struktureeritud formaadis:
               void handleQuickAction(prompt)
             }}
             onEditAction={handleEditAction}
+            hasImage={Boolean(pendingImage)}
+            language={language}
           />
 
           <section className={hasMessages ? 'hud-panel flex min-h-0 flex-1 flex-col p-4 md:p-5' : 'hud-panel p-4 md:p-5'}>
