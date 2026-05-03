@@ -201,7 +201,6 @@ export function ChatInput({
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-cyan-50">{copy.analyzeImageLabel}</p>
-                    <p className="mt-0.5 text-[11px] text-cyan-100/52">{copy.analyzeImageSubLabel}</p>
                   </div>
                 </button>
               )}
