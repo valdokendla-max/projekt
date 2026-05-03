@@ -2,7 +2,7 @@
 
 import type { UIMessage } from 'ai'
 import Image from 'next/image'
-import { Bot, User } from 'lucide-react'
+import { Bot, Download, User } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/utils'
@@ -73,7 +73,19 @@ export function ChatMessage({ message }: { message: UIMessage }) {
                     unoptimized
                     className="max-h-70 w-full object-cover"
                   />
-                  {image.filename && <figcaption className="px-3 py-2 text-xs text-cyan-100/52">{image.filename}</figcaption>}
+                  <div className="flex items-center justify-between px-3 py-2">
+                    {image.filename && <span className="text-xs text-cyan-100/52">{image.filename}</span>}
+                    {image.url.startsWith('data:') && (
+                      <a
+                        href={image.url}
+                        download={image.filename || 'image.png'}
+                        className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-cyan-400/22 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-100 transition-colors hover:border-cyan-400/40 hover:bg-cyan-400/18"
+                      >
+                        <Download className="h-3 w-3" />
+                        Laadi alla
+                      </a>
+                    )}
+                  </div>
                 </figure>
               ))}
             </div>

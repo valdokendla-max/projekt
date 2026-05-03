@@ -1114,12 +1114,18 @@ Anna selges struktureeritud formaadis:
             id: crypto.randomUUID(),
             role: 'assistant' as const,
             parts: [
-              { type: 'text', text: language === 'en' ? '✅ Photo cleaned up for laser engraving:' : '✅ Foto puhastatud lasergraveerimiseks:' },
+              { type: 'text', text: language === 'en' ? '✅ Photo cleaned up for laser engraving. You can download it below. The cleaned image is now active — your next request will use it.' : '✅ Foto puhastatud lasergraveerimiseks. Saad selle alla laadida. Puhastatud pilt on nüüd aktiivne — järgmine päring kasutab seda.' },
               { type: 'file', url: data.imageDataUrl, mediaType: 'image/png', filename: 'cleaned.png' },
             ],
           },
         ])
-        setPendingImage(null)
+        // Set cleaned image as active pendingImage so next actions use the cleaned version
+        setPendingImage({
+          type: 'file',
+          filename: 'cleaned.png',
+          mediaType: 'image/png',
+          url: data.imageDataUrl,
+        })
       } catch (err) {
         setChatInputError(err instanceof Error ? err.message : 'Pildi töötlemine ebaõnnestus.')
       } finally {
