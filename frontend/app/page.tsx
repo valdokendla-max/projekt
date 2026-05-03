@@ -1102,16 +1102,21 @@ Anna selges struktureeritud formaadis:
         })
         const data = await res.json()
         if (!res.ok || !data.ok) throw new Error(data.error || 'Pildi töötlemine ebaõnnestus.')
-        // Add user message + AI image response into chat
-        await sendMessage({
-          text: language === 'en' ? 'Clean up this photo for laser engraving.' : 'Puhasta see foto lasergraveerimiseks.',
-          files: [pendingImage],
-        })
-        // Inject processed image as assistant message by adding to messages directly
+        // Add user + assistant messages directly — do NOT call sendMessage (it would trigger chat AI)
+        const userMsgId = crypto.randomUUID()
+        const assistantMsgId = crypto.randomUUID()
         setMessages(prev => [
           ...prev,
           {
-            id: crypto.randomUUID(),
+            id: userMsgId,
+            role: 'user' as const,
+            parts: [
+              { type: 'text', text: language === 'en' ? 'Clean up this photo for laser engraving.' : 'Puhasta see foto lasergraveerimiseks.' },
+              { type: 'file', url: pendingImage.url, mediaType: pendingImage.mediaType, filename: pendingImage.filename },
+            ],
+          },
+          {
+            id: assistantMsgId,
             role: 'assistant' as const,
             parts: [
               { type: 'text', text: language === 'en' ? '✅ Photo cleaned up for laser engraving. You can download it below. The cleaned image is now active — your next request will use it.' : '✅ Foto puhastatud lasergraveerimiseks. Saad selle alla laadida. Puhastatud pilt on nüüd aktiivne — järgmine päring kasutab seda.' },
