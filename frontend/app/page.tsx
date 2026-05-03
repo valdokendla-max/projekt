@@ -895,16 +895,14 @@ export default function LaserGraveerimiseApp() {
 
       return {
         ...item,
-        prompt: language === 'en'
-          ? hasImageContext
-            ? 'Analyze the image in the chat and give me a precise photo-preparation plan for laser engraving for my active machine and material.'
-            : 'Describe how to prepare a photo for laser engraving for my active machine and material, including contrast, threshold, background, and DPI.'
-          : hasImageContext
-            ? 'Analüüsi vestluses olevat pilti ja anna täpne foto ettevalmistuse plaan lasergraveerimiseks minu aktiivse masina ja materjali jaoks.'
+        prompt: pendingImage
+          ? IMAGE_CLEANUP_PROMPT_MARKER
+          : language === 'en'
+            ? 'Describe how to prepare a photo for laser engraving for my active machine and material, including contrast, threshold, background, and DPI.'
             : 'Kirjelda, kuidas valmistada foto lasergraveerimiseks ette minu aktiivse masina ja materjali jaoks, sh kontrast, threshold, taust ja DPI.',
       }
     }),
-    [copy.useCaseActions, customQuickActions, hasImageContext, language],
+    [copy.useCaseActions, customQuickActions, pendingImage, language],
   )
   const commandModes = useMemo(
     () => copy.commandModes.map((item, index) => {
@@ -914,16 +912,14 @@ export default function LaserGraveerimiseApp() {
 
       return {
         ...item,
-        prompt: language === 'en'
-          ? hasImageContext
-            ? 'Analyze the image in the chat and describe exactly how to prepare it for laser engraving for my active setup.'
-            : 'Describe how to prepare a photo for laser engraving for my active setup.'
-          : hasImageContext
-            ? 'Analüüsi vestluses olevat pilti ja kirjelda täpselt, kuidas see lasergraveerimiseks ette valmistada minu aktiivse seadistuse jaoks.'
+        prompt: pendingImage
+          ? IMAGE_CLEANUP_PROMPT_MARKER
+          : language === 'en'
+            ? 'Describe how to prepare a photo for laser engraving for my active setup.'
             : 'Kirjelda, kuidas valmistada foto lasergraveerimiseks ette minu aktiivse seadistuse jaoks.',
       }
     }),
-    [copy.commandModes, hasImageContext, language],
+    [copy.commandModes, pendingImage, language],
   )
 
   useEffect(() => {
