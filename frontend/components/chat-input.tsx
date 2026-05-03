@@ -166,7 +166,6 @@ export function ChatInput({
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-100/52">{copy.imageReady}</p>
                 <p className="mt-1 truncate text-sm font-medium text-cyan-50">{pendingImage.filename || copy.imageAttachment}</p>
-                <p className="mt-1 text-xs leading-relaxed text-cyan-100/42">{copy.imageVisionHint}</p>
                 {onTransformImage && imageStyleActions && imageStyleActions.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {imageStyleActions.map((action) => {
