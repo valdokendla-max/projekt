@@ -3,7 +3,7 @@
 import { useRef, useEffect } from 'react'
 import type { FileUIPart } from 'ai'
 import Image from 'next/image'
-import { ArrowUp, ImagePlus, Loader2, Sparkles, X } from 'lucide-react'
+import { ArrowUp, ImagePlus, Loader2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface ImageStyleAction {
@@ -154,45 +154,19 @@ export function ChatInput({
 
         {pendingImage && (
           <div className="mb-2 rounded-[22px] border border-primary/12 bg-black/24 p-2.5">
-            <div className="flex items-start gap-3">
+            <div className="flex items-center gap-3">
               <Image
                 src={pendingImage.url}
                 alt={pendingImage.filename || copy.imageAlt}
-                width={72}
-                height={72}
+                width={240}
+                height={180}
                 unoptimized
-                className="h-18 w-18 rounded-2xl border border-white/8 object-cover"
+                className="max-h-44 w-auto rounded-2xl border border-white/8 object-contain"
               />
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-100/52">{copy.imageReady}</p>
-                <p className="mt-1 truncate text-sm font-medium text-cyan-50">{pendingImage.filename || copy.imageAttachment}</p>
-                {onTransformImage && imageStyleActions && imageStyleActions.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {imageStyleActions.map((action) => {
-                      const isActive = activeTransformStyle === action.key
-
-                      return (
-                        <button
-                          key={action.key}
-                          type="button"
-                          onClick={() => void onTransformImage(action.key)}
-                          disabled={isLoading || Boolean(activeTransformStyle)}
-                          className="inline-flex items-center gap-2 rounded-full border border-primary/16 bg-primary/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-50 transition-colors hover:border-primary/28 hover:bg-primary/16 disabled:cursor-not-allowed disabled:opacity-45"
-                        >
-                          {isActive ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                          {isActive && transformWorkingLabel ? transformWorkingLabel : action.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-
               <button
                 type="button"
                 onClick={onClearImage}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/4 text-slate-300 transition-colors hover:text-white"
+                className="ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/8 bg-white/4 text-slate-300 transition-colors hover:text-white"
               >
                 <X className="h-4 w-4" />
               </button>
