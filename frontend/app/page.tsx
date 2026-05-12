@@ -118,9 +118,9 @@ const PAGE_COPY = {
         description: 'Selgita, kuidas teha fotost lasergraveerimiseks sobiv kõrge kontrastiga väljund.',
       },
       {
-        label: 'Seadistusoovitus',
-        description: 'Kasuta valitud masinat ja materjali ning anna praktiline töötlusplaan.',
-        prompt: 'Koosta mulle praktiline seadistusoovitus minu aktiivse masina, materjali ja režiimi jaoks ning lisa lühike töötlusplaan.',
+        label: 'Tattoo eskiis',
+        description: 'Loo neo-traditional must-valge tätoveeringu flash sheet puhtal valgel taustal.',
+        prompt: 'Tattoo stencil design of neo-traditional black and grey realism style, ornamental dotwork shading, whip shading technique, high contrast greyscale, intricate line work, ornamental realism, professional tattoo flash sheet, FLAT WHITE BACKGROUND, isolated design on pure white paper, NO SKIN, NO ARM, NO BODY, NOT ON SKIN, tattoo design reference sheet, clean white canvas, studio lighting, centered composition, 1:1 aspect ratio --style raw --v 6 --no skin, arm, body, leg, person, photograph',
       },
     ],
     quickActionEdit: {
