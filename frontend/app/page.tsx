@@ -33,14 +33,14 @@ const PRESET_PROMPTS: Record<UiLanguage, Array<{ label: string; prompt: string }
     { label: 'Visuaalne täiustus', prompt: '__IMAGE_ENHANCE__' },
     { label: 'Tattoo eskiis', prompt: '__IMAGE_GENERATE__:Tattoo stencil design of neo-traditional black and grey realism style, ornamental dotwork shading, whip shading technique, high contrast greyscale, intricate line work, ornamental realism, professional tattoo flash sheet, FLAT WHITE BACKGROUND, isolated design on pure white paper, NO SKIN, NO ARM, NO BODY, NOT ON SKIN, tattoo design reference sheet, clean white canvas, studio lighting, centered composition, 1:1 aspect ratio' },
     { label: 'Foto puhastus (AI)', prompt: IMAGE_CLEANUP_PROMPT_MARKER },
-    { label: 'LightBurn eksport', prompt: 'Anna konkreetsed LightBurn ekspordi seadistused minu aktiivse masina ja materjali jaoks, sh formaadid, parameetrid ja vajalikud sammud.' },
+    { label: 'LightBurn eksport', prompt: 'Anna konkreetsed LightBurn ekspordi seadistused minu aktiivse masina ja materjali jaoks.' },
   ],
   en: [
     { label: 'Logo creation', prompt: '__IMAGE_GENERATE__:Professional logo design, clean vector-style graphic, minimal and elegant, high contrast black and white, sharp clean lines, suitable for laser engraving, isolated on pure white background, centered composition, 1:1 aspect ratio' },
     { label: 'Visual enhancement', prompt: '__IMAGE_ENHANCE__' },
     { label: 'Tattoo sketch', prompt: '__IMAGE_GENERATE__:Tattoo stencil design of neo-traditional black and grey realism style, ornamental dotwork shading, whip shading technique, high contrast greyscale, intricate line work, ornamental realism, professional tattoo flash sheet, FLAT WHITE BACKGROUND, isolated design on pure white paper, NO SKIN, NO ARM, NO BODY, NOT ON SKIN, tattoo design reference sheet, clean white canvas, studio lighting, centered composition, 1:1 aspect ratio' },
     { label: 'Photo cleanup (AI)', prompt: IMAGE_CLEANUP_PROMPT_MARKER },
-    { label: 'LightBurn export', prompt: 'Give me the concrete LightBurn export settings for my active machine and material, including formats, parameters and required steps.' },
+    { label: 'LightBurn export', prompt: 'Give me the concrete LightBurn export settings for my active machine and material.' },
   ],
 }
 const SUPPORTED_CHAT_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
