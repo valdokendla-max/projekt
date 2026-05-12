@@ -50,6 +50,19 @@ type RightUtilityPanel = 'settings' | 'conversations'
 type UiLanguage = 'et' | 'en'
 type UseCaseAction = { label: string; description: string; prompt: string }
 
+const IMAGE_STYLE_ACTIONS_ET = [
+  { key: 'bas-relief', label: 'Reljeef' },
+  { key: 'medallion', label: 'Medaljon' },
+  { key: 'stone-carving', label: 'Kivinikerdus' },
+  { key: 'wood-carving', label: 'Puunikerdus' },
+]
+const IMAGE_STYLE_ACTIONS_EN = [
+  { key: 'bas-relief', label: 'Relief' },
+  { key: 'medallion', label: 'Medallion' },
+  { key: 'stone-carving', label: 'Stone carving' },
+  { key: 'wood-carving', label: 'Wood carving' },
+]
+
 const PAGE_COPY = {
   et: {
     header: {
@@ -804,6 +817,7 @@ export default function LaserGraveerimiseApp() {
   const [conversationsLoading, setConversationsLoading] = useState(false)
   const [conversationsError, setConversationsError] = useState('')
   const [photoCleanupLoading, setPhotoCleanupLoading] = useState(false)
+  const [activeTransformStyle, setActiveTransformStyle] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const auth = useAuth()
   const canAccessKnowledge = auth.status === 'authenticated' && auth.user?.role === 'admin'
@@ -1087,6 +1101,63 @@ Anna selges struktureeritud formaadis:
 4. **Soovitused** — Erilised märkused selle pildi ja materjali kombinatsiooni jaoks parima tulemuse saavutamiseks.`
 
     await sendChatRequest(prompt)
+  }
+
+  const handleTransformImage = async (style: string) => {
+    if (!pendingImage || !auth.token) return
+    setActiveTransformStyle(style)
+    setChatInputError('')
+    const styleLabels: Record<string, { et: string; en: string }> = {
+      'bas-relief': { et: 'Reljeef', en: 'Relief' },
+      medallion: { et: 'Medaljon', en: 'Medallion' },
+      'stone-carving': { et: 'Kivinikerdus', en: 'Stone carving' },
+      'wood-carving': { et: 'Puunikerdus', en: 'Wood carving' },
+    }
+    const styleLabel = styleLabels[style]?.[language] || style
+    try {
+      const res = await fetch('/api/image-generation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+        body: JSON.stringify({
+          sourceImageDataUrl: pendingImage.url,
+          transformStyle: style,
+          savedSettingsSummary: savedSettingsSummary || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Pildi teisendamine ebaõnnestus.')
+      const userMsgId = crypto.randomUUID()
+      const assistantMsgId = crypto.randomUUID()
+      setMessages(prev => [
+        ...prev,
+        {
+          id: userMsgId,
+          role: 'user' as const,
+          parts: [
+            { type: 'text', text: language === 'en' ? `Transform image to ${styleLabel} style.` : `Muuda pilt ${styleLabel} stiiliks.` },
+            { type: 'file', url: pendingImage.url, mediaType: pendingImage.mediaType, filename: pendingImage.filename },
+          ],
+        },
+        {
+          id: assistantMsgId,
+          role: 'assistant' as const,
+          parts: [
+            { type: 'text', text: language === 'en' ? `✅ Image transformed to ${styleLabel} style. Download below. The transformed image is now active.` : `✅ Pilt teisendatud ${styleLabel} stiiliks. Saad selle alla laadida. Teisendatud pilt on nüüd aktiivne.` },
+            { type: 'file', url: data.generatedAsset.dataUrl, mediaType: data.generatedAsset.mediaType, filename: data.generatedAsset.fileName },
+          ],
+        },
+      ])
+      setPendingImage({
+        type: 'file',
+        filename: data.generatedAsset.fileName,
+        mediaType: data.generatedAsset.mediaType,
+        url: data.generatedAsset.dataUrl,
+      })
+    } catch (err) {
+      setChatInputError(err instanceof Error ? err.message : 'Pildi teisendamine ebaõnnestus.')
+    } finally {
+      setActiveTransformStyle(null)
+    }
   }
 
   const handleSubmit = async () => {
@@ -1381,11 +1452,15 @@ Anna selges struktureeritud formaadis:
                   input={input}
                   setInput={setInput}
                   onSubmit={handleSubmit}
-                  isLoading={isLoading}
+                  isLoading={isLoading || Boolean(activeTransformStyle)}
                   pendingImage={pendingImage}
                   onImageSelect={handleImageSelect}
                   onClearImage={handleClearPendingImage}
                   onAnalyzeImage={pendingImage ? handleAnalyzeImage : undefined}
+                  onTransformImage={pendingImage ? handleTransformImage : undefined}
+                  imageStyleActions={pendingImage ? (language === 'en' ? IMAGE_STYLE_ACTIONS_EN : IMAGE_STYLE_ACTIONS_ET) : undefined}
+                  activeTransformStyle={activeTransformStyle}
+                  transformWorkingLabel={language === 'en' ? 'Transforming...' : 'Töötlen...'}
                   inputError={chatInputError}
                   copy={copy.chatInput}
                   className="mt-4"
@@ -1396,11 +1471,15 @@ Anna selges struktureeritud formaadis:
                 input={input}
                 setInput={setInput}
                 onSubmit={handleSubmit}
-                isLoading={isLoading}
+                isLoading={isLoading || Boolean(activeTransformStyle)}
                 pendingImage={pendingImage}
                 onImageSelect={handleImageSelect}
                 onClearImage={handleClearPendingImage}
                 onAnalyzeImage={pendingImage ? handleAnalyzeImage : undefined}
+                onTransformImage={pendingImage ? handleTransformImage : undefined}
+                imageStyleActions={pendingImage ? (language === 'en' ? IMAGE_STYLE_ACTIONS_EN : IMAGE_STYLE_ACTIONS_ET) : undefined}
+                activeTransformStyle={activeTransformStyle}
+                transformWorkingLabel={language === 'en' ? 'Transforming...' : 'Töötlen...'}
                 inputError={chatInputError}
                 copy={copy.chatInput}
               />

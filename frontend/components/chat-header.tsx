@@ -78,11 +78,32 @@ export function ChatHeader({
         <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-linear-to-r from-transparent via-cyan-200/55 to-transparent" />
 
         <div className="flex flex-col gap-4 xl:grid xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-center">
-          <div className="flex items-center gap-3 rounded-3xl border border-primary/12 bg-black/28 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-            <BrandLogo variant="header" />
-            <div>
-              <h1 className="text-sm font-semibold leading-none text-cyan-50">Laser Graveerimine</h1>
-              <p className="mt-1 text-xs text-cyan-100/45">{copy.subtitle}</p>
+          <div className="flex items-center gap-3">
+            <a
+              href="https://vkgraveerimine.eu"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="VK Laser Graveerimine"
+              className="flex items-center justify-center rounded-2xl border border-primary/16 bg-black/30 px-3 py-2 transition-all hover:border-primary/32 hover:bg-black/40 shadow-[0_0_18px_rgba(84,244,255,0.1)]"
+            >
+              <svg width="48" height="40" viewBox="0 0 48 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <polygon points="24,1 44,12 44,28 24,39 4,28 4,12" fill="none" stroke="url(#vkGrad)" strokeWidth="1.5"/>
+                <text x="24" y="26" textAnchor="middle" fontFamily="sans-serif" fontWeight="800" fontSize="16" fill="url(#vkGrad)">VK</text>
+                <defs>
+                  <linearGradient id="vkGrad" x1="0" y1="0" x2="48" y2="40" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#f0f" />
+                    <stop offset="50%" stopColor="#0ff" />
+                    <stop offset="100%" stopColor="#80f" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </a>
+            <div className="flex items-center gap-3 rounded-3xl border border-primary/12 bg-black/28 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+              <BrandLogo variant="header" />
+              <div>
+                <h1 className="text-sm font-semibold leading-none text-cyan-50">Laser Graveerimine</h1>
+                <p className="mt-1 text-xs text-cyan-100/45">{copy.subtitle}</p>
+              </div>
             </div>
           </div>
 

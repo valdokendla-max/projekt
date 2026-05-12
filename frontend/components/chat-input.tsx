@@ -171,6 +171,30 @@ export function ChatInput({
                 <X className="h-4 w-4" />
               </button>
             </div>
+            {imageStyleActions && imageStyleActions.length > 0 && onTransformImage && (
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                {imageStyleActions.map((action) => {
+                  const isActive = activeTransformStyle === action.key
+                  return (
+                    <button
+                      key={action.key}
+                      type="button"
+                      disabled={isLoading || Boolean(activeTransformStyle)}
+                      onClick={() => void onTransformImage(action.key)}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] transition-colors disabled:cursor-not-allowed disabled:opacity-45',
+                        isActive
+                          ? 'border-cyan-400/40 bg-cyan-400/16 text-cyan-100'
+                          : 'border-primary/18 bg-black/24 text-cyan-100/68 hover:border-primary/30 hover:text-cyan-50',
+                      )}
+                    >
+                      {isActive ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                      {isActive ? (transformWorkingLabel || action.label) : action.label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 
