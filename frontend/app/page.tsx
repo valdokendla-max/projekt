@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils'
 const MAX_CHAT_IMAGE_BYTES = 3 * 1024 * 1024
 const QUICK_ACTIONS_STORAGE_KEY = 'laser-graveerimine:quick-actions'
 const IMAGE_CLEANUP_PROMPT_MARKER = '__IMAGE_CLEANUP__'
+const IMAGE_GENERATE_PROMPT_PREFIX = '__IMAGE_GENERATE__:'
 
 const PRESET_PROMPTS: Record<UiLanguage, Array<{ label: string; prompt: string }>> = {
   et: [
@@ -120,7 +121,7 @@ const PAGE_COPY = {
       {
         label: 'Tattoo eskiis',
         description: 'Loo neo-traditional must-valge tätoveeringu flash sheet puhtal valgel taustal.',
-        prompt: 'Tattoo stencil design of neo-traditional black and grey realism style, ornamental dotwork shading, whip shading technique, high contrast greyscale, intricate line work, ornamental realism, professional tattoo flash sheet, FLAT WHITE BACKGROUND, isolated design on pure white paper, NO SKIN, NO ARM, NO BODY, NOT ON SKIN, tattoo design reference sheet, clean white canvas, studio lighting, centered composition, 1:1 aspect ratio --style raw --v 6 --no skin, arm, body, leg, person, photograph',
+        prompt: '__IMAGE_GENERATE__:Tattoo stencil design of neo-traditional black and grey realism style, ornamental dotwork shading, whip shading technique, high contrast greyscale, intricate line work, ornamental realism, professional tattoo flash sheet, FLAT WHITE BACKGROUND, isolated design on pure white paper, NO SKIN, NO ARM, NO BODY, NOT ON SKIN, tattoo design reference sheet, clean white canvas, studio lighting, centered composition, 1:1 aspect ratio',
       },
     ],
     quickActionEdit: {
@@ -1217,6 +1218,44 @@ Anna selges struktureeritud formaadis:
         setChatInputError(err instanceof Error ? err.message : 'Pildi töötlemine ebaõnnestus.')
       } finally {
         setPhotoCleanupLoading(false)
+      }
+      return
+    }
+    if (prompt.startsWith(IMAGE_GENERATE_PROMPT_PREFIX)) {
+      if (!auth.token) {
+        setChatInputError(language === 'en' ? 'Please log in to use image generation.' : 'Pildi genereerimiseks logi sisse.')
+        return
+      }
+      const imagePrompt = prompt.slice(IMAGE_GENERATE_PROMPT_PREFIX.length)
+      setChatInputError('')
+      setActiveTransformStyle('generating')
+      try {
+        const res = await fetch('/api/image-generation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+          body: JSON.stringify({ prompt: imagePrompt, savedSettingsSummary: savedSettingsSummary || undefined }),
+        })
+        const data = await res.json()
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Pildi genereerimine ebaõnnestus.')
+        const userMsgId = crypto.randomUUID()
+        const assistantMsgId = crypto.randomUUID()
+        setMessages(prev => [
+          ...prev,
+          { id: userMsgId, role: 'user' as const, parts: [{ type: 'text', text: language === 'en' ? 'Generate tattoo flash sheet.' : 'Genereeri tattoo flash sheet.' }] },
+          {
+            id: assistantMsgId,
+            role: 'assistant' as const,
+            parts: [
+              { type: 'text', text: language === 'en' ? '✅ Tattoo flash sheet generated. Download below.' : '✅ Tattoo flash sheet genereeritud. Saad selle alla laadida.' },
+              { type: 'file', url: data.generatedAsset.dataUrl, mediaType: data.generatedAsset.mediaType, filename: data.generatedAsset.fileName },
+            ],
+          },
+        ])
+        setPendingImage({ type: 'file', filename: data.generatedAsset.fileName, mediaType: data.generatedAsset.mediaType, url: data.generatedAsset.dataUrl })
+      } catch (err) {
+        setChatInputError(err instanceof Error ? err.message : 'Pildi genereerimine ebaõnnestus.')
+      } finally {
+        setActiveTransformStyle(null)
       }
       return
     }
