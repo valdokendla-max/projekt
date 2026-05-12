@@ -29,14 +29,10 @@ const IMAGE_ENHANCE_MARKER = '__IMAGE_ENHANCE__'
 
 const PRESET_PROMPTS: Record<UiLanguage, Array<{ label: string; prompt: string }>> = {
   et: [
-    { label: 'Logo loomine', prompt: '__IMAGE_GENERATE__:Professional logo design, clean vector-style graphic, minimal and elegant, high contrast black and white, sharp clean lines, suitable for laser engraving, isolated on pure white background, centered composition, 1:1 aspect ratio' },
-    { label: 'Visuaalne täiustus', prompt: '__IMAGE_ENHANCE__' },
     { label: 'Foto puhastus (AI)', prompt: IMAGE_CLEANUP_PROMPT_MARKER },
     { label: 'LightBurn eksport', prompt: 'Anna konkreetsed LightBurn ekspordi seadistused minu aktiivse masina ja materjali jaoks, sh formaadid, parameetrid ja vajalikud sammud.' },
   ],
   en: [
-    { label: 'Logo creation', prompt: '__IMAGE_GENERATE__:Professional logo design, clean vector-style graphic, minimal and elegant, high contrast black and white, sharp clean lines, suitable for laser engraving, isolated on pure white background, centered composition, 1:1 aspect ratio' },
-    { label: 'Visual enhancement', prompt: '__IMAGE_ENHANCE__' },
     { label: 'Photo cleanup (AI)', prompt: IMAGE_CLEANUP_PROMPT_MARKER },
     { label: 'LightBurn export', prompt: 'Give me the concrete LightBurn export settings for my active machine and material, including formats, parameters and required steps.' },
   ],
@@ -267,18 +263,19 @@ const PAGE_COPY = {
     },
     useCaseActions: [
       {
-        label: 'Logo and marking',
-        description: 'Give guidance for preparing a logo or marking file for wood or metal.',
-        prompt: 'Give me guidance on how to prepare a logo or marking file for my active machine and material.',
+        label: 'Logo creation',
+        description: 'AI generates a logo suitable for laser engraving on a clean white background.',
+        prompt: '__IMAGE_GENERATE__:Professional logo design, clean vector-style graphic, minimal and elegant, high contrast black and white, sharp clean lines, suitable for laser engraving, isolated on pure white background, centered composition, 1:1 aspect ratio',
       },
       {
-        label: 'Photo cleanup',
-        description: 'Explain how to turn a photo into a high-contrast output suitable for laser engraving.',
+        label: 'Visual enhancement',
+        description: 'AI visually improves the image and makes it extremely detailed and sharp.',
+        prompt: '__IMAGE_ENHANCE__',
       },
       {
-        label: 'Settings recommendation',
-        description: 'Use the selected machine and material to build a practical processing plan.',
-        prompt: 'Create a practical settings recommendation for my active machine, material, and mode, and include a short processing plan.',
+        label: 'Tattoo sketch',
+        description: 'Create a neo-traditional black and white tattoo flash sheet on a clean white background.',
+        prompt: '__IMAGE_GENERATE__:Tattoo stencil design of neo-traditional black and grey realism style, ornamental dotwork shading, whip shading technique, high contrast greyscale, intricate line work, ornamental realism, professional tattoo flash sheet, FLAT WHITE BACKGROUND, isolated design on pure white paper, NO SKIN, NO ARM, NO BODY, NOT ON SKIN, tattoo design reference sheet, clean white canvas, studio lighting, centered composition, 1:1 aspect ratio',
       },
     ],
     quickActionEdit: {
