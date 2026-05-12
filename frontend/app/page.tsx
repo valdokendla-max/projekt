@@ -25,6 +25,7 @@ const MAX_CHAT_IMAGE_BYTES = 3 * 1024 * 1024
 const QUICK_ACTIONS_STORAGE_KEY = 'laser-graveerimine:quick-actions'
 const IMAGE_CLEANUP_PROMPT_MARKER = '__IMAGE_CLEANUP__'
 const IMAGE_GENERATE_PROMPT_PREFIX = '__IMAGE_GENERATE__:'
+const IMAGE_ENHANCE_MARKER = '__IMAGE_ENHANCE__'
 
 const PRESET_PROMPTS: Record<UiLanguage, Array<{ label: string; prompt: string }>> = {
   et: [
@@ -115,8 +116,9 @@ const PAGE_COPY = {
         prompt: 'Anna soovitus, kuidas valmistada logo või märgistuse fail ette minu aktiivse masina ja materjali jaoks.',
       },
       {
-        label: 'Foto puhastus',
-        description: 'Selgita, kuidas teha fotost lasergraveerimiseks sobiv kõrge kontrastiga väljund.',
+        label: 'Visuaalne täiustus',
+        description: 'AI parandab pildi visuaalselt ja muudab selle äärmiselt detailseks ja teravaks.',
+        prompt: '__IMAGE_ENHANCE__',
       },
       {
         label: 'Tattoo eskiis',
@@ -1218,6 +1220,55 @@ Anna selges struktureeritud formaadis:
         setChatInputError(err instanceof Error ? err.message : 'Pildi töötlemine ebaõnnestus.')
       } finally {
         setPhotoCleanupLoading(false)
+      }
+      return
+    }
+    if (prompt === IMAGE_ENHANCE_MARKER) {
+      if (!pendingImage) {
+        setChatInputError(language === 'en' ? 'Please add an image first to enhance it.' : 'Pildi täiustamiseks lisa esmalt pilt.')
+        return
+      }
+      if (!auth.token) {
+        setChatInputError(language === 'en' ? 'Please log in to use image enhancement.' : 'Pildi täiustamiseks logi sisse.')
+        return
+      }
+      setChatInputError('')
+      setActiveTransformStyle('enhancing')
+      const enhancePrompt = 'Enhance this image to be extremely detailed, highly sharp, rich in texture and fine details, professional quality, maximum visual clarity, intricate details throughout the entire composition, enhanced contrast and depth'
+      try {
+        const res = await fetch('/api/image-generation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+          body: JSON.stringify({ sourceImageDataUrl: pendingImage.url, prompt: enhancePrompt }),
+        })
+        const data = await res.json()
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Pildi täiustamine ebaõnnestus.')
+        const userMsgId = crypto.randomUUID()
+        const assistantMsgId = crypto.randomUUID()
+        setMessages(prev => [
+          ...prev,
+          {
+            id: userMsgId,
+            role: 'user' as const,
+            parts: [
+              { type: 'text', text: language === 'en' ? 'Enhance this image visually with maximum detail.' : 'Täiusta seda pilti visuaalselt maksimaalse detailsusega.' },
+              { type: 'file', url: pendingImage.url, mediaType: pendingImage.mediaType, filename: pendingImage.filename },
+            ],
+          },
+          {
+            id: assistantMsgId,
+            role: 'assistant' as const,
+            parts: [
+              { type: 'text', text: language === 'en' ? '✅ Image visually enhanced with maximum detail. Download below.' : '✅ Pilt visuaalselt täiustatud maksimaalse detailsusega. Saad selle alla laadida.' },
+              { type: 'file', url: data.generatedAsset.dataUrl, mediaType: data.generatedAsset.mediaType, filename: data.generatedAsset.fileName },
+            ],
+          },
+        ])
+        setPendingImage({ type: 'file', filename: data.generatedAsset.fileName, mediaType: data.generatedAsset.mediaType, url: data.generatedAsset.dataUrl })
+      } catch (err) {
+        setChatInputError(err instanceof Error ? err.message : 'Pildi täiustamine ebaõnnestus.')
+      } finally {
+        setActiveTransformStyle(null)
       }
       return
     }
