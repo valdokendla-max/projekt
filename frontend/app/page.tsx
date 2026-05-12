@@ -22,7 +22,7 @@ import { useAuth } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
 
 const MAX_CHAT_IMAGE_BYTES = 3 * 1024 * 1024
-const QUICK_ACTIONS_STORAGE_KEY = 'laser-graveerimine:quick-actions'
+const QUICK_ACTIONS_STORAGE_KEY = 'laser-graveerimine:quick-actions-v2'
 const IMAGE_CLEANUP_PROMPT_MARKER = '__IMAGE_CLEANUP__'
 const IMAGE_GENERATE_PROMPT_PREFIX = '__IMAGE_GENERATE__:'
 const IMAGE_ENHANCE_MARKER = '__IMAGE_ENHANCE__'
