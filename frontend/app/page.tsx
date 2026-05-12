@@ -781,9 +781,7 @@ function HeroDisplay({
                   <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/44">{copy.quickActionPrefix} {index + 1}</div>
                   <p className="mt-1 font-semibold text-cyan-50">{item.label}</p>
                   <p className="mt-1">
-                    {index === 1 && hasImage
-                      ? (language === 'en' ? 'AI will clean up your image for laser engraving and send you the result.' : 'AI puhastab sinu pildi lasergraveerimiseks ja saadab tulemuse.')
-                      : item.description}
+                    {item.description}
                   </p>
                 </button>
                 <button
@@ -913,25 +911,11 @@ export default function LaserGraveerimiseApp() {
     () => copy.useCaseActions.map((item, index) => {
       const custom = customQuickActions[index]
 
-      // Index 1 is always "Photo cleanup" — if image is pending, always use cleanup marker
-      // regardless of any custom override stored in localStorage
-      if (index === 1) {
-        const base = custom ?? item
-        return {
-          ...base,
-          prompt: pendingImage
-            ? IMAGE_CLEANUP_PROMPT_MARKER
-            : language === 'en'
-              ? 'Describe how to prepare a photo for laser engraving for my active machine and material, including contrast, threshold, background, and DPI.'
-              : 'Kirjelda, kuidas valmistada foto lasergraveerimiseks ette minu aktiivse masina ja materjali jaoks, sh kontrast, threshold, taust ja DPI.',
-        } as UseCaseAction
-      }
-
       if (custom) return custom
 
       return item as UseCaseAction
     }),
-    [copy.useCaseActions, customQuickActions, pendingImage, language],
+    [copy.useCaseActions, customQuickActions],
   )
   const commandModes = useMemo(
     () => copy.commandModes.map((item, index) => {
@@ -970,10 +954,7 @@ export default function LaserGraveerimiseApp() {
       if (raw) {
         const parsed = JSON.parse(raw) as (UseCaseAction | null)[]
         if (Array.isArray(parsed) && parsed.length === 3) {
-          // Always null out index 1 (photo cleanup) from localStorage —
-          // its prompt is controlled by pendingImage state, not stored overrides
-          const sanitized = parsed.map((item, i) => (i === 1 ? null : item))
-          setCustomQuickActions(sanitized)
+          setCustomQuickActions(parsed)
         }
       }
     } catch {
