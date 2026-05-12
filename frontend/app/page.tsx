@@ -29,20 +29,16 @@ const IMAGE_ENHANCE_MARKER = '__IMAGE_ENHANCE__'
 
 const PRESET_PROMPTS: Record<UiLanguage, Array<{ label: string; prompt: string }>> = {
   et: [
-    { label: 'Seadistusoovitus', prompt: 'Koosta seadistusoovitus minu aktiivse masina ja materjali jaoks koos kiiruse, võimsuse ja passide soovitusega.' },
-    { label: 'Logo ettevalmistus', prompt: 'Anna juhised logo või märgistuse faili ettevalmistamiseks lasergraveerimiseks minu aktiivse masina jaoks.' },
+    { label: 'Logo loomine', prompt: '__IMAGE_GENERATE__:Professional logo design, clean vector-style graphic, minimal and elegant, high contrast black and white, sharp clean lines, suitable for laser engraving, isolated on pure white background, centered composition, 1:1 aspect ratio' },
+    { label: 'Visuaalne täiustus', prompt: '__IMAGE_ENHANCE__' },
     { label: 'Foto puhastus (AI)', prompt: IMAGE_CLEANUP_PROMPT_MARKER },
-    { label: 'LightBurn eksport', prompt: 'Selgita LightBurn ekspordi seadistust minu aktiivse masina ja materjali jaoks ning millised formaadid valida.' },
-    { label: 'Ohutuskontroll', prompt: 'Tee ohutuskontroll minu aktiivse masina ja materjali jaoks enne graveerimise alustamist.' },
-    { label: 'Materjali presetid', prompt: 'Anna minu aktiivse masina jaoks konkreetsed lähteseaded erinevate materjalide jaoks.' },
+    { label: 'LightBurn eksport', prompt: 'Anna konkreetsed LightBurn ekspordi seadistused minu aktiivse masina ja materjali jaoks, sh formaadid, parameetrid ja vajalikud sammud.' },
   ],
   en: [
-    { label: 'Settings advice', prompt: 'Build a settings recommendation for my active machine and material including speed, power, and passes.' },
-    { label: 'Logo prep', prompt: 'Give guidance on preparing a logo or marking file for laser engraving with my active machine.' },
+    { label: 'Logo creation', prompt: '__IMAGE_GENERATE__:Professional logo design, clean vector-style graphic, minimal and elegant, high contrast black and white, sharp clean lines, suitable for laser engraving, isolated on pure white background, centered composition, 1:1 aspect ratio' },
+    { label: 'Visual enhancement', prompt: '__IMAGE_ENHANCE__' },
     { label: 'Photo cleanup (AI)', prompt: IMAGE_CLEANUP_PROMPT_MARKER },
-    { label: 'LightBurn export', prompt: 'Explain LightBurn export settings for my active machine and material and which formats to choose.' },
-    { label: 'Safety check', prompt: 'Run a safety check for my active machine and material before starting engraving.' },
-    { label: 'Material presets', prompt: 'Give me baseline settings for various materials with my active machine.' },
+    { label: 'LightBurn export', prompt: 'Give me the concrete LightBurn export settings for my active machine and material, including formats, parameters and required steps.' },
   ],
 }
 const SUPPORTED_CHAT_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
@@ -111,9 +107,9 @@ const PAGE_COPY = {
     },
     useCaseActions: [
       {
-        label: 'Logo ja märgistus',
-        description: 'Anna juhised logo või märgistuse faili ettevalmistamiseks puidule või metallile.',
-        prompt: 'Anna soovitus, kuidas valmistada logo või märgistuse fail ette minu aktiivse masina ja materjali jaoks.',
+        label: 'Logo loomine',
+        description: 'AI genereerib logo, mis sobib lasergraveerimiseks puhtal valgel taustal.',
+        prompt: '__IMAGE_GENERATE__:Professional logo design, clean vector-style graphic, minimal and elegant, high contrast black and white, sharp clean lines, suitable for laser engraving, isolated on pure white background, centered composition, 1:1 aspect ratio',
       },
       {
         label: 'Visuaalne täiustus',
