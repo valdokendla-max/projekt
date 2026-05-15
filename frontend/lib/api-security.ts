@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto'
 import { getServerBackendUrl } from '@/lib/backend-url'
-import { queryPostgres, withPostgresTransaction } from '@/lib/postgres'
 
 export interface AuthenticatedRouteUser {
   id: string
@@ -33,8 +32,7 @@ interface InternalRouteAuthOptions {
 }
 
 const BACKEND_URL = getServerBackendUrl()
-let rateLimitSchemaPromise: Promise<void> | null = null
-let rateLimitSchemaInitialized = false
+const inMemoryRateLimits = new Map<string, { count: number; windowStart: number }>()
 
 function getBearerToken(request: Request) {
   const header = request.headers.get('authorization') || ''
@@ -150,83 +148,24 @@ export async function requireAuthenticatedRouteUser(
   }
 }
 
-async function ensureRateLimitSchema() {
-  if (rateLimitSchemaInitialized) {
-    return
-  }
-
-  if (!rateLimitSchemaPromise) {
-    rateLimitSchemaPromise = withPostgresTransaction(async (client) => {
-      await client.query(`
-        CREATE TABLE IF NOT EXISTS app_rate_limits (
-          route_id text NOT NULL,
-          actor_key text NOT NULL,
-          window_start timestamptz NOT NULL,
-          request_count integer NOT NULL,
-          updated_at timestamptz NOT NULL DEFAULT NOW(),
-          PRIMARY KEY (route_id, actor_key, window_start)
-        )
-      `)
-    })
-      .then(() => {
-        rateLimitSchemaInitialized = true
-      })
-      .finally(() => {
-        rateLimitSchemaPromise = null
-      })
-  }
-
-  await rateLimitSchemaPromise
-}
-
 export async function enforceRouteRateLimit(options: RateLimitOptions) {
-  try {
-    await ensureRateLimitSchema()
-  } catch {
-    // If database is unavailable, skip rate limiting gracefully.
-    return null
-  }
-
   const actorKeyHash = hashActorKey(options.actorKey)
-  const windowStart = new Date(
-    Math.floor(Date.now() / (options.windowSeconds * 1000)) * options.windowSeconds * 1000,
-  ).toISOString()
+  const windowMs = options.windowSeconds * 1000
+  const now = Date.now()
+  const windowStart = Math.floor(now / windowMs) * windowMs
+  const key = `${options.routeId}:${actorKeyHash}:${windowStart}`
 
-  let result: Awaited<ReturnType<typeof queryPostgres<{ request_count: number }>>>
-  try {
-    result = await queryPostgres<{ request_count: number }>(
-      `
-        INSERT INTO app_rate_limits (route_id, actor_key, window_start, request_count, updated_at)
-        VALUES ($1, $2, $3::timestamptz, 1, NOW())
-        ON CONFLICT (route_id, actor_key, window_start)
-        DO UPDATE
-          SET request_count = app_rate_limits.request_count + 1,
-              updated_at = NOW()
-        RETURNING request_count
-      `,
-      [options.routeId, actorKeyHash, windowStart],
-    )
-  } catch {
-    // If the query fails, skip rate limiting gracefully.
-    return null
-  }
+  const entry = inMemoryRateLimits.get(key) || { count: 0, windowStart }
+  entry.count += 1
+  inMemoryRateLimits.set(key, entry)
 
-  const requestCount = result.rows[0]?.request_count || 0
-  if (requestCount > options.maxRequests) {
+  if (entry.count > options.maxRequests) {
     return Response.json(
       {
         error: `Liiga palju päringuid route'i ${options.routeId} vastu. Proovi hiljem uuesti.`,
       },
       { status: 429 },
     )
-  }
-
-  if (Math.random() < 0.02) {
-    void queryPostgres(
-      `DELETE FROM app_rate_limits WHERE updated_at < NOW() - INTERVAL '1 day'`,
-    ).catch(() => {
-      // Cleanup failures do not block the user request path.
-    })
   }
 
   return null
