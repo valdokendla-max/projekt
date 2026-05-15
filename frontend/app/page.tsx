@@ -20,7 +20,7 @@ const MAX_CHAT_IMAGE_BYTES = 3 * 1024 * 1024
 const SUPPORTED_CHAT_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 type RightUtilityPanel = 'settings' | 'optimizer'
 type ShowcaseAction = { label: string; value: string; prompt: string }
-type UseCaseAction = { label: string; icon: ReactNode; prompt: string }
+type UseCaseAction = { label: string; icon: ReactNode; prompt: string; mode?: 'logo-create' }
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -122,10 +122,14 @@ function HeroDisplay({
   showcaseActions,
   useCaseActions,
   onQuickAction,
+  onLogoCreate,
+  isGeneratingLogo,
 }: {
   showcaseActions: ShowcaseAction[]
   useCaseActions: UseCaseAction[]
   onQuickAction: (prompt: string) => void
+  onLogoCreate: () => void
+  isGeneratingLogo: boolean
 }) {
   return (
     <section className="hud-panel px-5 py-5 md:px-6 md:py-6">
@@ -204,19 +208,29 @@ function HeroDisplay({
           </p>
 
           <div className="grid grid-cols-3 gap-3">
-            {useCaseActions.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                onClick={() => onQuickAction(item.prompt)}
-                className="flex flex-col items-center gap-2 rounded-[20px] border border-primary/12 bg-black/24 px-2 py-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors hover:border-primary/24 hover:bg-black/32"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/14 bg-primary/8 text-primary">
-                  {item.icon}
-                </div>
-                <span className="text-xs font-semibold leading-tight text-cyan-50">{item.label}</span>
-              </button>
-            ))}
+            {useCaseActions.map((item) => {
+              const isLogo = item.mode === 'logo-create'
+              return (
+                <button
+                  key={item.label}
+                  type="button"
+                  disabled={isLogo && isGeneratingLogo}
+                  onClick={() => isLogo ? onLogoCreate() : onQuickAction(item.prompt)}
+                  className="flex flex-col items-center gap-2 rounded-[20px] border border-primary/12 bg-black/24 px-2 py-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors hover:border-primary/24 hover:bg-black/32 disabled:opacity-50"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/14 bg-primary/8 text-primary">
+                    {isLogo && isGeneratingLogo ? (
+                      <span className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                    ) : (
+                      item.icon
+                    )}
+                  </div>
+                  <span className="text-xs font-semibold leading-tight text-cyan-50">
+                    {isLogo && isGeneratingLogo ? 'Loon...' : item.label}
+                  </span>
+                </button>
+              )
+            })}
           </div>
 
           <div className="hud-divider" />
@@ -233,6 +247,7 @@ export default function LaserGraveerimiseApp() {
   const [pendingImage, setPendingImage] = useState<FileUIPart | null>(null)
   const [savedSettingsSummary, setSavedSettingsSummary] = useState('')
   const [chatInputError, setChatInputError] = useState('')
+  const [isGeneratingLogo, setIsGeneratingLogo] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const auth = useAuth()
   const canAccessKnowledge = auth.status === 'authenticated' && auth.user?.role === 'admin'
@@ -274,7 +289,8 @@ export default function LaserGraveerimiseApp() {
     {
       label: 'Logo loomine',
       icon: <Layers className="h-5 w-5" />,
-      prompt: 'Anna soovitus, kuidas luua ja valmistada logo fail minu aktiivse masina ja materjali jaoks lasergraveerimiseks.',
+      mode: 'logo-create' as const,
+      prompt: '',
     },
     {
       label: 'Visuaalne täiustus',
@@ -432,6 +448,31 @@ export default function LaserGraveerimiseApp() {
     setChatInputError('')
   }
 
+  const handleLogoCreate = async () => {
+    if (isGeneratingLogo) return
+    setIsGeneratingLogo(true)
+    setChatInputError('')
+    try {
+      const res = await fetch('/api/logo-generation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brandText: input.trim(),
+          sourceImageDataUrl: pendingImage?.url || undefined,
+        }),
+      })
+      const data = (await res.json()) as { ok: boolean; imageDataUrl?: string; error?: string }
+      if (!data.ok || !data.imageDataUrl) throw new Error(data.error || 'Logo loomine ebaõnnestus.')
+      setPendingImage({ type: 'file', filename: 'logo.png', mediaType: 'image/png', url: data.imageDataUrl })
+      setActiveRightPanel('optimizer')
+      setInput('')
+    } catch (error) {
+      setChatInputError(error instanceof Error ? error.message : 'Logo loomine ebaõnnestus.')
+    } finally {
+      setIsGeneratingLogo(false)
+    }
+  }
+
   const handleReset = () => {
     setMessages([])
     setPendingImage(null)
@@ -496,6 +537,8 @@ export default function LaserGraveerimiseApp() {
             onQuickAction={(prompt) => {
               void handleQuickAction(prompt)
             }}
+            onLogoCreate={handleLogoCreate}
+            isGeneratingLogo={isGeneratingLogo}
           />
 
           <section className={hasMessages ? 'hud-panel flex min-h-0 flex-1 flex-col p-4 md:p-5' : 'hud-panel p-4 md:p-5'}>
