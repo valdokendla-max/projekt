@@ -1,5 +1,4 @@
 import JSZip from 'jszip'
-import { requireAuthenticatedRouteUser } from '@/lib/api-security'
 import { bufferToDataUrl, parseDataUrl } from '@/lib/engraving/data-url'
 import { buildLightBurnProjectManifest } from '@/lib/engraving/lightburn-project'
 import { serializeLightBurnProject } from '@/lib/engraving/lightburn-project'
@@ -9,7 +8,6 @@ import { renderVectorAssetsFromRaster } from '@/lib/engraving/vector-engraving'
 import { buildZipExportPlan } from '@/lib/engraving/zip-export'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
 
 interface RequestBody {
   savedSettingsSummary?: string
@@ -59,9 +57,6 @@ function createTextAsset(path: string, description: string, content: string): Ex
 }
 
 export async function POST(req: Request) {
-  const auth = await requireAuthenticatedRouteUser(req)
-  if (!auth.ok) return auth.response
-
   const body = (await req.json().catch(() => ({}))) as RequestBody
   const preset = parseSavedSettingsSummary(body.savedSettingsSummary)
   const requestedAssetReferences = (body.assetReferences || []).map(sanitizeArchivePath).filter(Boolean)
