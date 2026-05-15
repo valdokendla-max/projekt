@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type FileUIPart } from 'ai'
 import Image from 'next/image'
-import { Camera, Download, Layers, PenLine, Settings2, SlidersHorizontal, Sparkles, WandSparkles, X } from 'lucide-react'
+import { Camera, Download, Layers, PenLine, Settings2, Sparkles, WandSparkles, X } from 'lucide-react'
 import { ChatHeader } from '@/components/chat-header'
 import { ChatInput } from '@/components/chat-input'
 import { EngravingOptimizerPanel } from '@/components/engraving-optimizer-panel'
@@ -287,11 +287,6 @@ export default function LaserGraveerimiseApp() {
       label: 'Tatoo eskiis',
       icon: <PenLine className="h-5 w-5" />,
       prompt: 'Anna juhised tatoo eskiisi ettevalmistamiseks lasergraveerimiseks: joonte paksus, kontrast ja soovituslikud seadistused minu aktiivse masina ja materjali jaoks.',
-    },
-    {
-      label: 'Vali preset',
-      icon: <SlidersHorizontal className="h-5 w-5" />,
-      prompt: 'Aita mul valida sobiv preset ning anna soovituslikud parameetrid minu laseri ja materjali jaoks.',
     },
     {
       label: 'Foto puhastus (AI)',
