@@ -16,12 +16,12 @@ function buildTattooPrompt(subjectText: string, hasReference: boolean) {
   const base =
     'STRICT RULES: NO mandala, NO ornamental frame, NO decorative border, NO surrounding patterns, NO floral wreath, NO geometric background, NO oval frame, NO symmetrical decoration around the subject. ' +
     `Black and grey realism tattoo design. ${subject}` +
-    'Subject only, centered on a completely plain white background. ' +
+    'Subject fully visible with generous whitespace padding on all sides. Subject occupies no more than 70% of the canvas, centered. Entire subject fits completely within frame, nothing cut off. ' +
     'Fine line detail, whip shading, dotwork for gradients, bold outlines, high contrast greyscale. ' +
     'Clean white background with nothing else. No patterns outside the subject. Sharp focus, ultra-detailed.'
 
   if (hasReference) {
-    return base + ' Redraw the reference as a clean black and grey tattoo design. Keep only the subject, remove all surrounding decorations.'
+    return base + ' Redraw the reference as a clean black and grey tattoo design. Keep only the subject, remove all surrounding decorations. Full subject visible with padding around it.'
   }
 
   return base + ' NOT ON SKIN. NOT ON BODY. No color. No background elements whatsoever.'
