@@ -6,6 +6,7 @@ export const maxDuration = 60
 
 const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')
 const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1'
+const DALLE3_MODEL = 'dall-e-3'
 
 interface RequestBody {
   subjectText: string
@@ -129,11 +130,13 @@ export async function POST(req: Request) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: OPENAI_IMAGE_MODEL,
+          model: DALLE3_MODEL,
           prompt,
           n: 1,
-          size: '1024x1536',
-          output_format: 'png',
+          size: '1024x1024',
+          quality: 'hd',
+          style: 'natural',
+          response_format: 'b64_json',
         }),
         signal: req.signal,
       })
