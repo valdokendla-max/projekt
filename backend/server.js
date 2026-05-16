@@ -15,6 +15,7 @@ const {
 } = require("./auth-store");
 const { LASER_MACHINES, MATERIALS, getRecommendation } = require("./laser-data");
 const { getUserConversations, upsertConversation, deleteConversation } = require("./conversations-store");
+const { KNOWLEDGE_CATEGORIES, knowledgeStore } = require("./knowledge-store");
 
 const app = express();
 const port = Number(process.env.PORT) || 4000;
@@ -355,6 +356,70 @@ app.delete("/api/conversations/:id", async (req, res) => {
     res.json({ ok: true });
   } catch (error) {
     sendError(res, error, "Vestluse kustutamine ebaõnnestus.");
+  }
+});
+
+app.get("/api/knowledge", async (_req, res) => {
+  try {
+    const items = await knowledgeStore.getAll();
+    res.json(items);
+  } catch (error) {
+    sendError(res, error, "Teadmistebaasi laadimine ebaõnnestus.");
+  }
+});
+
+app.get("/api/knowledge/context", async (_req, res) => {
+  try {
+    const context = await knowledgeStore.getContext();
+    res.json({ context });
+  } catch (error) {
+    sendError(res, error, "Teadmistebaasi konteksti laadimine ebaõnnestus.");
+  }
+});
+
+app.post("/api/knowledge", async (req, res) => {
+  const body = req.body || {};
+  const title = String(body.title || "").trim();
+  const content = String(body.content || "").trim();
+  const category = body.category;
+
+  if (!title || !content || !category) {
+    res.status(400).json({ error: "Pealkiri, sisu ja kategooria on kohustuslikud." });
+    return;
+  }
+
+  if (!KNOWLEDGE_CATEGORIES.includes(category)) {
+    res.status(400).json({ error: "Kategooria peab olema üks väärtustest: juhis, naidis, fakt või stiil." });
+    return;
+  }
+
+  try {
+    await requireAdminUser(req);
+    const item = await knowledgeStore.add({ title, content, category });
+    res.status(201).json(item);
+  } catch (error) {
+    sendError(res, error, "Kirje lisamine ebaõnnestus.");
+  }
+});
+
+app.delete("/api/knowledge", async (req, res) => {
+  const id = String(req.query.id || "").trim();
+
+  if (!id) {
+    res.status(400).json({ error: "ID on kohustuslik." });
+    return;
+  }
+
+  try {
+    await requireAdminUser(req);
+    const removed = await knowledgeStore.remove(id);
+    if (!removed) {
+      res.status(404).json({ error: "Sellist kirjet ei leitud." });
+      return;
+    }
+    res.json({ success: true });
+  } catch (error) {
+    sendError(res, error, "Kirje kustutamine ebaõnnestus.");
   }
 });
 

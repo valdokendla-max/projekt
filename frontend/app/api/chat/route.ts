@@ -1,8 +1,24 @@
-import { knowledgeStore } from '@/lib/knowledge-store'
+import { getServerBackendUrl } from '@/lib/backend-url'
 import { normalizeChatImageDataUrl } from '@/lib/engraving/chat-image-normalizer'
 
 export const maxDuration = 60
 export const runtime = 'nodejs'
+
+const BACKEND_URL = getServerBackendUrl()
+
+async function fetchKnowledgeContext(): Promise<string> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/knowledge/context`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!res.ok) return ''
+    const data = (await res.json()) as { context?: string }
+    return data.context ?? ''
+  } catch {
+    return ''
+  }
+}
 
 const BASE_SYSTEM_EST = `Sa oled Laser Graveerimine - lasergraveerimise tehniline assistent.
 Sinu fookus: lasergraveerimise seaded, materjalid, failiformaadid, toodangu kvaliteet, ohutus ja probleemide diagnoos.
@@ -238,7 +254,7 @@ export async function POST(req: Request) {
     )
   }
 
-  const knowledgeContext = await knowledgeStore.getContext()
+  const knowledgeContext = await fetchKnowledgeContext()
   const system = (language === 'eng' ? BASE_SYSTEM_ENG : BASE_SYSTEM_EST) + knowledgeContext + buildSavedSettingsContext(savedSettingsSummary, language)
 
   const providerMessages = [
