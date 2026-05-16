@@ -10,7 +10,8 @@ import { ChatInput } from '@/components/chat-input'
 import { ChatMessage } from '@/components/chat-message'
 import { KnowledgePanel } from '@/components/knowledge-panel'
 import { LaserSettingsPanel } from '@/components/laser-settings-panel'
-import { readSavedLaserSettings } from '@/lib/engraving/saved-settings-storage'
+import { readSavedLaserSettings, type StoredLaserSettings } from '@/lib/engraving/saved-settings-storage'
+import { useEngravingPreview } from '@/hooks/use-engraving-preview'
 import { useAuth } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
 
@@ -152,12 +153,21 @@ function HeroDisplay({
   useCaseActions,
   onQuickAction,
   language,
+  previewImageUrl,
+  powerPct,
+  materialName,
 }: {
   showcaseActions: ShowcaseAction[]
   useCaseActions: UseCaseAction[]
   onQuickAction: (prompt: string) => void
   language: 'est' | 'eng'
+  previewImageUrl: string | null
+  powerPct: number
+  materialName: string
 }) {
+  const { previewUrl, isProcessing } = useEngravingPreview(previewImageUrl, powerPct)
+  const hasPreview = Boolean(previewUrl)
+
   return (
     <section className="hud-panel px-5 py-5 md:px-6 md:py-6">
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] xl:items-center">
@@ -167,21 +177,50 @@ function HeroDisplay({
             <span className="hud-plate-bolt right-5 top-5" />
             <span className="hud-plate-bolt bottom-5 left-5" />
             <span className="hud-plate-bolt bottom-5 right-5" />
-            <div className="hero-plate-code">Näidisgraveering</div>
-            <div className="hero-plate-status">Preview ready</div>
+            <div className="hero-plate-code">{hasPreview ? (language === 'eng' ? 'Preview' : 'Eelvaade') : 'Näidisgraveering'}</div>
+            <div className="hero-plate-status">
+              {hasPreview ? `${powerPct}% võimsus` : 'Preview ready'}
+            </div>
 
             <div
               className="absolute z-0 overflow-hidden rounded-[18px] border border-white/10"
               style={{ inset: '18px' }}
             >
+              {/* Staatiline logo — nähtav kui eelvaade puudub */}
               <Image
                 src="/laser-graveerimine-logo.svg"
                 alt="Laser Graveerimine näidisgraveering"
                 fill
                 priority
-                className="object-cover opacity-90"
+                className={cn('object-cover transition-opacity duration-500', hasPreview ? 'opacity-0' : 'opacity-90')}
                 sizes="(max-width: 1280px) 100vw, 55vw"
               />
+
+              {/* Graveeringu eelvaade */}
+              {previewUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={previewUrl}
+                  alt="Graveeringu eelvaade"
+                  className="absolute inset-0 h-full w-full animate-fade-in object-contain"
+                  style={{ background: '#0a0f18' }}
+                />
+              )}
+
+              {/* Töötlemisspinner */}
+              {isProcessing && (
+                <div className="absolute inset-0 flex items-center justify-center bg-[#0a0f18]/60">
+                  <span className="h-6 w-6 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin" />
+                </div>
+              )}
+
+              {/* Materjali silt eelvaate peal */}
+              {hasPreview && materialName && (
+                <div className="absolute left-3 top-3 rounded-md border border-cyan-400/20 bg-black/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-cyan-300/70 backdrop-blur-sm">
+                  {materialName}
+                </div>
+              )}
+
               <div
                 className="absolute inset-0"
                 style={{ background: 'linear-gradient(to top, rgba(3, 7, 15, 0.82), rgba(5, 10, 18, 0.16), rgba(224, 255, 255, 0.04))' }}
@@ -273,6 +312,7 @@ export default function LaserGraveerimiseApp() {
   const [activeRightPanel, setActiveRightPanel] = useState<RightUtilityPanel | null>(null)
   const [pendingImage, setPendingImage] = useState<FileUIPart | null>(null)
   const [savedSettingsSummary, setSavedSettingsSummary] = useState('')
+  const [savedSettings, setSavedSettings] = useState<StoredLaserSettings | null>(null)
   const [chatInputError, setChatInputError] = useState('')
   const [isGeneratingLogo, setIsGeneratingLogo] = useState(false)
   const [isGeneratingTattoo, setIsGeneratingTattoo] = useState(false)
@@ -307,6 +347,14 @@ export default function LaserGraveerimiseApp() {
   const hasMessages = messages.length > 0
   const hasImageContext = Boolean(pendingImage) || messages.some(messageHasImage)
   const isLoading = status === 'streaming' || status === 'submitted'
+
+  const activeImageUrl = useMemo(
+    () => getActiveImage()?.url ?? null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pendingImage, messages]
+  )
+  const previewPowerPct = savedSettings?.recommendation?.settings?.powerPct ?? 60
+  const previewMaterialName = savedSettingsSummary.match(/^Materjal:\s*(.+)$/m)?.[1] ?? ''
 
   const getActiveImage = (): { url: string; mediaType: string } | null => {
     if (pendingImage?.url) return { url: pendingImage.url, mediaType: pendingImage.mediaType || 'image/png' }
@@ -587,6 +635,7 @@ export default function LaserGraveerimiseApp() {
 
     if (storedSettings?.summary) {
       setSavedSettingsSummary(storedSettings.summary)
+      setSavedSettings(storedSettings)
     }
   }, [])
 
@@ -892,6 +941,9 @@ export default function LaserGraveerimiseApp() {
               void handleQuickAction(prompt)
             }}
             language={effectiveLanguage}
+            previewImageUrl={activeImageUrl}
+            powerPct={previewPowerPct}
+            materialName={previewMaterialName}
           />
 
           <section className={hasMessages ? 'hud-panel flex min-h-0 flex-1 flex-col p-4 md:p-5' : 'hud-panel p-4 md:p-5'}>
@@ -990,7 +1042,10 @@ export default function LaserGraveerimiseApp() {
           >
             <LaserSettingsPanel
               savedSettingsSummary={savedSettingsSummary}
-              onSavedSettingsSummaryChange={setSavedSettingsSummary}
+              onSavedSettingsSummaryChange={(summary) => {
+                setSavedSettingsSummary(summary)
+                setSavedSettings(readSavedLaserSettings())
+              }}
             />
           </RightPanelShell>
         )}
