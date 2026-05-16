@@ -29,35 +29,21 @@ function buildTattooPrompt(subjectText: string, hasReference: boolean) {
   return base
 }
 
-// Trims existing white edges, then places the content centered on a white 1024x1024 canvas
-// with 20% padding on every side — guarantees full subject visibility regardless of AI framing.
+// Scales the AI image to 60% and centers it on a white 1024x1024 canvas — guarantees 20% white margin on every side.
 async function addPadding(inputBuffer: Buffer): Promise<Buffer> {
   const canvasSize = 1024
-  const padding = Math.round(canvasSize * 0.20) // 20% = 205px each side
+  const targetSize = Math.round(canvasSize * 0.60) // 60% → 614px, leaves 205px margin each side
 
-  // Trim white edges so uneven AI margins don't skew the centering
-  const trimmed = await sharp(inputBuffer)
-    .trim({ background: '#ffffff', threshold: 30 })
+  const resized = await sharp(inputBuffer)
+    .resize(targetSize, targetSize, { fit: 'inside' })
     .png()
     .toBuffer()
 
-  const meta = await sharp(trimmed).metadata()
-  const contentW = meta.width ?? canvasSize
-  const contentH = meta.height ?? canvasSize
-
-  // Scale down to fit inside the padded area
-  const maxContent = canvasSize - padding * 2
-  const scale = Math.min(maxContent / contentW, maxContent / contentH, 1)
-  const targetW = Math.round(contentW * scale)
-  const targetH = Math.round(contentH * scale)
-
-  const resized = await sharp(trimmed)
-    .resize(targetW, targetH, { fit: 'fill' })
-    .png()
-    .toBuffer()
-
-  const left = Math.round((canvasSize - targetW) / 2)
-  const top = Math.round((canvasSize - targetH) / 2)
+  const meta = await sharp(resized).metadata()
+  const w = meta.width ?? targetSize
+  const h = meta.height ?? targetSize
+  const left = Math.round((canvasSize - w) / 2)
+  const top = Math.round((canvasSize - h) / 2)
 
   return sharp({
     create: { width: canvasSize, height: canvasSize, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } },
