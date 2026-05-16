@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     formData.append('image[]', new Blob([buffer], { type: mediaType }), 'source.png')
     formData.append('prompt', ENHANCE_PROMPT)
     formData.append('n', '1')
-    formData.append('size', '1024x1024')
+    formData.append('size', 'auto')
 
     const res = await fetch(`${OPENAI_BASE_URL}/images/edits`, {
       method: 'POST',
