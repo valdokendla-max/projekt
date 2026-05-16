@@ -133,7 +133,7 @@ export async function POST(req: Request) {
           model: DALLE3_MODEL,
           prompt,
           n: 1,
-          size: '1024x1024',
+          size: '1024x1792',
           quality: 'hd',
           style: 'natural',
           response_format: 'b64_json',
@@ -160,8 +160,12 @@ export async function POST(req: Request) {
       }
     }
 
-    // Return raw AI output to inspect what the model generates before any post-processing
-    return Response.json({ ok: true, imageDataUrl })
+    // Post-process: fit portrait image into padded square canvas
+    const rawBuffer = await dataUrlToBuffer(imageDataUrl)
+    const paddedBuffer = await addPadding(rawBuffer)
+    const finalDataUrl = `data:image/png;base64,${paddedBuffer.toString('base64')}`
+
+    return Response.json({ ok: true, imageDataUrl: finalDataUrl })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Tatoo loomine ebaõnnestus.'
     return Response.json({ ok: false, error: message }, { status: 502 })
