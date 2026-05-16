@@ -160,12 +160,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // Post-process: fit portrait image into padded square canvas
-    const rawBuffer = await dataUrlToBuffer(imageDataUrl)
-    const paddedBuffer = await addPadding(rawBuffer)
-    const finalDataUrl = `data:image/png;base64,${paddedBuffer.toString('base64')}`
-
-    return Response.json({ ok: true, imageDataUrl: finalDataUrl })
+    return Response.json({ ok: true, imageDataUrl })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Tatoo loomine ebaõnnestus.'
     return Response.json({ ok: false, error: message }, { status: 502 })
