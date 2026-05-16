@@ -53,30 +53,6 @@ function buildTattooOnBodyPrompt(hasReference: boolean) {
   return base
 }
 
-// Scales the AI image to 55% and centers it on a white 1024x1024 canvas — guarantees ~22% white margin on every side.
-async function addPadding(inputBuffer: Buffer): Promise<Buffer> {
-  const canvasSize = 1024
-  const targetSize = Math.round(canvasSize * 0.55) // 55% → 563px max, leaves ~230px margin each side
-
-  const resized = await sharp(inputBuffer)
-    .resize(targetSize, targetSize, { fit: 'inside' })
-    .png()
-    .toBuffer()
-
-  const meta = await sharp(resized).metadata()
-  const w = meta.width ?? targetSize
-  const h = meta.height ?? targetSize
-  const left = Math.round((canvasSize - w) / 2)
-  const top = Math.round((canvasSize - h) / 2)
-
-  return sharp({
-    create: { width: canvasSize, height: canvasSize, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } },
-  })
-    .composite([{ input: resized, left, top }])
-    .png()
-    .toBuffer()
-}
-
 async function fetchImageAsDataUrl(url: string, signal: AbortSignal) {
   const res = await fetch(url, { signal })
   const buf = Buffer.from(await res.arrayBuffer())
