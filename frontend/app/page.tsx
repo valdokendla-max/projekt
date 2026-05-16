@@ -11,7 +11,6 @@ import { ChatMessage } from '@/components/chat-message'
 import { KnowledgePanel } from '@/components/knowledge-panel'
 import { LaserSettingsPanel } from '@/components/laser-settings-panel'
 import { readSavedLaserSettings, type StoredLaserSettings } from '@/lib/engraving/saved-settings-storage'
-import { useEngravingPreview } from '@/hooks/use-engraving-preview'
 import { useAuth } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
 
@@ -165,8 +164,10 @@ function HeroDisplay({
   powerPct: number
   materialName: string
 }) {
-  const { previewUrl, isProcessing } = useEngravingPreview(previewImageUrl, powerPct)
-  const hasPreview = Boolean(previewUrl)
+  const hasPreview = Boolean(previewImageUrl)
+  // CSS filter graveeringu efekt: grayscale → invert → kontrast vastavalt võimsusele
+  const contrast = (1.2 + (powerPct / 100) * 2).toFixed(1)
+  const engravingFilter = `grayscale(100%) invert(100%) contrast(${contrast}) brightness(0.85)`
 
   return (
     <section className="hud-panel px-5 py-5 md:px-6 md:py-6">
@@ -184,9 +185,9 @@ function HeroDisplay({
 
             <div
               className="absolute z-0 overflow-hidden rounded-[18px] border border-white/10"
-              style={{ inset: '18px' }}
+              style={{ inset: '18px', background: hasPreview ? '#0a0f18' : undefined }}
             >
-              {/* Staatiline logo — nähtav kui eelvaade puudub */}
+              {/* Staatiline logo */}
               <Image
                 src="/laser-graveerimine-logo.svg"
                 alt="Laser Graveerimine näidisgraveering"
@@ -196,37 +197,44 @@ function HeroDisplay({
                 sizes="(max-width: 1280px) 100vw, 55vw"
               />
 
-              {/* Graveeringu eelvaade */}
-              {previewUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={previewUrl}
-                  alt="Graveeringu eelvaade"
-                  className="absolute inset-0 h-full w-full animate-fade-in object-contain"
-                  style={{ background: '#0a0f18' }}
-                />
-              )}
-
-              {/* Töötlemisspinner */}
-              {isProcessing && (
-                <div className="absolute inset-0 flex items-center justify-center bg-[#0a0f18]/60">
-                  <span className="h-6 w-6 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin" />
+              {/* Graveeringu eelvaade — CSS filter, ei vaja Canvas API-t */}
+              {hasPreview && previewImageUrl && (
+                <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+                  {/* Scanline overlay */}
+                  <div
+                    className="absolute inset-0 z-10 pointer-events-none"
+                    style={{
+                      background: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0px, rgba(0,0,0,0.18) 1px, transparent 1px, transparent 3px)',
+                    }}
+                  />
+                  {/* Tsüaan tint overlay */}
+                  <div
+                    className="absolute inset-0 z-10 pointer-events-none"
+                    style={{ background: 'rgba(0, 180, 220, 0.08)', mixBlendMode: 'screen' }}
+                  />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={previewImageUrl}
+                    alt="Graveeringu eelvaade"
+                    className="h-full w-full object-contain"
+                    style={{ filter: engravingFilter }}
+                  />
                 </div>
               )}
 
-              {/* Materjali silt eelvaate peal */}
+              {/* Materjali silt */}
               {hasPreview && materialName && (
-                <div className="absolute left-3 top-3 rounded-md border border-cyan-400/20 bg-black/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-cyan-300/70 backdrop-blur-sm">
+                <div className="absolute left-3 top-3 z-20 rounded-md border border-cyan-400/20 bg-black/70 px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-cyan-300/80 backdrop-blur-sm">
                   {materialName}
                 </div>
               )}
 
               <div
-                className="absolute inset-0"
+                className="absolute inset-0 z-10"
                 style={{ background: 'linear-gradient(to top, rgba(3, 7, 15, 0.82), rgba(5, 10, 18, 0.16), rgba(224, 255, 255, 0.04))' }}
               />
               <div
-                className="absolute inset-x-0 bottom-0 h-30"
+                className="absolute inset-x-0 bottom-0 z-10 h-30"
                 style={{ background: 'linear-gradient(to top, #02060d, rgba(2, 6, 13, 0.72), transparent)' }}
               />
             </div>
@@ -369,6 +377,16 @@ export default function LaserGraveerimiseApp() {
   )
   const previewPowerPct = savedSettings?.recommendation?.settings?.powerPct ?? 60
   const previewMaterialName = savedSettingsSummary.match(/^Materjal:\s*(.+)$/m)?.[1] ?? ''
+
+  // Kui uus pilt ilmub, skrolli hero paneelini
+  const prevActiveImageRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (activeImageUrl && activeImageUrl !== prevActiveImageRef.current) {
+      prevActiveImageRef.current = activeImageUrl
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+    if (!activeImageUrl) prevActiveImageRef.current = null
+  }, [activeImageUrl])
 
   const handleShowSettings = () => {
     if (!savedSettingsSummary) {
