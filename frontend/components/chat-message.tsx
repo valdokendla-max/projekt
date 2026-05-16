@@ -2,7 +2,7 @@
 
 import type { UIMessage } from 'ai'
 import Image from 'next/image'
-import { Bot, Download, User } from 'lucide-react'
+import { Bot, User } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/utils'
@@ -22,6 +22,22 @@ function getMessageImages(message: UIMessage) {
     (part): part is { type: 'file'; url: string; mediaType: string; filename?: string } =>
       part.type === 'file' && typeof part.url === 'string' && typeof part.mediaType === 'string' && part.mediaType.startsWith('image/')
   )
+}
+
+function openImageInNewTab(url: string) {
+  if (!url.startsWith('data:')) {
+    window.open(url, '_blank')
+    return
+  }
+  const [header, base64] = url.split(',')
+  const mimeType = header.split(':')[1]?.split(';')[0] || 'image/png'
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  const blob = new Blob([bytes], { type: mimeType })
+  const blobUrl = URL.createObjectURL(blob)
+  const tab = window.open(blobUrl, '_blank')
+  if (tab) tab.addEventListener('beforeunload', () => URL.revokeObjectURL(blobUrl))
 }
 
 export function ChatMessage({ message }: { message: UIMessage }) {
@@ -64,7 +80,12 @@ export function ChatMessage({ message }: { message: UIMessage }) {
           {images.length > 0 && (
             <div className="mb-3 grid gap-2 sm:grid-cols-2">
               {images.map((image) => (
-                <figure key={`${image.url}-${image.filename || 'image'}`} className="overflow-hidden rounded-2xl border border-white/8 bg-black/24">
+                <figure
+                  key={`${image.url}-${image.filename || 'image'}`}
+                  className="overflow-hidden rounded-2xl border border-white/8 bg-black/24 cursor-pointer transition-opacity hover:opacity-90"
+                  onClick={() => openImageInNewTab(image.url)}
+                  title="Kliki suuremaks"
+                >
                   <Image
                     src={image.url}
                     alt={image.filename || 'Laaditud pilt'}
@@ -73,19 +94,7 @@ export function ChatMessage({ message }: { message: UIMessage }) {
                     unoptimized
                     className="max-h-70 w-full object-cover"
                   />
-                  {!isUser && image.url.startsWith('data:') && (
-                    <div className="flex items-center justify-between px-3 py-2">
-                      {image.filename && <span className="text-xs text-cyan-100/52">{image.filename}</span>}
-                      <a
-                        href={image.url}
-                        download={image.filename || 'image.png'}
-                        className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-cyan-400/22 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-100 transition-colors hover:border-cyan-400/40 hover:bg-cyan-400/18"
-                      >
-                        <Download className="h-3 w-3" />
-                        Laadi alla
-                      </a>
-                    </div>
-                  )}
+                  {image.filename && <figcaption className="px-3 py-2 text-xs text-cyan-100/52">{image.filename}</figcaption>}
                 </figure>
               ))}
             </div>

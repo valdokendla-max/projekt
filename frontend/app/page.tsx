@@ -621,32 +621,6 @@ export default function LaserGraveerimiseApp() {
       prompt: '',
     },
   ]
-  const commandModes: { label: string; prompt: string }[] = [
-    {
-      label: effectiveLanguage === 'eng' ? 'Material presets' : 'Materjali presetid',
-      prompt: effectiveLanguage === 'eng'
-        ? 'Give me concrete starting settings for my active machine and material with speed, power, passes, line interval and air assist recommendation.'
-        : 'Anna minu aktiivse masina ja materjali jaoks konkreetsed lähteseaded koos kiiruse, võimsuse, passide, joone vahe ja air assisti soovitusega.',
-    },
-    {
-      label: effectiveLanguage === 'eng' ? 'Photo preparation' : 'Foto ettevalmistus',
-      prompt: effectiveLanguage === 'eng'
-        ? (hasImageContext ? 'Analyze the image in the conversation and describe exactly how to prepare it for laser engraving for my active settings.' : 'Describe how to prepare a photo for laser engraving for my active settings.')
-        : (hasImageContext ? 'Analüüsi vestluses olevat pilti ja kirjelda täpselt, kuidas see lasergraveerimiseks ette valmistada minu aktiivse seadistuse jaoks.' : 'Kirjelda, kuidas valmistada foto lasergraveerimiseks ette minu aktiivse seadistuse jaoks.'),
-    },
-    {
-      label: 'LightBurn eksport',
-      prompt: effectiveLanguage === 'eng'
-        ? 'Explain how to prepare a job for LightBurn export for my active machine and material and which formats to choose.'
-        : 'Selgita, kuidas valmistada töö LightBurn ekspordiks minu aktiivse masina ja materjali jaoks ning millised formaadid valida.',
-    },
-    {
-      label: effectiveLanguage === 'eng' ? 'Safety check' : 'Ohutuskontroll',
-      prompt: effectiveLanguage === 'eng'
-        ? 'Do a quick safety check for my active machine, material and job type before starting engraving.'
-        : 'Tee lühike ohutuskontroll minu aktiivse masina, materjali ja töö tüübi jaoks enne graveerimise alustamist.',
-    },
-  ]
 
   useEffect(() => {
     const storedSettings = readSavedLaserSettings()

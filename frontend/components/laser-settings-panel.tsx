@@ -1,18 +1,16 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Settings2 } from 'lucide-react'
-import { getClientBackendUrl } from '@/lib/backend-url'
+import { Flame, Layers, Settings2 } from 'lucide-react'
 import {
   clearSavedLaserSettings,
   readSavedLaserSettings,
   writeSavedLaserSettings,
-  type StoredLaserSettings,
+  type StoredLaserSettingsRecommendation,
 } from '@/lib/engraving/saved-settings-storage'
 import { cn } from '@/lib/utils'
 
 type LaserMode = 'engrave' | 'cut'
-type UiLanguage = 'et' | 'en'
 
 interface Machine {
   id: string
@@ -30,122 +28,107 @@ interface Material {
   supportedLaserTypes: string[]
 }
 
-interface LaserSettingsPanelProps {
-  className?: string
-  language?: UiLanguage
-  authToken?: string | null
-  savedSettingsSummary?: string
-  onSavedSettingsSummaryChange?: (summary: string) => void
-  onSavedSettingsChange?: (settings: StoredLaserSettings | null) => void
+interface Recommendation {
+  machine: {
+    id: string
+    label: string
+    laserType: string
+    powerW: number
+  }
+  material: {
+    id: string
+    label: string
+    thicknessMm: number
+    note: string
+  }
+  mode: LaserMode
+  settings: {
+    speedMmpm: number
+    powerPct: number
+    passes: number
+    lineIntervalMm: number
+    airAssist: boolean
+  }
+  exports: string[]
+  warnings: string[]
 }
 
-const PANEL_COPY = {
-  et: {
-    loadingPanel: 'Laen laserimasinaid ja materjale...',
-    loadingMachines: 'Masinate laadimine ebaõnnestus.',
-    loadingMaterials: 'Materjalide laadimine ebaõnnestus.',
-    title: 'Seadistusmoodul',
-    description: 'Vali laserimasin, materjal, režiim ja pildi suurus.',
-    badge: 'Laser setup',
-    machine: 'Masina mark',
-    material: 'Materjal',
-    mode: 'Režiim',
-    engrave: 'Graveerimine',
-    cut: 'Lõikamine',
-    imageSize: 'Pildi suurus',
-    width: 'Laius',
-    height: 'Kõrgus',
-    optional: 'valikuline',
-    save: 'Salvesta seadistus',
-    clear: 'Eemalda salvestus',
-    saveStatus: 'Salvestuse olek',
-    savedActive: 'Seadistus on salvestatud ja aktiivne.',
-    savedRemoved: 'Salvestatud seadistus eemaldati.',
-    savedNowActive: 'Seadistus salvestati.',
-    unsavedChanges: 'Muudatused pole veel salvestatud.',
-    noSaved: 'Ühtegi salvestatud seadistust pole.',
-    loginRequired: 'Seadistusmooduli kasutamiseks logi sisse.',
-  },
-  en: {
-    loadingPanel: 'Loading laser machines and materials...',
-    loadingMachines: 'Failed to load machines.',
-    loadingMaterials: 'Failed to load materials.',
-    title: 'Settings module',
-    description: 'Choose a laser machine, material, mode, and image size.',
-    badge: 'Laser setup',
-    machine: 'Machine',
-    material: 'Material',
-    mode: 'Mode',
-    engrave: 'Engrave',
-    cut: 'Cut',
-    imageSize: 'Image size',
-    width: 'Width',
-    height: 'Height',
-    optional: 'optional',
-    save: 'Save settings',
-    clear: 'Remove saved preset',
-    saveStatus: 'Save status',
-    savedActive: 'Settings are saved and active.',
-    savedRemoved: 'Saved settings removed.',
-    savedNowActive: 'Settings saved.',
-    unsavedChanges: 'Changes have not been saved yet.',
-    noSaved: 'No saved settings.',
-    loginRequired: 'Sign in to use the settings module.',
-  },
-} satisfies Record<UiLanguage, Record<string, string>>
+interface LaserSettingsPanelProps {
+  className?: string
+  savedSettingsSummary?: string
+  onSavedSettingsSummaryChange?: (summary: string) => void
+}
 
-const BACKEND_URL = getClientBackendUrl()
+const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000').replace(/\/$/, '')
 
-function parseOptionalMillimeters(value: string) {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+function sortMachines(machines: Machine[]) {
+  return [...machines].sort((left, right) => {
+    const leftLabel = `${left.brand} ${left.model}`
+    const rightLabel = `${right.brand} ${right.model}`
+    return leftLabel.localeCompare(rightLabel)
+  })
 }
 
 function formatLaserType(laserType: string) {
   switch (laserType) {
-    case 'co2': return 'CO2'
-    case 'infrared': return 'IR'
-    default: return laserType.toUpperCase()
+    case 'co2':
+      return 'CO2'
+    case 'infrared':
+      return 'IR'
+    default:
+      return laserType.toUpperCase()
   }
+}
+
+function formatModeLabel(mode: LaserMode) {
+  return mode === 'engrave' ? 'Graveerimine' : 'Lõikamine'
 }
 
 function formatMachineLabel(machine: Machine) {
   return `${machine.brand} ${machine.model} (${formatLaserType(machine.laserType)}, ${machine.powerW}W)`
 }
 
-function sortMachines(machines: Machine[]) {
-  const typePriority: Record<string, number> = { diode: 0, co2: 1, fiber: 2, infrared: 3 }
-  return [...machines].sort((a, b) => {
-    const ap = typePriority[a.laserType] ?? 9
-    const bp = typePriority[b.laserType] ?? 9
-    if (ap !== bp) return ap - bp
-    return `${a.brand} ${a.model}`.localeCompare(`${b.brand} ${b.model}`)
-  })
+function formatNumber(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
 }
 
-function buildSummary(args: {
-  machineName: string
-  materialName: string
+function buildSavedSettingsSummary(args: {
+  selectedMachine: Machine | null
+  selectedMaterial: Material | null
+  thicknessMm: number
   mode: LaserMode
-  widthMm: number | null
-  heightMm: number | null
+  recommendation: Recommendation | null
 }) {
-  const { machineName, materialName, mode, widthMm, heightMm } = args
-  const modeLabel = mode === 'engrave' ? 'Graveerimine' : 'Lõikamine'
-  const sizeLabel = widthMm && heightMm
-    ? `${widthMm} x ${heightMm} mm`
-    : widthMm
-      ? `${widthMm} x ? mm`
-      : heightMm
-        ? `? x ${heightMm} mm`
-        : 'Suurus määramata'
+  const { selectedMachine, selectedMaterial, thicknessMm, mode, recommendation } = args
 
-  return [
-    `Masin: ${machineName}`,
-    `Materjal: ${materialName}`,
-    `Režiim: ${modeLabel}`,
-    `Pildi suurus: ${sizeLabel}`,
-  ].join('\n')
+  if (!selectedMachine || !selectedMaterial) {
+    return ''
+  }
+
+  const lines = [
+    `Masin: ${formatMachineLabel(selectedMachine)}`,
+    `Materjal: ${selectedMaterial.name}`,
+    `Paksus: ${formatNumber(thicknessMm)} mm`,
+    `Režiim: ${formatModeLabel(mode)}`,
+    `Materjali märkus: ${selectedMaterial.note}`,
+  ]
+
+  if (recommendation) {
+    lines.push(
+      `- Kiirus: ${formatNumber(recommendation.settings.speedMmpm)} mm/min`,
+      `- Võimsus: ${formatNumber(recommendation.settings.powerPct)}%`,
+      `- Passid: ${formatNumber(recommendation.settings.passes)}`,
+      `- Joone vahe: ${formatNumber(recommendation.settings.lineIntervalMm)} mm`,
+      `- Air assist: ${recommendation.settings.airAssist ? 'Jah' : 'Ei'}`,
+      `Soovituslik eksport: ${recommendation.exports.join(', ')}`,
+    )
+
+    if (recommendation.warnings.length > 0) {
+      lines.push('Tähelepanekud:', ...recommendation.warnings.map((warning) => `- ${warning}`))
+    }
+  }
+
+  return lines.join('\n')
 }
 
 function useBackendMachines() {
@@ -155,15 +138,37 @@ function useBackendMachines() {
 
   useEffect(() => {
     let cancelled = false
+
     fetch(`${BACKEND_URL}/api/machines`)
-      .then(async (res) => {
-        if (!res.ok) throw new Error('Masinate laadimine ebaõnnestus.')
-        return res.json() as Promise<Machine[]>
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error('Masinate laadimine ebaõnnestus.')
+        }
+
+        return response.json() as Promise<Machine[]>
       })
-      .then((data) => { if (!cancelled) { setMachines(sortMachines(data)); setError('') } })
-      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Masinate laadimine ebaõnnestus.') })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
+      .then((data) => {
+        if (cancelled) {
+          return
+        }
+
+        setMachines(sortMachines(data))
+        setError('')
+      })
+      .catch((loadError) => {
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : 'Masinate laadimine ebaõnnestus.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   return { machines, loading, error }
@@ -176,160 +181,215 @@ function useBackendMaterials() {
 
   useEffect(() => {
     let cancelled = false
+
     fetch(`${BACKEND_URL}/api/materials`)
-      .then(async (res) => {
-        if (!res.ok) throw new Error('Materjalide laadimine ebaõnnestus.')
-        return res.json() as Promise<Material[]>
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error('Materjalide laadimine ebaõnnestus.')
+        }
+
+        return response.json() as Promise<Material[]>
       })
-      .then((data) => { if (!cancelled) { setMaterials(data); setError('') } })
-      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Materjalide laadimine ebaõnnestus.') })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
+      .then((data) => {
+        if (cancelled) {
+          return
+        }
+
+        setMaterials(data)
+        setError('')
+      })
+      .catch((loadError) => {
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : 'Materjalide laadimine ebaõnnestus.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   return { materials, loading, error }
 }
 
+function isRecommendation(value: Recommendation | { error?: string } | null): value is Recommendation {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      'machine' in value &&
+      'material' in value &&
+      'settings' in value &&
+      'exports' in value,
+  )
+}
+
 export function LaserSettingsPanel({
   className,
-  language = 'et',
-  authToken,
   savedSettingsSummary,
   onSavedSettingsSummaryChange,
-  onSavedSettingsChange,
 }: LaserSettingsPanelProps) {
-  const copy = PANEL_COPY[language]
   const { machines, loading: loadingMachines, error: machinesError } = useBackendMachines()
   const { materials, loading: loadingMaterials, error: materialsError } = useBackendMaterials()
 
   const [machineId, setMachineId] = useState('')
   const [materialId, setMaterialId] = useState('')
+  const [thicknessMm, setThicknessMm] = useState(3)
   const [mode, setMode] = useState<LaserMode>('engrave')
-  const [widthMmInput, setWidthMmInput] = useState('')
-  const [heightMmInput, setHeightMmInput] = useState('')
+  const [loadingRecommendation, setLoadingRecommendation] = useState(false)
+  const [recommendation, setRecommendation] = useState<Recommendation | null>(null)
+  const [error, setError] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
-  const [hasHydrated, setHasHydrated] = useState(false)
-  const isRestoring = useRef(false)
+  const [pendingStoredSettings, setPendingStoredSettings] = useState(() => readSavedLaserSettings())
+  const [hasHydratedStoredSettings, setHasHydratedStoredSettings] = useState(() => readSavedLaserSettings() === null)
+  const isRestoringSavedSettings = useRef(false)
 
   useEffect(() => {
-    if (machines.length === 0 || materials.length === 0) return
-
-    const applySettings = (settings: StoredLaserSettings | null) => {
-      if (settings) {
-        isRestoring.current = true
-        setMachineId(machines.some(m => m.id === settings.machineId) ? settings.machineId : machines[0]?.id || '')
-        setMaterialId(materials.some(m => m.id === settings.materialId) ? settings.materialId : materials[0]?.id || '')
-        setMode(settings.mode)
-        setWidthMmInput(settings.widthMm ? String(settings.widthMm) : '')
-        setHeightMmInput(settings.heightMm ? String(settings.heightMm) : '')
-        onSavedSettingsSummaryChange?.(settings.summary || '')
-        onSavedSettingsChange?.(settings)
-      } else {
-        onSavedSettingsSummaryChange?.('')
-        onSavedSettingsChange?.(null)
-      }
-      setHasHydrated(true)
+    if (!machineId && machines.length > 0) {
+      setMachineId(machines[0].id)
     }
-
-    if (authToken) {
-      fetch('/api/user/laser-settings', {
-        headers: { Authorization: `Bearer ${authToken}` },
-        cache: 'no-store',
-      })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data: StoredLaserSettings | null) => {
-          const settings = data && typeof data === 'object' && 'machineId' in data ? data : null
-          if (settings) writeSavedLaserSettings(settings)
-          applySettings(settings ?? readSavedLaserSettings())
-        })
-        .catch(() => applySettings(readSavedLaserSettings()))
-    } else {
-      applySettings(readSavedLaserSettings())
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authToken, machines.length, materials.length])
-
-  useEffect(() => {
-    if (!machineId && machines.length > 0) setMachineId(machines[0].id)
   }, [machines, machineId])
 
   useEffect(() => {
-    if (!materialId && materials.length > 0) setMaterialId(materials[0].id)
+    if (!materialId && materials.length > 0) {
+      setMaterialId(materials[0].id)
+    }
   }, [materials, materialId])
 
-  const selectedMachine = useMemo(() => machines.find(m => m.id === machineId) || null, [machines, machineId])
-  const selectedMaterial = useMemo(() => materials.find(m => m.id === materialId) || null, [materials, materialId])
-  const widthMm = useMemo(() => parseOptionalMillimeters(widthMmInput), [widthMmInput])
-  const heightMm = useMemo(() => parseOptionalMillimeters(heightMmInput), [heightMmInput])
+  const selectedMachine = useMemo(
+    () => machines.find((machine) => machine.id === machineId) || null,
+    [machines, machineId],
+  )
+  const selectedMaterial = useMemo(
+    () => materials.find((material) => material.id === materialId) || null,
+    [materials, materialId],
+  )
 
-  const currentSummary = useMemo(() => {
-    if (!selectedMachine || !selectedMaterial) return ''
-    return buildSummary({
-      machineName: formatMachineLabel(selectedMachine),
-      materialName: selectedMaterial.name,
+  const currentSummary = useMemo(
+    () => buildSavedSettingsSummary({
+      selectedMachine,
+      selectedMaterial,
+      thicknessMm,
       mode,
-      widthMm,
-      heightMm,
-    })
-  }, [selectedMachine, selectedMaterial, mode, widthMm, heightMm])
+      recommendation,
+    }),
+    [mode, recommendation, selectedMachine, selectedMaterial, thicknessMm],
+  )
 
-  const isDirty = hasHydrated && currentSummary !== String(savedSettingsSummary || '')
+  const isDirty = hasHydratedStoredSettings && currentSummary !== String(savedSettingsSummary || '')
 
   useEffect(() => {
-    if (isRestoring.current) { isRestoring.current = false; return }
+    if (!pendingStoredSettings || machines.length === 0 || materials.length === 0) {
+      return
+    }
+
+    const hasStoredMachine = machines.some((machine) => machine.id === pendingStoredSettings.machineId)
+    const hasStoredMaterial = materials.some((material) => material.id === pendingStoredSettings.materialId)
+
+    isRestoringSavedSettings.current = true
+    setMachineId(
+      hasStoredMachine ? pendingStoredSettings.machineId : machines[0]?.id || '',
+    )
+    setMaterialId(
+      hasStoredMaterial ? pendingStoredSettings.materialId : materials[0]?.id || '',
+    )
+    setThicknessMm(pendingStoredSettings.thicknessMm > 0 ? pendingStoredSettings.thicknessMm : 0.1)
+    setMode(pendingStoredSettings.mode)
+    setRecommendation(
+      hasStoredMachine
+        && hasStoredMaterial
+        && isRecommendation(
+        pendingStoredSettings.recommendation as Recommendation | StoredLaserSettingsRecommendation | null,
+      )
+        ? (pendingStoredSettings.recommendation as Recommendation)
+        : null,
+    )
+    setPendingStoredSettings(null)
+    setHasHydratedStoredSettings(true)
+  }, [machines, materials, pendingStoredSettings])
+
+  useEffect(() => {
+    if (isRestoringSavedSettings.current) {
+      isRestoringSavedSettings.current = false
+      return
+    }
+
+    setRecommendation(null)
     setStatusMessage('')
-  }, [machineId, materialId, mode, widthMmInput, heightMmInput])
+  }, [machineId, materialId, thicknessMm, mode])
 
   const handleSave = () => {
-    if (!selectedMachine || !selectedMaterial || !currentSummary) return
+    if (!selectedMachine || !selectedMaterial || !currentSummary) {
+      return
+    }
 
-    const next: StoredLaserSettings = {
+    writeSavedLaserSettings({
       machineId,
       materialId,
-      thicknessMm: 3,
+      thicknessMm,
       mode,
-      widthMm,
-      heightMm,
-      recommendation: null,
+      recommendation,
       summary: currentSummary,
       savedAt: new Date().toISOString(),
-      machineName: formatMachineLabel(selectedMachine),
-      materialName: selectedMaterial.name,
-    }
-
-    writeSavedLaserSettings(next)
+    })
     onSavedSettingsSummaryChange?.(currentSummary)
-    onSavedSettingsChange?.(next)
-    setStatusMessage(copy.savedNowActive)
-
-    if (authToken) {
-      fetch('/api/user/laser-settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify(next),
-      }).catch(() => {})
-    }
+    setStatusMessage('Seadistus salvestati ja on nüüd aktiivne.')
   }
 
-  const handleClear = () => {
+  const handleClearSavedSettings = () => {
     clearSavedLaserSettings()
     onSavedSettingsSummaryChange?.('')
-    onSavedSettingsChange?.(null)
-    setStatusMessage(copy.savedRemoved)
+    setStatusMessage('Salvestatud seadistus eemaldati.')
+  }
 
-    if (authToken) {
-      fetch('/api/user/laser-settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify(null),
-      }).catch(() => {})
+  const handleCalculate = async () => {
+    if (!machineId || !materialId) {
+      return
+    }
+
+    setLoadingRecommendation(true)
+    setError('')
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/recommendation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          machineId,
+          materialId,
+          thicknessMm,
+          mode,
+        }),
+      })
+      const data = (await response.json().catch(() => null)) as Recommendation | { error?: string } | null
+
+      if (!response.ok) {
+        throw new Error(data && 'error' in data && data.error ? data.error : 'Seadete arvutamine ebaõnnestus.')
+      }
+
+      if (!isRecommendation(data)) {
+        throw new Error('Soovituse vastus puudub.')
+      }
+
+      setRecommendation(data)
+    } catch (requestError) {
+      setRecommendation(null)
+      setError(requestError instanceof Error ? requestError.message : 'Seadete arvutamine ebaõnnestus.')
+    } finally {
+      setLoadingRecommendation(false)
     }
   }
 
   if (loadingMachines || loadingMaterials) {
     return (
       <section className={cn('hud-panel p-4 md:p-5', className)}>
-        <p className="text-sm text-slate-300">{copy.loadingPanel}</p>
+        <p className="text-sm text-slate-300">Laen laserimasinaid ja materjale...</p>
       </section>
     )
   }
@@ -337,7 +397,7 @@ export function LaserSettingsPanel({
   if (machinesError || materialsError) {
     return (
       <section className={cn('hud-panel p-4 md:p-5', className)}>
-        <p className="text-sm text-red-400">{machinesError || materialsError}</p>
+        <p className="text-sm text-destructive">{machinesError || materialsError}</p>
       </section>
     )
   }
@@ -348,21 +408,23 @@ export function LaserSettingsPanel({
         <div>
           <span className="hud-label">
             <Settings2 className="h-3.5 w-3.5" />
-            {copy.title}
+            Seadistusmoodul
           </span>
-          <p className="mt-3 text-sm leading-relaxed text-slate-300">{copy.description}</p>
+          <p className="mt-3 text-sm leading-relaxed text-slate-300">
+            Vali laserimasin, materjal ja paksus ning arvuta soovituslikud seaded.
+          </p>
         </div>
         <div className="rounded-full border border-primary/14 bg-black/30 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-100/60">
-          {copy.badge}
+          Laser setup
         </div>
       </div>
 
-      <div className="mt-4 grid gap-4">
+      <div className="mt-4 grid gap-3">
         <label className="space-y-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">{copy.machine}</span>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">Laserimasin</span>
           <select
             value={machineId}
-            onChange={(e) => setMachineId(e.target.value)}
+            onChange={(event) => setMachineId(event.target.value)}
             className="w-full rounded-[18px] border border-primary/12 bg-black/26 px-3 py-3 text-sm text-cyan-50 outline-none transition-colors focus:border-primary/28"
           >
             {machines.map((machine) => (
@@ -374,10 +436,10 @@ export function LaserSettingsPanel({
         </label>
 
         <label className="space-y-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">{copy.material}</span>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">Materjal</span>
           <select
             value={materialId}
-            onChange={(e) => setMaterialId(e.target.value)}
+            onChange={(event) => setMaterialId(event.target.value)}
             className="w-full rounded-[18px] border border-primary/12 bg-black/26 px-3 py-3 text-sm text-cyan-50 outline-none transition-colors focus:border-primary/28"
           >
             {materials.map((material) => (
@@ -388,59 +450,47 @@ export function LaserSettingsPanel({
           </select>
         </label>
 
-        <div className="space-y-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">{copy.mode}</span>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setMode('engrave')}
-              className={cn(
-                'rounded-[18px] border px-3 py-3 text-sm font-semibold transition-colors',
-                mode === 'engrave'
-                  ? 'border-primary/28 bg-primary/12 text-cyan-50'
-                  : 'border-primary/12 bg-black/26 text-slate-300 hover:border-primary/22',
-              )}
-            >
-              {copy.engrave}
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('cut')}
-              className={cn(
-                'rounded-[18px] border px-3 py-3 text-sm font-semibold transition-colors',
-                mode === 'cut'
-                  ? 'border-primary/28 bg-primary/12 text-cyan-50'
-                  : 'border-primary/12 bg-black/26 text-slate-300 hover:border-primary/22',
-              )}
-            >
-              {copy.cut}
-            </button>
-          </div>
-        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-2">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">Paksus (mm)</span>
+            <input
+              type="number"
+              min="0.1"
+              step="0.1"
+              value={thicknessMm}
+              onChange={(event) => setThicknessMm(Number(event.target.value) || 0)}
+              className="w-full rounded-[18px] border border-primary/12 bg-black/26 px-3 py-3 text-sm text-cyan-50 outline-none transition-colors focus:border-primary/28"
+            />
+          </label>
 
-        <div className="space-y-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">
-            {copy.imageSize} (mm, {copy.optional})
-          </span>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              type="number"
-              min="1"
-              step="1"
-              placeholder={copy.width}
-              value={widthMmInput}
-              onChange={(e) => setWidthMmInput(e.target.value)}
-              className="w-full rounded-[18px] border border-primary/12 bg-black/26 px-3 py-3 text-sm text-cyan-50 placeholder-slate-500 outline-none transition-colors focus:border-primary/28"
-            />
-            <input
-              type="number"
-              min="1"
-              step="1"
-              placeholder={copy.height}
-              value={heightMmInput}
-              onChange={(e) => setHeightMmInput(e.target.value)}
-              className="w-full rounded-[18px] border border-primary/12 bg-black/26 px-3 py-3 text-sm text-cyan-50 placeholder-slate-500 outline-none transition-colors focus:border-primary/28"
-            />
+          <div className="space-y-2">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">Režiim</span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setMode('engrave')}
+                className={cn(
+                  'rounded-[18px] border px-3 py-3 text-sm font-semibold transition-colors',
+                  mode === 'engrave'
+                    ? 'border-primary/28 bg-primary/12 text-cyan-50'
+                    : 'border-primary/12 bg-black/26 text-slate-300 hover:border-primary/22',
+                )}
+              >
+                Graveerimine
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('cut')}
+                className={cn(
+                  'rounded-[18px] border px-3 py-3 text-sm font-semibold transition-colors',
+                  mode === 'cut'
+                    ? 'border-primary/28 bg-primary/12 text-cyan-50'
+                    : 'border-primary/12 bg-black/26 text-slate-300 hover:border-primary/22',
+                )}
+              >
+                Lõikamine
+              </button>
+            </div>
           </div>
         </div>
 
@@ -448,35 +498,129 @@ export function LaserSettingsPanel({
           <button
             type="button"
             onClick={handleSave}
-            disabled={!machineId || !materialId}
-            className="inline-flex items-center justify-center gap-2 rounded-[20px] border border-primary/18 bg-linear-to-r from-cyan-300/90 via-primary to-cyan-400/80 px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_0_24px_rgba(84,244,255,0.25)] transition-opacity hover:opacity-92 disabled:opacity-45"
+            disabled={!machineId || !materialId || !currentSummary}
+            className="inline-flex items-center justify-center gap-2 rounded-[20px] border border-primary/14 bg-black/30 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:border-primary/28 disabled:opacity-45"
           >
             <Settings2 className="h-4 w-4" />
-            {copy.save}
+            Salvesta seadistus
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void handleCalculate()}
+            disabled={loadingRecommendation || !machineId || !materialId}
+            className="inline-flex items-center justify-center gap-2 rounded-[20px] border border-primary/18 bg-linear-to-r from-cyan-300/90 via-primary to-cyan-400/80 px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_0_24px_rgba(84,244,255,0.25)] transition-opacity hover:opacity-92 disabled:opacity-45"
+          >
+            <Flame className="h-4 w-4" />
+            {loadingRecommendation ? 'Arvutan...' : 'Arvuta seaded'}
           </button>
 
           {savedSettingsSummary ? (
             <button
               type="button"
-              onClick={handleClear}
+              onClick={handleClearSavedSettings}
               className="inline-flex items-center justify-center rounded-[20px] border border-white/10 bg-black/24 px-4 py-3 text-sm font-semibold text-slate-300 transition-colors hover:border-white/18 hover:text-slate-100"
             >
-              {copy.clear}
+              Eemalda salvestus
             </button>
           ) : null}
         </div>
 
-        <div className="rounded-[18px] border border-primary/12 bg-black/24 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">{copy.saveStatus}</div>
+        <div className="rounded-[18px] border border-primary/12 bg-black/24 px-3 py-3 text-xs leading-relaxed text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">Salvestuse olek</div>
           <p className="mt-2 text-sm text-cyan-50">
             {statusMessage
               ? statusMessage
               : savedSettingsSummary
-                ? isDirty ? copy.unsavedChanges : copy.savedActive
-                : copy.noSaved}
+                ? isDirty
+                  ? 'Paneelis on muudatused, mis pole veel salvestatud.'
+                  : 'Salvestatud seadistus on aktiivne ja taastub ka pärast refreshi.'
+                : 'Ühtegi salvestatud seadistust pole.'}
           </p>
         </div>
       </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        <div className="rounded-[18px] border border-primary/12 bg-black/24 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">Valitud masin</div>
+          <div className="mt-1 text-sm font-semibold text-cyan-50">{selectedMachine ? formatMachineLabel(selectedMachine) : '--'}</div>
+        </div>
+        <div className="rounded-[18px] border border-primary/12 bg-black/24 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">Materjal</div>
+          <div className="mt-1 text-sm font-semibold text-cyan-50">{selectedMaterial ? selectedMaterial.name : '--'}</div>
+        </div>
+        <div className="rounded-[18px] border border-primary/12 bg-black/24 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">Režiim</div>
+          <div className="mt-1 text-sm font-semibold text-cyan-50">{formatModeLabel(mode)}</div>
+        </div>
+      </div>
+
+      {selectedMaterial && (
+        <div className="mt-3 rounded-[18px] border border-primary/12 bg-black/24 px-3 py-3 text-xs leading-relaxed text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/44">
+            <Layers className="h-3.5 w-3.5" />
+            Materjali info
+          </div>
+          <p className="mt-2">Tavavahemik: {selectedMaterial.thicknessRangeMm[0]}-{selectedMaterial.thicknessRangeMm[1]} mm</p>
+          <p className="mt-1">Märkus: {selectedMaterial.note}</p>
+        </div>
+      )}
+
+      {error && (
+        <p className="mt-3 rounded-[18px] border border-destructive/20 bg-destructive/10 px-3 py-3 text-sm text-destructive">
+          {error}
+        </p>
+      )}
+
+      {recommendation && (
+        <div className="mt-4 space-y-3 rounded-[22px] border border-primary/12 bg-black/24 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="rounded-[18px] border border-primary/10 bg-black/24 px-3 py-3">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/42">Kiirus</div>
+              <div className="mt-1 text-sm font-semibold text-cyan-50">{recommendation.settings.speedMmpm} mm/min</div>
+            </div>
+            <div className="rounded-[18px] border border-primary/10 bg-black/24 px-3 py-3">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/42">Võimsus</div>
+              <div className="mt-1 text-sm font-semibold text-cyan-50">{recommendation.settings.powerPct}%</div>
+            </div>
+            <div className="rounded-[18px] border border-primary/10 bg-black/24 px-3 py-3">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/42">Passid</div>
+              <div className="mt-1 text-sm font-semibold text-cyan-50">{recommendation.settings.passes}</div>
+            </div>
+            <div className="rounded-[18px] border border-primary/10 bg-black/24 px-3 py-3">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/42">Joone vahe</div>
+              <div className="mt-1 text-sm font-semibold text-cyan-50">{recommendation.settings.lineIntervalMm} mm</div>
+            </div>
+          </div>
+
+          <div className="rounded-[18px] border border-primary/10 bg-black/24 px-3 py-3 text-sm text-slate-300">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/42">Air assist</div>
+            <div className="mt-1 font-semibold text-cyan-50">{recommendation.settings.airAssist ? 'Jah' : 'Ei'}</div>
+          </div>
+
+          <div className="rounded-[18px] border border-primary/10 bg-black/24 px-3 py-3 text-sm text-slate-300">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/42">Soovituslikud ekspordid</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {recommendation.exports.map((format) => (
+                <span
+                  key={format}
+                  className="rounded-full border border-primary/14 bg-black/30 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-50"
+                >
+                  {format}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {recommendation.warnings.length > 0 && (
+            <div className="rounded-[18px] border border-amber-400/20 bg-amber-400/8 px-3 py-3 text-sm text-amber-100">
+              {recommendation.warnings.map((warning) => (
+                <p key={warning}>{warning}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </section>
   )
 }

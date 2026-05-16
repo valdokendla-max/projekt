@@ -1,3 +1,5 @@
 {
-    "claudeCode.useTerminal": false
+    "claudeCode.useTerminal": false,
+    "claudeCode.disableLoginPrompt": true,
+    "claudeCode.enableNewConversationShortcut": true
 }

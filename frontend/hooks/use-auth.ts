@@ -1,9 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getClientBackendUrl } from '@/lib/backend-url'
 
-const BACKEND_URL = getClientBackendUrl()
+const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000').replace(/\/$/, '')
 const AUTH_TOKEN_KEY = 'lasergraveerimine.auth-token'
 
 export type UserRole = 'admin' | 'user'
@@ -118,16 +117,19 @@ export function useAuth() {
       return
     }
 
+    persistToken(storedToken)
+
     void (async () => {
       const currentUser = await fetchCurrentUser(storedToken)
 
       if (!currentUser) {
         window.localStorage.removeItem(AUTH_TOKEN_KEY)
+        setToken(null)
+        setUser(null)
         setStatus('anonymous')
         return
       }
 
-      persistToken(storedToken)
       setUser(currentUser)
       setStatus('authenticated')
     })()

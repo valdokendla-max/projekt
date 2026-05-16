@@ -40,7 +40,6 @@ assignWindowsUserEnv('OPENAI_BASE_URL')
 assignWindowsUserEnv('OPENAI_IMAGE_MODEL')
 assignWindowsUserEnv('OPENAI_IMAGE_QUALITY')
 assignWindowsUserEnv('NEXT_PUBLIC_BACKEND_URL')
-assignWindowsUserEnv('BACKEND_PROXY_TARGET')
 
 const nextCli = require.resolve('next/dist/bin/next')
 
