@@ -1,6 +1,7 @@
 const express = require("express");
 const {
   changePassword,
+  deleteUser,
   getUserByToken,
   invalidateSession,
   issueTemporaryPassword,
@@ -255,6 +256,23 @@ app.post("/api/auth/users/:userId/role", async (req, res) => {
     res.json({ user });
   } catch (error) {
     sendError(res, error, "Kasutaja rolli uuendamine ebaõnnestus.");
+  }
+});
+
+app.delete("/api/auth/users/:userId", async (req, res) => {
+  const targetUserId = String(req.params.userId || "").trim();
+
+  if (!targetUserId) {
+    res.status(400).json({ error: "Kasutaja ID on kohustuslik." });
+    return;
+  }
+
+  try {
+    const actingUser = await requireAdminUser(req);
+    const result = await deleteUser({ actingUserId: actingUser.id, targetUserId });
+    res.json(result);
+  } catch (error) {
+    sendError(res, error, "Kasutaja kustutamine ebaõnnestus.");
   }
 });
 

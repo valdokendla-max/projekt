@@ -67,6 +67,7 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, onClose, sessi
   const [isUsersLoading, setIsUsersLoading] = useState(false)
   const [isResetRequestsLoading, setIsResetRequestsLoading] = useState(false)
   const [roleMutationUserId, setRoleMutationUserId] = useState<string | null>(null)
+  const [deleteMutationUserId, setDeleteMutationUserId] = useState<string | null>(null)
   const [resetMutationRequestId, setResetMutationRequestId] = useState<string | null>(null)
   const [issuedTemporaryPassword, setIssuedTemporaryPassword] = useState<{ email: string; password: string } | null>(null)
   const [error, setError] = useState('')
@@ -285,6 +286,31 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, onClose, sessi
     }
   }
 
+  const handleDeleteUser = async (userId: string) => {
+    if (!requireAdminSession()) return
+    if (!window.confirm('Kustuta kasutaja? Seda ei saa tagasi võtta.')) return
+
+    setError('')
+    setDeleteMutationUserId(userId)
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/auth/users/${userId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      })
+
+      if (!res.ok) {
+        throw new Error(await getErrorMessage(res, 'Kasutaja kustutamine ebaõnnestus'))
+      }
+
+      setUsers((prev) => prev.filter((u) => u.id !== userId))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Kasutaja kustutamine ebaõnnestus')
+    } finally {
+      setDeleteMutationUserId(null)
+    }
+  }
+
   const handleIssueTemporaryPassword = async (request: PasswordResetRequest) => {
     if (!requireAdminSession()) return
 
@@ -388,6 +414,7 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, onClose, sessi
                   const isCurrentUser = currentUser?.id === user.id
                   const isLockedAdmin = user.email === 'valdokendla@gmail.com'
                   const isBusy = roleMutationUserId === user.id
+                  const isDeleting = deleteMutationUserId === user.id
 
                   return (
                     <div key={user.id} className="rounded-xl border border-border bg-secondary/35 px-3 py-3">
@@ -414,18 +441,28 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, onClose, sessi
                         <div className="flex shrink-0 gap-2">
                           <button
                             onClick={() => handleRoleChange(user.id, 'user')}
-                            disabled={isBusy || user.role === 'user' || isCurrentUser || isLockedAdmin}
+                            disabled={isBusy || isDeleting || user.role === 'user' || isCurrentUser || isLockedAdmin}
                             className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45"
                           >
                             Kasutaja
                           </button>
                           <button
                             onClick={() => handleRoleChange(user.id, 'admin')}
-                            disabled={isBusy || user.role === 'admin'}
+                            disabled={isBusy || isDeleting || user.role === 'admin'}
                             className="rounded-lg bg-primary px-2.5 py-1.5 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-45"
                           >
                             {isBusy ? 'Uuendan...' : 'Admin'}
                           </button>
+                          {!isLockedAdmin && !isCurrentUser ? (
+                            <button
+                              onClick={() => void handleDeleteUser(user.id)}
+                              disabled={isDeleting || isBusy}
+                              className="rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1.5 text-[11px] text-red-400 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-45"
+                              title="Kustuta kasutaja"
+                            >
+                              {isDeleting ? '...' : <Trash2 className="h-3 w-3" />}
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     </div>
