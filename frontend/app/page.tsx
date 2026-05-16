@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode }
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type FileUIPart, type UIMessage } from 'ai'
 import Image from 'next/image'
-import { Camera, Download, Layers, PenLine, Plus, Settings2, SlidersHorizontal, Sparkles, X } from 'lucide-react'
+import { Camera, Download, Layers, PenLine, Plus, Settings2, SlidersHorizontal, Sparkles, UserRound, X } from 'lucide-react'
 import { ChatHeader } from '@/components/chat-header'
 import { ChatInput } from '@/components/chat-input'
 import { ChatMessage } from '@/components/chat-message'
@@ -619,6 +619,13 @@ export default function LaserGraveerimiseApp() {
       onCustomAction: handleLightBurnExport,
       isCustomActionRunning: isExporting,
       prompt: '',
+    },
+    {
+      label: effectiveLanguage === 'eng' ? 'Tattoo on body' : 'Tattoo kehal',
+      icon: <UserRound className="h-5 w-5" />,
+      prompt: effectiveLanguage === 'eng'
+        ? 'Show how this tattoo design would look on a body. Visualize the tattoo placement on skin.'
+        : 'Näita, kuidas see tatoo disain kehale näeks. Visualiseeri tatoo paigutust nahal.',
     },
   ]
 
