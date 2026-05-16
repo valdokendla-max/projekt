@@ -682,7 +682,7 @@ export default function LaserGraveerimiseApp() {
     }
   }, [auth.status])
 
-  // Auto-save active conversation to server (debounced 1.5 s)
+  // Auto-save: kohe kui streaming lõpeb, + 500ms debounce muudel juhtudel
   useEffect(() => {
     if (auth.status !== 'authenticated' || !auth.token || messages.length === 0) return
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
@@ -690,9 +690,23 @@ export default function LaserGraveerimiseApp() {
     if (!activeConv) return
     const convToSave = { ...activeConv, messages }
     const token = auth.token
-    saveTimerRef.current = setTimeout(() => { void saveConversationToServer(token, convToSave) }, 1500)
+    // Kui streaming just lõppes — salvesta kohe, muidu 500ms debounce
+    const delay = isLoading ? 0 : 500
+    saveTimerRef.current = setTimeout(() => { void saveConversationToServer(token, convToSave) }, delay)
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
-  }, [messages, activeConversationId, auth.token, auth.status])
+  }, [messages, activeConversationId, auth.token, auth.status, isLoading])
+
+  // Salvesta kohe enne refressi/tab sulgemist
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (auth.status !== 'authenticated' || !auth.token || messages.length === 0) return
+      const activeConv = conversations.find((c) => c.id === activeConversationId)
+      if (!activeConv) return
+      void saveConversationToServer(auth.token, { ...activeConv, messages })
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [auth.status, auth.token, messages, conversations, activeConversationId])
 
   useEffect(() => {
     if (scrollRef.current) {
