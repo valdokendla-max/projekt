@@ -472,6 +472,42 @@ export default function LaserGraveerimiseApp() {
     }
   }
 
+  const handleTattooOnBody = async () => {
+    if (isGeneratingTattoo) return
+    setIsGeneratingTattoo(true)
+    setChatInputError('')
+    try {
+      const inputText = input.trim()
+      const activeImage = getActiveImage()
+      const sourceUrl = activeImage?.url
+      const res = await fetch('/api/tattoo-generation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subjectText: inputText || '',
+          sourceImageDataUrl: sourceUrl || undefined,
+          mode: 'kehal',
+        }),
+      })
+      const data = (await res.json()) as { ok: boolean; imageDataUrl?: string; error?: string }
+      if (!data.ok || !data.imageDataUrl) throw new Error(data.error || 'Tattoo kehale loomine ebaõnnestus.')
+      const userParts: UIMessage['parts'] = []
+      if (inputText) userParts.push({ type: 'text', text: inputText })
+      if (sourceUrl) userParts.push({ type: 'file', url: sourceUrl, mediaType: activeImage?.mediaType || 'image/png', filename: 'allikas.png' } as UIMessage['parts'][number])
+      setMessages((prev) => [
+        ...prev,
+        ...(userParts.length > 0 ? [{ id: crypto.randomUUID(), role: 'user' as const, parts: userParts, content: inputText, createdAt: new Date() } as UIMessage] : []),
+        { id: crypto.randomUUID(), role: 'assistant' as const, parts: [{ type: 'file', url: data.imageDataUrl, mediaType: 'image/png', filename: 'tattoo-kehal.png' } as UIMessage['parts'][number], { type: 'text', text: effectiveLanguage === 'eng' ? 'Tattoo on body visualization created.' : 'Tattoo kehale visualiseering loodud.' }], content: '', createdAt: new Date() } as UIMessage,
+      ])
+      setInput('')
+      setPendingImage(null)
+    } catch (error) {
+      setChatInputError(error instanceof Error ? error.message : 'Tattoo kehale loomine ebaõnnestus.')
+    } finally {
+      setIsGeneratingTattoo(false)
+    }
+  }
+
   const handlePhotoEnhance = async () => {
     const activeImage = getActiveImage()
     if (!activeImage) {
@@ -623,9 +659,9 @@ export default function LaserGraveerimiseApp() {
     {
       label: effectiveLanguage === 'eng' ? 'Tattoo on body' : 'Tattoo kehal',
       icon: <UserRound className="h-5 w-5" />,
-      prompt: effectiveLanguage === 'eng'
-        ? 'Show how this tattoo design would look on a body. Visualize the tattoo placement on skin.'
-        : 'Näita, kuidas see tatoo disain kehale näeks. Visualiseeri tatoo paigutust nahal.',
+      onCustomAction: handleTattooOnBody,
+      isCustomActionRunning: isGeneratingTattoo,
+      prompt: '',
     },
   ]
 

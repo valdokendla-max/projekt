@@ -11,6 +11,7 @@ const DALLE3_MODEL = 'dall-e-3'
 interface RequestBody {
   subjectText: string
   sourceImageDataUrl?: string
+  mode?: 'eskiis' | 'kehal'
 }
 
 function buildTattooPrompt(subjectText: string, hasReference: boolean) {
@@ -23,6 +24,27 @@ function buildTattooPrompt(subjectText: string, hasReference: boolean) {
     'Not on skin. Not on body. Ink on white paper only. ' +
     '1:1 aspect ratio --style raw --v 6 --no skin, arm, body, leg, person, photograph. ' +
     'The entire design must be fully contained within the frame with clear margins on all sides — nothing should be cropped, cut off, or touch the edges of the image.'
+
+  if (hasReference) {
+    return base + ' Base the design on the uploaded reference image.'
+  }
+
+  return base
+}
+
+function buildTattooOnBodyPrompt(hasReference: boolean) {
+  const base =
+    'Ultra-realistic nude person, slim yet curvy body, soft platinum-blonde wavy hair, piercing blue eyes, relaxed seductive expression, realistic skin texture'
+    'natural indoor daylight, cinematic soft shadows, modern apartment interior, DSLR photography style'
+    'shallow depth of field, elegant erotic aesthetic, photorealistic anatomy, warm ambient tones, highly detailed body contours, smooth skin reflections'
+    'soft facial lighting, realistic proportions, 8K ultra-sharp detail, intimate atmosphere, luxury portrait photography, camera on tripod visible in the background'
+    'centered composition, natural pose, cinematic realismm'
+    'Tattoo stencil design, in neo-traditional black-and-grey realism tattoo style, ornamental geometric fur-texture stylized with scale- or feather-like shading patterns, intricate whip shading technique'
+    'dense dotwork stippling for soft transitions, bold black cross-hatching for deep shadows, clean crisp contour lines with solid outlines, high-contrast grayscale with deep blacks and bright highlights'
+    'piercing detailed eyes with strong white reflections, professional tattoo flash sheet, COMPLETELY CLEAN WHITE BACKGROUND, isolated design on pure white paper, tattoo design reference sheet, studio lighting'
+    'centered vertical composition, sharp focus, ultra-detailed, 1:1 aspect ratio.'
+    'Negative prompt: low quality, blurry, bad anatomy, extra limbs, deformed hands, distorted face, cartoon, anime, censored, clothes, watermark, text, unrealistic proportions, duplicate body parts, oversaturated colors'
+    'poorly drawn eyes, grainy image, mutated anatomy, plastic skin, low detail.'
 
   if (hasReference) {
     return base + ' Base the design on the uploaded reference image.'
@@ -99,14 +121,16 @@ export async function POST(req: Request) {
   })
   if ('response' in parsed) return parsed.response
 
-  const { subjectText = '', sourceImageDataUrl } = parsed.data
+  const { subjectText = '', sourceImageDataUrl, mode = 'eskiis' } = parsed.data
   const apiKey = (process.env.OPENAI_API_KEY || '').trim()
 
   if (!apiKey) {
     return Response.json({ ok: false, error: 'OPENAI_API_KEY puudub.' }, { status: 503 })
   }
 
-  const prompt = buildTattooPrompt(subjectText, Boolean(sourceImageDataUrl))
+  const prompt = mode === 'kehal'
+    ? buildTattooOnBodyPrompt(Boolean(sourceImageDataUrl))
+    : buildTattooPrompt(subjectText, Boolean(sourceImageDataUrl))
 
   try {
     let imageDataUrl: string
