@@ -944,7 +944,6 @@ export default function LaserGraveerimiseApp() {
         <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1 cyan-scrollbar">
           {conversations.map((conv) => {
             const isActive = conv.id === activeConversationId
-            const msgCount = isActive ? messages.length : conv.messages.length
             return (
               <button
                 key={conv.id}
@@ -958,9 +957,6 @@ export default function LaserGraveerimiseApp() {
                 )}
               >
                 <span className="max-w-28 truncate">{conv.name}</span>
-                {msgCount > 0 && (
-                  <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-cyan-100/72">{msgCount}</span>
-                )}
                 <span
                   role="button"
                   onClick={(e) => handleDeleteConversation(conv.id, e)}
