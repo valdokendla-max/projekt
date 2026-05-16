@@ -67,16 +67,20 @@ async function dataUrlToBuffer(dataUrl: string): Promise<Buffer> {
   return Buffer.from(base64, 'base64')
 }
 
-// Trim white borders from AI output, then add a small 3% margin so design has breathing room
+// Trim white borders from AI output, then add a small 5% margin so design has breathing room
 async function trimAndFrame(inputBuffer: Buffer): Promise<Buffer> {
-  const trimmed = await sharp(inputBuffer)
-    .trim({ background: { r: 255, g: 255, b: 255 }, threshold: 20 })
+  const flattened = await sharp(inputBuffer)
+    .flatten({ background: { r: 255, g: 255, b: 255 } })
+    .toBuffer()
+
+  const trimmed = await sharp(flattened)
+    .trim({ background: '#ffffff', threshold: 40 })
     .toBuffer()
 
   const meta = await sharp(trimmed).metadata()
   const w = meta.width ?? 512
   const h = meta.height ?? 512
-  const margin = Math.round(Math.max(w, h) * 0.03)
+  const margin = Math.round(Math.max(w, h) * 0.05)
   const canvasW = w + margin * 2
   const canvasH = h + margin * 2
 
