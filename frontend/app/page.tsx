@@ -1004,21 +1004,6 @@ export default function LaserGraveerimiseApp() {
                 </div>
 
                 <div className="chat-deck flex min-h-0 flex-1 flex-col">
-                  <div className="mb-4 flex flex-wrap gap-2">
-                    {commandModes.map((mode, index) => (
-                      <button
-                        key={mode.label}
-                        type="button"
-                        onClick={() => {
-                          void handleQuickAction(mode.prompt)
-                        }}
-                        className={index === 0 ? 'chat-command chat-command--active transition-colors hover:border-primary/28' : 'chat-command transition-colors hover:border-primary/22 hover:text-cyan-50'}
-                      >
-                        {mode.label}
-                      </button>
-                    ))}
-                  </div>
-
                   <div ref={scrollRef} className="chat-stage cyan-scrollbar min-h-0 flex-1 overflow-y-auto pr-2">
                     <div className="space-y-1">
                       {messages.map((message) => (
