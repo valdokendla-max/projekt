@@ -663,10 +663,43 @@ export default function LaserGraveerimiseApp() {
     })()
   }, [auth.status, auth.token])
 
+  // Load from localStorage on mount — shows conversations immediately before server responds
+  useEffect(() => {
+    try {
+      const savedConvs = localStorage.getItem('laser-conversations')
+      const savedActiveId = localStorage.getItem('laser-active-conv-id')
+      if (!savedConvs) return
+      const convs = JSON.parse(savedConvs) as Conversation[]
+      if (!Array.isArray(convs) || convs.length === 0) return
+      const activeId = savedActiveId && convs.find((c) => c.id === savedActiveId) ? savedActiveId : convs[0].id
+      const active = convs.find((c) => c.id === activeId) ?? convs[0]
+      setConversations(convs)
+      setActiveConversationId(activeId)
+      if (active.messages.length > 0) setMessages(active.messages)
+      const maxNum = convs.reduce((max, c) => {
+        const m = c.name.match(/Vestlus (\d+)/)
+        return Math.max(max, m ? parseInt(m[1]) : 0)
+      }, 0)
+      if (maxNum > 0) setConversationCounter(maxNum + 1)
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Save to localStorage on every change
+  useEffect(() => {
+    try {
+      const updated = conversations.map((c) => (c.id === activeConversationId ? { ...c, messages } : c))
+      localStorage.setItem('laser-conversations', JSON.stringify(updated))
+      localStorage.setItem('laser-active-conv-id', activeConversationId)
+    } catch { /* ignore */ }
+  }, [messages, conversations, activeConversationId])
+
   // Reset when logged out
   useEffect(() => {
     if (auth.status === 'anonymous') {
       hasLoadedRef.current = false
+      localStorage.removeItem('laser-conversations')
+      localStorage.removeItem('laser-active-conv-id')
       setConversations([{ id: 'conv-0', name: 'Vestlus 1', messages: [], createdAt: new Date() }])
       setActiveConversationId('conv-0')
       setConversationCounter(2)
@@ -844,6 +877,7 @@ export default function LaserGraveerimiseApp() {
     e.stopPropagation()
     if (auth.token) void deleteConversationFromServer(auth.token, id)
     if (conversations.length === 1) {
+      setConversations([{ ...conversations[0], messages: [] }])
       setMessages([])
       setPendingImage(null)
       setChatInputError('')
