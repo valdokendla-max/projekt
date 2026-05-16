@@ -14,24 +14,17 @@ interface RequestBody {
 function buildTattooPrompt(subjectText: string, hasReference: boolean) {
   const subject = subjectText.trim() ? `Subject: ${subjectText.trim()}. ` : ''
   const base =
-    `Professional tattoo stencil design. ${subject}` +
-    'Neo-traditional black-grey realism tattoo style. ' +
-    'Complex whip shading technique, dense dotwork for smooth gradient transitions. ' +
-    'Bold black cross-hatching for deep shadows, clean crisp contour lines with defined borders. ' +
-    'High contrast greyscale with deep blacks and bright highlights. ' +
-    'No decorative borders, no ornamental framing, no surrounding patterns. ' +
-    'COMPLETELY CLEAN WHITE BACKGROUND. Isolated design on clean white paper. ' +
-    'Studio lighting, centered vertical composition, sharp focus, ultra-detailed. 1:1 aspect ratio.'
+    'STRICT RULES: NO mandala, NO ornamental frame, NO decorative border, NO surrounding patterns, NO floral wreath, NO geometric background, NO oval frame, NO symmetrical decoration around the subject. ' +
+    `Black and grey realism tattoo design. ${subject}` +
+    'Subject only, centered on a completely plain white background. ' +
+    'Fine line detail, whip shading, dotwork for gradients, bold outlines, high contrast greyscale. ' +
+    'Clean white background with nothing else. No patterns outside the subject. Sharp focus, ultra-detailed.'
 
   if (hasReference) {
-    return base + ' Transform the reference image into a tattoo stencil design capturing its key shapes and composition. No added patterns or decorations.'
+    return base + ' Redraw the reference as a clean black and grey tattoo design. Keep only the subject, remove all surrounding decorations.'
   }
 
-  return (
-    base +
-    ' Clean standalone subject only, no mandala patterns, no surrounding ornaments, no geometric frames. ' +
-    'NOT ON SKIN. NOT ON BODY. No color, no blur, no watercolor.'
-  )
+  return base + ' NOT ON SKIN. NOT ON BODY. No color. No background elements whatsoever.'
 }
 
 async function fetchImageAsDataUrl(url: string, signal: AbortSignal) {
