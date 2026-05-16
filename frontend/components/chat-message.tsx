@@ -113,9 +113,9 @@ export function ChatMessage({ message }: { message: UIMessage }) {
                       src={image.url}
                       alt={image.filename || 'Laaditud pilt'}
                       width={960}
-                      height={720}
+                      height={960}
                       unoptimized
-                      className="max-h-70 w-full object-cover"
+                      className="w-full object-contain"
                     />
                     {image.filename && <figcaption className="px-3 py-2 text-xs text-cyan-100/52">{image.filename}</figcaption>}
                   </figure>
