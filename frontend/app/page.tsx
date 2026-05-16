@@ -700,27 +700,38 @@ export default function LaserGraveerimiseApp() {
     }
   }, [auth.status])
 
-  // Auto-save: kohe kui streaming lõpeb, + 500ms debounce muudel juhtudel
+  // Auto-save: 800ms debounce, streaming ajal ei sega
   useEffect(() => {
-    if (auth.status !== 'authenticated' || !auth.token || messages.length === 0) return
+    if (auth.status !== 'authenticated' || !auth.token || messages.length === 0 || isLoading) return
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     const activeConv = conversations.find((c) => c.id === activeConversationId)
     if (!activeConv) return
     const convToSave = { ...activeConv, messages }
     const token = auth.token
-    // Kui streaming just lõppes — salvesta kohe, muidu 500ms debounce
-    const delay = isLoading ? 0 : 500
-    saveTimerRef.current = setTimeout(() => { void saveConversationToServer(token, convToSave) }, delay)
+    saveTimerRef.current = setTimeout(() => { void saveConversationToServer(token, convToSave) }, 800)
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
   }, [messages, activeConversationId, auth.token, auth.status, isLoading])
 
-  // Salvesta kohe enne refressi/tab sulgemist
+  // Salvesta enne refressi — keepalive: true garanteerib et fetch lõpetab isegi pärast lehe sulgemist
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (auth.status !== 'authenticated' || !auth.token || messages.length === 0) return
       const activeConv = conversations.find((c) => c.id === activeConversationId)
       if (!activeConv) return
-      void saveConversationToServer(auth.token, { ...activeConv, messages })
+      const token = auth.token
+      // Eemalda base64 pildid — keepalive limit on 64KB
+      const safeMessages = messages.map((msg) => ({
+        ...msg,
+        parts: (msg.parts ?? []).map((part) =>
+          part.type === 'file' ? { ...part, url: '' } : part
+        ),
+      }))
+      fetch(`${BACKEND_URL}/api/conversations/${activeConv.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: activeConv.id, name: activeConv.name, messages: safeMessages, createdAt: activeConv.createdAt }),
+        keepalive: true,
+      }).catch(() => { /* non-critical */ })
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
