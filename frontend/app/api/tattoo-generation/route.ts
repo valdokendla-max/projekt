@@ -160,12 +160,8 @@ export async function POST(req: Request) {
       }
     }
 
-    // Post-process: shrink to 65% and add white padding to guarantee full subject visibility
-    const rawBuffer = await dataUrlToBuffer(imageDataUrl)
-    const paddedBuffer = await addPadding(rawBuffer)
-    const finalDataUrl = `data:image/png;base64,${paddedBuffer.toString('base64')}`
-
-    return Response.json({ ok: true, imageDataUrl: finalDataUrl })
+    // Return raw AI output to inspect what the model generates before any post-processing
+    return Response.json({ ok: true, imageDataUrl })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Tatoo loomine ebaõnnestus.'
     return Response.json({ ok: false, error: message }, { status: 502 })
