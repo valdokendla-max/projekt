@@ -4,7 +4,7 @@ import { normalizeChatImageDataUrl } from '@/lib/engraving/chat-image-normalizer
 export const maxDuration = 60
 export const runtime = 'nodejs'
 
-const BASE_SYSTEM = `Sa oled Laser Graveerimine - lasergraveerimise tehniline assistent.
+const BASE_SYSTEM_EST = `Sa oled Laser Graveerimine - lasergraveerimise tehniline assistent.
 Sinu fookus: lasergraveerimise seaded, materjalid, failiformaadid, toodangu kvaliteet, ohutus ja probleemide diagnoos.
 Vasta praktiliselt ja lühidalt. Kasuta tabelit või punktloendit, kui see aitab.
 Kui kasutaja ei anna piisavalt infot, küsi täpsustavaid andmeid: masin, laseri tüüp, võimsus, materjal, paksus ja eesmärk (graveerimine või lõikamine).
@@ -12,6 +12,15 @@ Kui kasutaja kirjutab eesti keeles, vasta eesti keeles. Kui inglise keeles, vast
 Kui kasutaja lisab pildi, analüüsi selle sobivust lasergraveerimiseks ning kirjelda konkreetsed muudatused kasutaja masina ja materjali jaoks: kontrast, detaili tase, tausta eemaldus, threshold/grayscale, mõõtkava, DPI ja paigutus.
 Kui kasutaja palub pilti masina jaoks kohandada, anna praktiline töötlusplaan ja laserile sobiv ettevalmistus. Ära väida, et genereerisid või muutsid valmis pildifaili, kui sa tegelikult andsid ainult juhised.
 Ära anna ohtlikke või ilmselgelt kahjustavaid juhiseid; paku turvalisem alternatiiv.`
+
+const BASE_SYSTEM_ENG = `You are Laser Graveerimine - a technical laser engraving assistant.
+Your focus: laser engraving settings, materials, file formats, output quality, safety and problem diagnosis.
+Answer practically and concisely. Use tables or bullet points when helpful.
+If the user does not provide enough information, ask for clarifying details: machine, laser type, power, material, thickness and goal (engraving or cutting).
+Always respond in English.
+If the user adds an image, analyze its suitability for laser engraving and describe specific changes for the user's machine and material: contrast, detail level, background removal, threshold/grayscale, scale, DPI and placement.
+If the user asks to adapt an image for the machine, provide a practical processing plan and laser-ready preparation. Do not claim to have generated or modified a finished image file if you only provided instructions.
+Do not give dangerous or obviously harmful instructions; offer a safer alternative.`
 
 interface UIMessagePart {
   type: string
@@ -42,11 +51,15 @@ type ModelContentPart =
   | { type: 'text'; text: string }
   | { type: 'image_url'; image_url: { url: string } }
 
-function buildSavedSettingsContext(savedSettingsSummary: string | undefined) {
+function buildSavedSettingsContext(savedSettingsSummary: string | undefined, language: 'est' | 'eng' = 'est') {
   const summary = String(savedSettingsSummary || '').trim()
 
   if (!summary) {
     return ''
+  }
+
+  if (language === 'eng') {
+    return `\n\nActive saved settings:\n${summary}\n\nUse these settings as the default background context in all responses. Do not repeat them in full unless the user explicitly asks. When the user asks for advice on machine, material, file preparation or workflow, assume these saved settings.`
   }
 
   return `\n\nAktiivne salvestatud seadistus:\n${summary}\n\nKasuta seda seadistust vaikimisi taustkontekstina kõigis vastustes. Ära korda seda tervikuna tagasi, kui kasutaja seda otseselt ei küsi. Kui kasutaja küsib nõu masina, materjali, faili ettevalmistuse või töövoo kohta, eelda seda salvestatud seadistust.`
@@ -204,7 +217,8 @@ function resolveProvider(usesVision: boolean): ProviderConfig | null {
 }
 
 export async function POST(req: Request) {
-  const { messages, savedSettingsSummary }: { messages: UIMessage[]; savedSettingsSummary?: string } = await req.json()
+  const { messages, savedSettingsSummary, language: rawLanguage }: { messages: UIMessage[]; savedSettingsSummary?: string; language?: string } = await req.json()
+  const language: 'est' | 'eng' = rawLanguage === 'eng' ? 'eng' : 'est'
   let normalizedMessages = messages
 
   try {
@@ -225,7 +239,7 @@ export async function POST(req: Request) {
   }
 
   const knowledgeContext = await knowledgeStore.getContext()
-  const system = BASE_SYSTEM + knowledgeContext + buildSavedSettingsContext(savedSettingsSummary)
+  const system = (language === 'eng' ? BASE_SYSTEM_ENG : BASE_SYSTEM_EST) + knowledgeContext + buildSavedSettingsContext(savedSettingsSummary, language)
 
   const providerMessages = [
     { role: 'system', content: system },

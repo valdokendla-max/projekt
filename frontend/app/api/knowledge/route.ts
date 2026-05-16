@@ -3,10 +3,11 @@ import {
   knowledgeStore,
   type KnowledgeCategory,
 } from '@/lib/knowledge-store'
+import { getServerBackendUrl } from '@/lib/backend-url'
 
 export const runtime = 'nodejs'
 
-const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000').replace(/\/$/, '')
+const BACKEND_URL = getServerBackendUrl()
 
 interface AuthenticatedUser {
   id: string

@@ -2,12 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { X, Plus, BookOpen, Lightbulb, FileText, Palette, Trash2, ArrowLeft, KeyRound, Shield, Users } from 'lucide-react'
-import { getClientBackendUrl } from '@/lib/backend-url'
 import type { AuthUser } from '@/hooks/use-auth'
 
-type UiLanguage = 'et' | 'en'
-
-const BACKEND_URL = getClientBackendUrl()
+const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000').replace(/\/$/, '')
 
 interface KnowledgeItem {
   id: string
@@ -35,164 +32,19 @@ interface PasswordResetRequest {
 }
 
 const CATEGORY_CONFIG = {
-  juhis: { icon: BookOpen },
-  naidis: { icon: FileText },
-  fakt: { icon: Lightbulb },
-  stiil: { icon: Palette },
+  juhis: { label: 'Juhis', icon: BookOpen, description: 'Käitumisjuhised ja reeglid' },
+  naidis: { label: 'Näidis', icon: FileText, description: 'Näidistekstid ja -vastused' },
+  fakt: { label: 'Fakt', icon: Lightbulb, description: 'Faktid ja teadmised' },
+  stiil: { label: 'Stiil', icon: Palette, description: 'Kirjutamise stiil ja toon' },
 } as const
 
 interface KnowledgePanelProps {
   authStatus: 'loading' | 'authenticated' | 'anonymous'
   currentUser: AuthUser | null
   isOpen: boolean
-  language?: UiLanguage
   onClose: () => void
   sessionToken: string | null
 }
-
-const KNOWLEDGE_COPY = {
-  et: {
-    categoryLabels: {
-      juhis: 'Juhis',
-      naidis: 'Näidis',
-      fakt: 'Fakt',
-      stiil: 'Stiil',
-    },
-    accessAdmin: 'Admin-režiim: saad lisada ja kustutada kirjeid.',
-    accessViewer: 'Vaaterežiim: teadmistebaasi saavad muuta ainult admin-kasutajad.',
-    accessPublic: 'Avalik vaaterežiim: muutmiseks logi sisse admin-kontoga.',
-    knowledgeLoadFailed: 'Teadmiste laadimine ebaõnnestus',
-    usersLoadFailed: 'Kasutajate laadimine ebaõnnestus',
-    resetRequestsLoadFailed: 'Parooli taastamise staatuse laadimine ebaõnnestus',
-    adminLoginRequired: 'Teadmistebaasi muutmiseks logi sisse admin-kontoga.',
-    adminOnly: 'Teadmistebaasi saavad muuta ainult admin-kasutajad.',
-    saveEntryFailed: 'Kirje salvestamine ebaõnnestus',
-    deleteEntryFailed: 'Kirje kustutamine ebaõnnestus',
-    changeRoleFailed: 'Kasutaja rolli muutmine ebaõnnestus',
-    issueTempFailed: 'Parooli taastamise info laadimine ebaõnnestus',
-    title: 'Teadmistebaas',
-    entries: 'kirjet',
-    add: 'Lisa',
-    viewOnly: 'Ainult vaatamine',
-    rolesTitle: 'Kasutajarollid',
-    rolesHint: 'valdokendla@gmail.com on selles projektis püsiv admin.',
-    usersLoading: 'Kasutajate nimekiri laadib...',
-    usersEmpty: 'Kasutajaid ei ole veel registreeritud.',
-    user: 'Kasutaja',
-    primaryAdmin: 'Põhiadmin',
-    activeAccount: 'Sinu aktiivne konto',
-    updating: 'Uuendan...',
-    passwordResetTitle: 'Parooli taastamine',
-    passwordResetHint: 'Kasutaja saab taastamislingi otse e-postile. Admin ei pea enam käsitsi ajutist parooli looma.',
-    tempCreated: 'E-posti saatmine:',
-    tempShare: 'Selle voo toimimiseks lisa backendile SMTP seaded. Siis saadetakse nii registreerimise teavitus kui ka parooli taastamise link automaatselt.',
-    resetLoading: 'Kontrollin e-posti seadistust...',
-    resetEmpty: 'Admini käsitsi parooli reseti järjekord on asendatud automaatse e-posti taastamisega.',
-    requestCreated: 'Seis',
-    creating: 'Kontrollin...',
-    createTemp: 'Vaata seisu',
-    titlePlaceholder: 'Pealkiri...',
-    contentPlaceholder: 'Sisu... (nt juhised, näidistekst või faktid)',
-    cancel: 'Tühista',
-    saving: 'Salvestamine...',
-    save: 'Salvesta',
-    emptyTitle: 'Teadmistebaas on tühi',
-    emptyDescription: 'Lisa juhiseid, näidiseid ja fakte, et assistent oskaks paremini vastata.',
-    dateLocale: 'et-EE',
-  },
-  en: {
-    categoryLabels: {
-      juhis: 'Guide',
-      naidis: 'Example',
-      fakt: 'Fact',
-      stiil: 'Style',
-    },
-    accessAdmin: 'Admin mode: you can add and delete entries.',
-    accessViewer: 'View mode: only admin users can modify the knowledge base.',
-    accessPublic: 'Public view mode: sign in with an admin account to make changes.',
-    knowledgeLoadFailed: 'Failed to load knowledge entries',
-    usersLoadFailed: 'Failed to load users',
-    resetRequestsLoadFailed: 'Failed to load password reset status',
-    adminLoginRequired: 'Sign in with an admin account to modify the knowledge base.',
-    adminOnly: 'Only admin users can modify the knowledge base.',
-    saveEntryFailed: 'Failed to save entry',
-    deleteEntryFailed: 'Failed to delete entry',
-    changeRoleFailed: 'Failed to change user role',
-    issueTempFailed: 'Failed to load password reset information',
-    title: 'Knowledge base',
-    entries: 'entries',
-    add: 'Add',
-    viewOnly: 'View only',
-    rolesTitle: 'User roles',
-    rolesHint: 'valdokendla@gmail.com is a permanent admin in this project.',
-    usersLoading: 'Loading users...',
-    usersEmpty: 'No users have registered yet.',
-    user: 'User',
-    primaryAdmin: 'Primary admin',
-    activeAccount: 'Your active account',
-    updating: 'Updating...',
-    passwordResetTitle: 'Password recovery',
-    passwordResetHint: 'Users now receive the reset link directly by email. Admin no longer needs to create temporary passwords manually.',
-    tempCreated: 'Email delivery:',
-    tempShare: 'To make this flow work, add SMTP settings to the backend. Registration notifications and password reset links will then be sent automatically.',
-    resetLoading: 'Checking email configuration...',
-    resetEmpty: 'The manual admin reset queue has been replaced with automatic email-based recovery.',
-    requestCreated: 'Status',
-    creating: 'Checking...',
-    createTemp: 'View status',
-    titlePlaceholder: 'Title...',
-    contentPlaceholder: 'Content... (for example guides, sample text, or facts)',
-    cancel: 'Cancel',
-    saving: 'Saving...',
-    save: 'Save',
-    emptyTitle: 'The knowledge base is empty',
-    emptyDescription: 'Add guides, examples, and facts so the assistant can respond better.',
-    dateLocale: 'en-GB',
-  },
-} satisfies Record<UiLanguage, {
-  categoryLabels: Record<KnowledgeItem['category'], string>
-  accessAdmin: string
-  accessViewer: string
-  accessPublic: string
-  knowledgeLoadFailed: string
-  usersLoadFailed: string
-  resetRequestsLoadFailed: string
-  adminLoginRequired: string
-  adminOnly: string
-  saveEntryFailed: string
-  deleteEntryFailed: string
-  changeRoleFailed: string
-  issueTempFailed: string
-  title: string
-  entries: string
-  add: string
-  viewOnly: string
-  rolesTitle: string
-  rolesHint: string
-  usersLoading: string
-  usersEmpty: string
-  user: string
-  primaryAdmin: string
-  activeAccount: string
-  updating: string
-  passwordResetTitle: string
-  passwordResetHint: string
-  tempCreated: string
-  tempShare: string
-  resetLoading: string
-  resetEmpty: string
-  requestCreated: string
-  creating: string
-  createTemp: string
-  titlePlaceholder: string
-  contentPlaceholder: string
-  cancel: string
-  saving: string
-  save: string
-  emptyTitle: string
-  emptyDescription: string
-  dateLocale: string
-}>
 
 async function getErrorMessage(res: Response, fallback: string) {
   try {
@@ -203,8 +55,7 @@ async function getErrorMessage(res: Response, fallback: string) {
   }
 }
 
-export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et', onClose, sessionToken }: KnowledgePanelProps) {
-  const copy = KNOWLEDGE_COPY[language]
+export function KnowledgePanel({ authStatus, currentUser, isOpen, onClose, sessionToken }: KnowledgePanelProps) {
   const [items, setItems] = useState<KnowledgeItem[]>([])
   const [users, setUsers] = useState<UserListItem[]>([])
   const [resetRequests, setResetRequests] = useState<PasswordResetRequest[]>([])
@@ -222,10 +73,10 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
   const canManageKnowledge = currentUser?.role === 'admin'
 
   const accessHint = canManageKnowledge
-    ? copy.accessAdmin
+    ? 'Admin-režiim: saad lisada ja kustutada kirjeid.'
     : authStatus === 'authenticated'
-      ? copy.accessViewer
-      : copy.accessPublic
+      ? 'Vaaterežiim: teadmistebaasi saavad muuta ainult admin-kasutajad.'
+      : 'Avalik vaaterežiim: muutmiseks logi sisse admin-kontoga.'
 
   const fetchItems = useCallback(async () => {
     if (!sessionToken || !canManageKnowledge) {
@@ -240,15 +91,15 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
         },
       })
       if (!res.ok) {
-        throw new Error(await getErrorMessage(res, copy.knowledgeLoadFailed))
+        throw new Error(await getErrorMessage(res, 'Teadmiste laadimine ebaõnnestus'))
       }
       const data = await res.json()
       setItems(data)
       setError('')
     } catch (e) {
-      setError(e instanceof Error ? e.message : copy.knowledgeLoadFailed)
+      setError(e instanceof Error ? e.message : 'Teadmiste laadimine ebaõnnestus')
     }
-  }, [canManageKnowledge, copy.knowledgeLoadFailed, sessionToken])
+  }, [canManageKnowledge, sessionToken])
 
   const fetchUsers = useCallback(async () => {
     if (!sessionToken || !canManageKnowledge) {
@@ -266,17 +117,17 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
       })
 
       if (!res.ok) {
-        throw new Error(await getErrorMessage(res, copy.usersLoadFailed))
+        throw new Error(await getErrorMessage(res, 'Kasutajate laadimine ebaõnnestus'))
       }
 
       const data = (await res.json()) as { users?: UserListItem[] }
       setUsers(Array.isArray(data.users) ? data.users : [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : copy.usersLoadFailed)
+      setError(e instanceof Error ? e.message : 'Kasutajate laadimine ebaõnnestus')
     } finally {
       setIsUsersLoading(false)
     }
-  }, [canManageKnowledge, copy.usersLoadFailed, sessionToken])
+  }, [canManageKnowledge, sessionToken])
 
   const fetchResetRequests = useCallback(async () => {
     if (!sessionToken || !canManageKnowledge) {
@@ -294,17 +145,17 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
       })
 
       if (!res.ok) {
-        throw new Error(await getErrorMessage(res, copy.resetRequestsLoadFailed))
+        throw new Error(await getErrorMessage(res, 'Parooli reseti taotluste laadimine ebaõnnestus'))
       }
 
       const data = (await res.json()) as { requests?: PasswordResetRequest[] }
       setResetRequests(Array.isArray(data.requests) ? data.requests : [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : copy.resetRequestsLoadFailed)
+      setError(e instanceof Error ? e.message : 'Parooli reseti taotluste laadimine ebaõnnestus')
     } finally {
       setIsResetRequestsLoading(false)
     }
-  }, [canManageKnowledge, copy.resetRequestsLoadFailed, sessionToken])
+  }, [canManageKnowledge, sessionToken])
 
   useEffect(() => {
     if (isOpen && items.length === 0) {
@@ -315,8 +166,9 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
   useEffect(() => {
     if (isOpen && canManageKnowledge) {
       void fetchUsers()
+      void fetchResetRequests()
     }
-  }, [canManageKnowledge, fetchUsers, isOpen])
+  }, [canManageKnowledge, fetchResetRequests, fetchUsers, isOpen])
 
   useEffect(() => {
     if (!canManageKnowledge) {
@@ -336,12 +188,12 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
 
   const requireAdminSession = () => {
     if (authStatus !== 'authenticated' || !sessionToken) {
-      setError(copy.adminLoginRequired)
+      setError('Teadmistebaasi muutmiseks logi sisse admin-kontoga.')
       return false
     }
 
     if (!canManageKnowledge) {
-      setError(copy.adminOnly)
+      setError('Teadmistebaasi saavad muuta ainult admin-kasutajad.')
       return false
     }
 
@@ -365,7 +217,7 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
       })
 
       if (!res.ok) {
-        throw new Error(await getErrorMessage(res, copy.saveEntryFailed))
+        throw new Error(await getErrorMessage(res, 'Kirje salvestamine ebaõnnestus'))
       }
 
       setTitle('')
@@ -373,7 +225,7 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
       setIsAdding(false)
       await fetchItems()
     } catch (e) {
-      setError(e instanceof Error ? e.message : copy.saveEntryFailed)
+      setError(e instanceof Error ? e.message : 'Kirje salvestamine ebaõnnestus')
     } finally {
       setIsLoading(false)
     }
@@ -392,11 +244,11 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
         },
       })
       if (!res.ok) {
-        throw new Error(await getErrorMessage(res, copy.deleteEntryFailed))
+        throw new Error(await getErrorMessage(res, 'Kirje kustutamine ebaõnnestus'))
       }
       await fetchItems()
     } catch (e) {
-      setError(e instanceof Error ? e.message : copy.deleteEntryFailed)
+      setError(e instanceof Error ? e.message : 'Kirje kustutamine ebaõnnestus')
     }
   }
 
@@ -417,17 +269,17 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
       })
 
       if (!res.ok) {
-        throw new Error(await getErrorMessage(res, copy.changeRoleFailed))
+        throw new Error(await getErrorMessage(res, 'Kasutaja rolli muutmine ebaõnnestus'))
       }
 
       const data = (await res.json()) as { user?: UserListItem }
       if (!data.user) {
-        throw new Error(copy.changeRoleFailed)
+        throw new Error('Kasutaja rolli muutmine ebaõnnestus')
       }
 
       setUsers((currentUsers) => currentUsers.map((user) => (user.id === data.user?.id ? data.user : user)))
     } catch (e) {
-      setError(e instanceof Error ? e.message : copy.changeRoleFailed)
+      setError(e instanceof Error ? e.message : 'Kasutaja rolli muutmine ebaõnnestus')
     } finally {
       setRoleMutationUserId(null)
     }
@@ -449,18 +301,18 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
       })
 
       if (!res.ok) {
-        throw new Error(await getErrorMessage(res, copy.issueTempFailed))
+        throw new Error(await getErrorMessage(res, 'Ajutise parooli loomine ebaõnnestus'))
       }
 
       const data = (await res.json()) as { temporaryPassword?: string }
       if (!data.temporaryPassword) {
-        throw new Error(copy.issueTempFailed)
+        throw new Error('Ajutise parooli loomine ebaõnnestus')
       }
 
       setIssuedTemporaryPassword({ email: request.email, password: data.temporaryPassword })
       setResetRequests((currentRequests) => currentRequests.filter((current) => current.id !== request.id))
     } catch (e) {
-      setError(e instanceof Error ? e.message : copy.issueTempFailed)
+      setError(e instanceof Error ? e.message : 'Ajutise parooli loomine ebaõnnestus')
     } finally {
       setResetMutationRequestId(null)
     }
@@ -470,7 +322,7 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-950/55 backdrop-blur-[2px]" onClick={onClose} />
       <div className="relative ml-auto flex h-full w-full max-w-lg flex-col bg-card border-l border-border shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
@@ -479,8 +331,8 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div>
-              <h2 className="text-sm font-semibold text-foreground">{copy.title}</h2>
-              <p className="text-xs text-muted-foreground">{items.length} {copy.entries}</p>
+              <h2 className="text-sm font-semibold text-foreground">Teadmistebaas</h2>
+              <p className="text-xs text-muted-foreground">{items.length} kirjet</p>
               <p className="mt-1 text-[11px] text-muted-foreground">{accessHint}</p>
             </div>
           </div>
@@ -491,11 +343,11 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
                 className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 <Plus className="h-3 w-3" />
-                {copy.add}
+                Lisa
               </button>
             ) : (
               <div className="rounded-lg border border-border bg-secondary px-3 py-1.5 text-[11px] text-muted-foreground">
-                {copy.viewOnly}
+                Ainult vaatamine
               </div>
             )}
             <button onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:text-foreground hover:bg-secondary">
@@ -517,18 +369,18 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
                 <Users className="h-4 w-4" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-foreground">{copy.rolesTitle}</h3>
-                <p className="text-[11px] text-muted-foreground">{copy.rolesHint}</p>
+                <h3 className="text-sm font-semibold text-foreground">Kasutajarollid</h3>
+                <p className="text-[11px] text-muted-foreground">valdokendla@gmail.com on selles projektis püsiv admin.</p>
               </div>
             </div>
 
             {isUsersLoading ? (
               <div className="rounded-xl border border-border bg-secondary/40 px-4 py-3 text-xs text-muted-foreground">
-                {copy.usersLoading}
+                Kasutajate nimekiri laadib...
               </div>
             ) : users.length === 0 ? (
               <div className="rounded-xl border border-border bg-secondary/40 px-4 py-3 text-xs text-muted-foreground">
-                {copy.usersEmpty}
+                Kasutajaid ei ole veel registreeritud.
               </div>
             ) : (
               <div className="space-y-2">
@@ -544,18 +396,18 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-sm font-medium text-foreground">{user.name}</span>
                             <span className={user.role === 'admin' ? 'inline-flex items-center rounded-full border border-cyan-200/18 bg-cyan-300/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-50' : 'inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'}>
-                              {user.role === 'admin' ? 'Admin' : copy.user}
+                              {user.role === 'admin' ? 'Admin' : 'Kasutaja'}
                             </span>
                             {isLockedAdmin ? (
                               <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
                                 <Shield className="h-3 w-3" />
-                                {copy.primaryAdmin}
+                                Põhiadmin
                               </span>
                             ) : null}
                           </div>
                           <p className="mt-1 truncate text-xs text-muted-foreground">{user.email}</p>
                           {isCurrentUser ? (
-                            <p className="mt-1 text-[11px] text-muted-foreground">{copy.activeAccount}</p>
+                            <p className="mt-1 text-[11px] text-muted-foreground">Sinu aktiivne konto</p>
                           ) : null}
                         </div>
 
@@ -572,7 +424,7 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
                             disabled={isBusy || user.role === 'admin'}
                             className="rounded-lg bg-primary px-2.5 py-1.5 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-45"
                           >
-                            {isBusy ? copy.updating : 'Admin'}
+                            {isBusy ? 'Uuendan...' : 'Admin'}
                           </button>
                         </div>
                       </div>
@@ -591,15 +443,59 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
                 <KeyRound className="h-4 w-4" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-foreground">{copy.passwordResetTitle}</h3>
-                <p className="text-[11px] text-muted-foreground">{copy.passwordResetHint}</p>
+                <h3 className="text-sm font-semibold text-foreground">Parooli reseti taotlused</h3>
+                <p className="text-[11px] text-muted-foreground">Admin loob siit ajutise parooli ja jagab selle kasutajale turvalise kanali kaudu.</p>
               </div>
             </div>
 
-            <div className="rounded-xl border border-border bg-secondary/40 px-4 py-3 text-xs text-muted-foreground">
-              <p>{copy.resetEmpty}</p>
-              <p className="mt-2">{copy.tempShare}</p>
-            </div>
+            {issuedTemporaryPassword ? (
+              <div className="mb-3 rounded-xl border border-emerald-400/20 bg-emerald-400/8 px-4 py-3 text-sm text-emerald-100">
+                <p className="font-medium">Ajutine parool loodud: {issuedTemporaryPassword.email}</p>
+                <p className="mt-1 break-all font-mono text-emerald-50">{issuedTemporaryPassword.password}</p>
+                <p className="mt-2 text-xs text-emerald-100/80">Jaga see kasutajale eraldi kanali kaudu. Pärast sisselogimist peaks ta kohe kasutama “Muuda parooli”.</p>
+              </div>
+            ) : null}
+
+            {isResetRequestsLoading ? (
+              <div className="rounded-xl border border-border bg-secondary/40 px-4 py-3 text-xs text-muted-foreground">
+                Parooli reseti taotlused laadivad...
+              </div>
+            ) : resetRequests.length === 0 ? (
+              <div className="rounded-xl border border-border bg-secondary/40 px-4 py-3 text-xs text-muted-foreground">
+                Ootel parooli reseti taotlusi ei ole.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {resetRequests.map((request) => {
+                  const isBusy = resetMutationRequestId === request.id
+
+                  return (
+                    <div key={request.id} className="rounded-xl border border-border bg-secondary/35 px-3 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground">{request.name}</p>
+                          <p className="mt-1 truncate text-xs text-muted-foreground">{request.email}</p>
+                          <p className="mt-1 text-[11px] text-muted-foreground">Taotlus loodud: {new Date(request.createdAt).toLocaleString('et-EE')}</p>
+                          {request.note ? (
+                            <p className="mt-2 rounded-lg border border-border bg-background/60 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                              {request.note}
+                            </p>
+                          ) : null}
+                        </div>
+
+                        <button
+                          onClick={() => handleIssueTemporaryPassword(request)}
+                          disabled={isBusy}
+                          className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-45"
+                        >
+                          {isBusy ? 'Loon...' : 'Loo ajutine parool'}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -609,7 +505,7 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
             <div className="flex flex-col gap-3">
               <input
                 type="text"
-                placeholder={copy.titlePlaceholder}
+                placeholder="Pealkiri..."
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
@@ -629,13 +525,13 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
                       }`}
                     >
                       <Icon className="h-3 w-3" />
-                      {copy.categoryLabels[key]}
+                      {config.label}
                     </button>
                   )
                 })}
               </div>
               <textarea
-                placeholder={copy.contentPlaceholder}
+                placeholder="Sisu... (nt juhised, näidistekst või faktid)"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 rows={5}
@@ -646,14 +542,14 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
                   onClick={() => { setIsAdding(false); setTitle(''); setContent('') }}
                   className="rounded-lg bg-secondary px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  {copy.cancel}
+                  Tühista
                 </button>
                 <button
                   onClick={handleAdd}
                   disabled={!title.trim() || !content.trim() || isLoading}
                   className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                 >
-                  {isLoading ? copy.saving : copy.save}
+                  {isLoading ? 'Salvestamine...' : 'Salvesta'}
                 </button>
               </div>
             </div>
@@ -667,8 +563,8 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
               <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-secondary">
                 <BookOpen className="h-5 w-5 text-muted-foreground" />
               </div>
-              <p className="text-sm text-muted-foreground">{copy.emptyTitle}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{copy.emptyDescription}</p>
+              <p className="text-sm text-muted-foreground">Teadmistebaas on tühi</p>
+              <p className="mt-1 text-xs text-muted-foreground">Lisa juhiseid, näidiseid ja fakte, et assistent oskaks paremini vastata.</p>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
@@ -684,7 +580,7 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, language = 'et
                         </div>
                         <div>
                           <span className="text-xs font-medium text-foreground">{item.title}</span>
-                          <span className="ml-2 text-[10px] text-muted-foreground">{copy.categoryLabels[item.category]}</span>
+                          <span className="ml-2 text-[10px] text-muted-foreground">{config.label}</span>
                         </div>
                       </div>
                       {canManageKnowledge ? (
