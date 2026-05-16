@@ -20,6 +20,7 @@ function buildTattooPrompt(subjectText: string, hasReference: boolean) {
     'White background, professional tattoo flash design. No texture, colors or dark areas outside the illustration are allowed. ' +
     'Mandala, frame, border, surrounding decorations and floral wreath are not allowed. ' +
     'Not on skin. Not on body. Ink on white paper only. ' +
+    '1:1 aspect ratio --style raw --v 6 --no skin, arm, body, leg, person, photograph. ' +
     'The entire design must be fully contained within the frame with clear margins on all sides — nothing should be cropped, cut off, or touch the edges of the image.'
 
   if (hasReference) {
