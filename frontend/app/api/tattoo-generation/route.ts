@@ -1,3 +1,4 @@
+import sharp from 'sharp'
 import { parseJsonBodyWithLimit } from '@/lib/api-security'
 
 export const runtime = 'nodejs'
@@ -16,18 +17,40 @@ function buildTattooPrompt(subjectText: string, hasReference: boolean) {
   const base =
     'Tattoo flash art on pure white background. ' +
     `Black and grey realism. ${subject}` +
-    'The subject is a small centered design occupying at most 50% of the canvas width and height. ' +
-    'Large white margins on all four sides — at least 25% white space on every edge. ' +
-    'PURE WHITE BACKGROUND everywhere outside the subject. No dark background. No colored background. No texture behind the subject. ' +
-    'NO mandala. NO ornamental frame. NO decorative border. NO surrounding patterns. NO floral wreath. NO geometric shapes around the subject. NO oval frame. ' +
     'Fine line detail, whip shading, bold outlines, high contrast greyscale ink only. ' +
+    'NO mandala. NO ornamental frame. NO decorative border. NO surrounding patterns. NO floral wreath. NO geometric shapes around the subject. NO oval frame. ' +
     'Entire subject fully visible and not cropped. Ultra-detailed tattoo design.'
 
   if (hasReference) {
-    return base + ' Redraw the uploaded reference image as a black and grey tattoo design. Subject small and centered on white canvas with large margins.'
+    return base + ' Redraw the uploaded reference image as a black and grey tattoo design.'
   }
 
   return base + ' NOT ON SKIN. NOT ON BODY. No color fill. Ink lines on white only.'
+}
+
+// Shrinks the generated image to 65% and places it centered on a white 1024x1024 canvas,
+// guaranteeing padding on all sides regardless of what the model generated.
+async function addPadding(inputBuffer: Buffer): Promise<Buffer> {
+  const canvasSize = 1024
+  const targetSize = Math.round(canvasSize * 0.65)
+
+  const resized = await sharp(inputBuffer)
+    .resize(targetSize, targetSize, { fit: 'inside', background: { r: 255, g: 255, b: 255, alpha: 1 } })
+    .png()
+    .toBuffer()
+
+  const meta = await sharp(resized).metadata()
+  const w = meta.width ?? targetSize
+  const h = meta.height ?? targetSize
+  const left = Math.round((canvasSize - w) / 2)
+  const top = Math.round((canvasSize - h) / 2)
+
+  return sharp({
+    create: { width: canvasSize, height: canvasSize, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } },
+  })
+    .composite([{ input: resized, left, top }])
+    .png()
+    .toBuffer()
 }
 
 async function fetchImageAsDataUrl(url: string, signal: AbortSignal) {
@@ -35,6 +58,11 @@ async function fetchImageAsDataUrl(url: string, signal: AbortSignal) {
   const buf = Buffer.from(await res.arrayBuffer())
   const ct = res.headers.get('content-type') || 'image/png'
   return `data:${ct};base64,${buf.toString('base64')}`
+}
+
+async function dataUrlToBuffer(dataUrl: string): Promise<Buffer> {
+  const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl
+  return Buffer.from(base64, 'base64')
 }
 
 export async function POST(req: Request) {
@@ -128,7 +156,12 @@ export async function POST(req: Request) {
       }
     }
 
-    return Response.json({ ok: true, imageDataUrl })
+    // Post-process: shrink to 65% and add white padding to guarantee full subject visibility
+    const rawBuffer = await dataUrlToBuffer(imageDataUrl)
+    const paddedBuffer = await addPadding(rawBuffer)
+    const finalDataUrl = `data:image/png;base64,${paddedBuffer.toString('base64')}`
+
+    return Response.json({ ok: true, imageDataUrl: finalDataUrl })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Tatoo loomine ebaõnnestus.'
     return Response.json({ ok: false, error: message }, { status: 502 })

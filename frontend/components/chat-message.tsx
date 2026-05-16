@@ -101,19 +101,20 @@ export function ChatMessage({ message }: { message: UIMessage }) {
             <div className={cn('pointer-events-none absolute bottom-0 right-0 h-16 w-16 rounded-full blur-2xl', isUser ? 'bg-cyan-300/10' : 'bg-cyan-300/12')} />
 
             {images.length > 0 && (
-              <div className="mb-3 grid gap-2 sm:grid-cols-2">
+              <div className="mb-3 flex flex-wrap gap-2">
                 {images.map((image) => (
                   <figure
                     key={`${image.url}-${image.filename || 'image'}`}
                     className="cursor-pointer overflow-hidden rounded-2xl border border-white/8 bg-black/24 transition-opacity hover:opacity-90"
+                    style={{ width: '180px' }}
                     onClick={() => { setLightboxUrl(image.url); setLightboxFilename(image.filename) }}
                     title="Kliki suuremaks"
                   >
                     <Image
                       src={image.url}
                       alt={image.filename || 'Laaditud pilt'}
-                      width={960}
-                      height={960}
+                      width={180}
+                      height={180}
                       unoptimized
                       className="w-full object-contain"
                     />
