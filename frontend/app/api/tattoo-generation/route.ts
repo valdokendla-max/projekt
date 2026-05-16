@@ -14,17 +14,20 @@ interface RequestBody {
 function buildTattooPrompt(subjectText: string, hasReference: boolean) {
   const subject = subjectText.trim() ? `Subject: ${subjectText.trim()}. ` : ''
   const base =
-    'STRICT RULES: NO mandala, NO ornamental frame, NO decorative border, NO surrounding patterns, NO floral wreath, NO geometric background, NO oval frame, NO symmetrical decoration around the subject. ' +
-    `Black and grey realism tattoo design. ${subject}` +
-    'Subject fully visible with generous whitespace padding on all sides. Subject occupies no more than 70% of the canvas, centered. Entire subject fits completely within frame, nothing cut off. ' +
-    'Fine line detail, whip shading, dotwork for gradients, bold outlines, high contrast greyscale. ' +
-    'Clean white background with nothing else. No patterns outside the subject. Sharp focus, ultra-detailed.'
+    'Tattoo flash art on pure white background. ' +
+    `Black and grey realism. ${subject}` +
+    'The subject is a small centered design occupying at most 50% of the canvas width and height. ' +
+    'Large white margins on all four sides — at least 25% white space on every edge. ' +
+    'PURE WHITE BACKGROUND everywhere outside the subject. No dark background. No colored background. No texture behind the subject. ' +
+    'NO mandala. NO ornamental frame. NO decorative border. NO surrounding patterns. NO floral wreath. NO geometric shapes around the subject. NO oval frame. ' +
+    'Fine line detail, whip shading, bold outlines, high contrast greyscale ink only. ' +
+    'Entire subject fully visible and not cropped. Ultra-detailed tattoo design.'
 
   if (hasReference) {
-    return base + ' Redraw the reference as a clean black and grey tattoo design. Keep only the subject, remove all surrounding decorations. Full subject visible with padding around it.'
+    return base + ' Redraw the uploaded reference image as a black and grey tattoo design. Subject small and centered on white canvas with large margins.'
   }
 
-  return base + ' NOT ON SKIN. NOT ON BODY. No color. No background elements whatsoever.'
+  return base + ' NOT ON SKIN. NOT ON BODY. No color fill. Ink lines on white only.'
 }
 
 async function fetchImageAsDataUrl(url: string, signal: AbortSignal) {
