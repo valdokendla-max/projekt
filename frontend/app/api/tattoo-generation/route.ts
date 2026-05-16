@@ -67,6 +67,27 @@ async function dataUrlToBuffer(dataUrl: string): Promise<Buffer> {
   return Buffer.from(base64, 'base64')
 }
 
+// Trim white borders from AI output, then add a small 3% margin so design has breathing room
+async function trimAndFrame(inputBuffer: Buffer): Promise<Buffer> {
+  const trimmed = await sharp(inputBuffer)
+    .trim({ background: { r: 255, g: 255, b: 255 }, threshold: 20 })
+    .toBuffer()
+
+  const meta = await sharp(trimmed).metadata()
+  const w = meta.width ?? 512
+  const h = meta.height ?? 512
+  const margin = Math.round(Math.max(w, h) * 0.03)
+  const canvasW = w + margin * 2
+  const canvasH = h + margin * 2
+
+  return sharp({
+    create: { width: canvasW, height: canvasH, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } },
+  })
+    .composite([{ input: trimmed, left: margin, top: margin }])
+    .png()
+    .toBuffer()
+}
+
 export async function POST(req: Request) {
   const parsed = await parseJsonBodyWithLimit<RequestBody>(req, {
     maxBytes: 8 * 1024 * 1024,
@@ -160,7 +181,11 @@ export async function POST(req: Request) {
       }
     }
 
-    return Response.json({ ok: true, imageDataUrl })
+    const rawBuffer = await dataUrlToBuffer(imageDataUrl)
+    const framedBuffer = await trimAndFrame(rawBuffer)
+    const finalDataUrl = `data:image/png;base64,${framedBuffer.toString('base64')}`
+
+    return Response.json({ ok: true, imageDataUrl: finalDataUrl })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Tatoo loomine ebaõnnestus.'
     return Response.json({ ok: false, error: message }, { status: 502 })
