@@ -13,19 +13,19 @@ interface RequestBody {
 }
 
 function buildTattooPrompt(subjectText: string, hasReference: boolean) {
-  const subject = subjectText.trim() ? `Subject: ${subjectText.trim()}. ` : ''
+  const subject = subjectText.trim() ? ` Subject: ${subjectText.trim()}.` : ''
   const base =
-    'Tattoo flash art on pure white background. ' +
-    `Black and grey realism. ${subject}` +
-    'Fine line detail, whip shading, bold outlines, high contrast greyscale ink only. ' +
-    'NO mandala. NO ornamental frame. NO decorative border. NO surrounding patterns. NO floral wreath. NO geometric shapes around the subject. NO oval frame. ' +
-    'Entire subject fully visible and not cropped. Ultra-detailed tattoo design.'
+    `Black and grey realistic tattoo design with detailed stylized patterns featuring sharp, layered scale-like textures and intricate linework.${subject} ` +
+    'Highly detailed illustrative tattoo art with smooth shading, strong contrast between deep black and soft grey, fine line work and small decorative dots and sparkle details in the background. ' +
+    'White background, professional tattoo flash design. No texture, colors or dark areas outside the illustration are allowed. ' +
+    'Mandala, frame, border, surrounding decorations and floral wreath are not allowed. ' +
+    'Not on skin. Not on body. Ink on white paper only.'
 
   if (hasReference) {
-    return base + ' Redraw the uploaded reference image as a black and grey tattoo design.'
+    return base + ' Base the design on the uploaded reference image.'
   }
 
-  return base + ' NOT ON SKIN. NOT ON BODY. No color fill. Ink lines on white only.'
+  return base
 }
 
 // Shrinks the generated image to 65% and places it centered on a white 1024x1024 canvas,
