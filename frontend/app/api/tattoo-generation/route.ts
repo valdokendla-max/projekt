@@ -29,10 +29,10 @@ function buildTattooPrompt(subjectText: string, hasReference: boolean) {
   return base
 }
 
-// Scales the AI image to 60% and centers it on a white 1024x1024 canvas — guarantees 20% white margin on every side.
+// Scales the AI image to 55% and centers it on a white 1024x1024 canvas — guarantees ~22% white margin on every side.
 async function addPadding(inputBuffer: Buffer): Promise<Buffer> {
   const canvasSize = 1024
-  const targetSize = Math.round(canvasSize * 0.60) // 60% → 614px, leaves 205px margin each side
+  const targetSize = Math.round(canvasSize * 0.55) // 55% → 563px max, leaves ~230px margin each side
 
   const resized = await sharp(inputBuffer)
     .resize(targetSize, targetSize, { fit: 'inside' })
@@ -131,7 +131,7 @@ export async function POST(req: Request) {
           model: OPENAI_IMAGE_MODEL,
           prompt,
           n: 1,
-          size: '1024x1024',
+          size: '1024x1536',
           output_format: 'png',
         }),
         signal: req.signal,
