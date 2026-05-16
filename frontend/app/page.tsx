@@ -348,14 +348,6 @@ export default function LaserGraveerimiseApp() {
   const hasImageContext = Boolean(pendingImage) || messages.some(messageHasImage)
   const isLoading = status === 'streaming' || status === 'submitted'
 
-  const activeImageUrl = useMemo(
-    () => getActiveImage()?.url ?? null,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pendingImage, messages]
-  )
-  const previewPowerPct = savedSettings?.recommendation?.settings?.powerPct ?? 60
-  const previewMaterialName = savedSettingsSummary.match(/^Materjal:\s*(.+)$/m)?.[1] ?? ''
-
   const getActiveImage = (): { url: string; mediaType: string } | null => {
     if (pendingImage?.url) return { url: pendingImage.url, mediaType: pendingImage.mediaType || 'image/png' }
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -369,6 +361,14 @@ export default function LaserGraveerimiseApp() {
     }
     return null
   }
+
+  const activeImageUrl = useMemo(
+    () => getActiveImage()?.url ?? null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pendingImage, messages]
+  )
+  const previewPowerPct = savedSettings?.recommendation?.settings?.powerPct ?? 60
+  const previewMaterialName = savedSettingsSummary.match(/^Materjal:\s*(.+)$/m)?.[1] ?? ''
 
   const handleShowSettings = () => {
     if (!savedSettingsSummary) {
