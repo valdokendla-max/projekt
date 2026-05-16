@@ -5,7 +5,12 @@ import type { ServiceStatus, SystemStatusResponse } from '@/lib/system-status'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000').replace(/\/$/, '')
+// Server-side: use direct Railway URL; client proxy (/backend) doesn't resolve in Node fetch
+const BACKEND_URL = (
+  process.env.BACKEND_PROXY_TARGET ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  'http://localhost:4000'
+).replace(/\/$/, '')
 const GROQ_MODELS_URL = 'https://api.groq.com/openai/v1/models'
 
 function buildServiceStatus(input: Omit<ServiceStatus, 'checkedAt'>, checkedAt: string): ServiceStatus {

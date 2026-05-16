@@ -286,7 +286,11 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/health", (req, res) => {
-  res.json({ ok: true, timestamp: new Date().toISOString() });
+  res.json({
+    ok: true,
+    timestamp: new Date().toISOString(),
+    database: process.env.DATABASE_URL ? "configured" : "not-configured",
+  });
 });
 
 app.get("/api/machines", (req, res) => {
