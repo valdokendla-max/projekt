@@ -19,20 +19,17 @@ function buildTattooPrompt(subjectText: string, hasReference: boolean) {
     'Complex whip shading technique, dense dotwork for smooth gradient transitions. ' +
     'Bold black cross-hatching for deep shadows, clean crisp contour lines with defined borders. ' +
     'High contrast greyscale with deep blacks and bright highlights. ' +
-    'Decorative ornamental framing elements. ' +
-    'Professional tattoo flash sheet. ' +
+    'No decorative borders, no ornamental framing, no surrounding patterns. ' +
     'COMPLETELY CLEAN WHITE BACKGROUND. Isolated design on clean white paper. ' +
     'Studio lighting, centered vertical composition, sharp focus, ultra-detailed. 1:1 aspect ratio.'
 
   if (hasReference) {
-    return base + ' Transform the reference image into a tattoo stencil design capturing its key shapes and composition.'
+    return base + ' Transform the reference image into a tattoo stencil design capturing its key shapes and composition. No added patterns or decorations.'
   }
 
   return (
     base +
-    ' Ornamental geometric patterns with stylized scale or feather textures. ' +
-    'Framed with ornamental nature elements in an oval vertical composition. ' +
-    'Decorative mandala-style symmetrical patterns, small ink-splatter dots around the design. ' +
+    ' Clean standalone subject only, no mandala patterns, no surrounding ornaments, no geometric frames. ' +
     'NOT ON SKIN. NOT ON BODY. No color, no blur, no watercolor.'
   )
 }
