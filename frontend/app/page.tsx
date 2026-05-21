@@ -337,6 +337,7 @@ export default function LaserGraveerimiseApp() {
   const hasLoadedRef = useRef(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevAuthStatusRef = useRef<'loading' | 'authenticated' | 'anonymous'>('loading')
+  const [localStorageLoaded, setLocalStorageLoaded] = useState(false)
   const auth = useAuth()
   const canAccessKnowledge = auth.status === 'authenticated' && auth.user?.role === 'admin'
   const [language, setLanguage] = useState<'est' | 'eng'>('est')
@@ -738,17 +739,19 @@ export default function LaserGraveerimiseApp() {
       }, 0)
       if (maxNum > 0) setConversationCounter(maxNum + 1)
     } catch { /* ignore */ }
+    setLocalStorageLoaded(true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Save to localStorage on every change
+  // Save to localStorage on every change — skip until localStorage has been read on mount
   useEffect(() => {
+    if (!localStorageLoaded) return
     try {
       const updated = conversations.map((c) => (c.id === activeConversationId ? { ...c, messages } : c))
       localStorage.setItem('laser-conversations', JSON.stringify(updated))
       localStorage.setItem('laser-active-conv-id', activeConversationId)
     } catch { /* ignore */ }
-  }, [messages, conversations, activeConversationId])
+  }, [localStorageLoaded, messages, conversations, activeConversationId])
 
   // Reset when logged out — only on authenticated→anonymous transition, not on initial page load
   useEffect(() => {
