@@ -10,9 +10,13 @@ function getBearerToken(request: Request) {
   return header.slice(7).trim()
 }
 
+async function safeJson(res: globalThis.Response) {
+  return res.json().catch(() => ({ ok: false, error: `Backend viga ${res.status}` }))
+}
+
 export async function GET() {
   const res = await fetch(`${BACKEND_URL}/api/knowledge`, { cache: 'no-store' })
-  const data = await res.json()
+  const data = await safeJson(res)
   return Response.json(data, { status: res.status })
 }
 
@@ -29,7 +33,7 @@ export async function POST(req: Request) {
     cache: 'no-store',
     signal: AbortSignal.timeout(8000),
   })
-  const data = await res.json()
+  const data = await safeJson(res)
   return Response.json(data, { status: res.status })
 }
 
@@ -43,6 +47,6 @@ export async function DELETE(req: Request) {
     cache: 'no-store',
     signal: AbortSignal.timeout(8000),
   })
-  const data = await res.json()
+  const data = await safeJson(res)
   return Response.json(data, { status: res.status })
 }

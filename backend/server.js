@@ -522,6 +522,15 @@ app.post("/api/tattoo-generation", async (req, res) => {
   }
 });
 
+app.use((req, res) => {
+  res.status(404).json({ ok: false, error: `Marsruut ei leitud: ${req.method} ${req.path}` });
+});
+
+app.use((err, req, res, _next) => {
+  console.error("Käsitlemata viga:", err);
+  res.status(500).json({ ok: false, error: err?.message || "Serveri viga" });
+});
+
 app.listen(port, () => {
   console.log(`Server töötab pordil ${port}`);
 });
