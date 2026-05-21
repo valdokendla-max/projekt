@@ -20,7 +20,7 @@ const { KNOWLEDGE_CATEGORIES, knowledgeStore } = require("./knowledge-store");
 const app = express();
 const port = Number(process.env.PORT) || 4000;
 
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "10mb" }));
 
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -424,6 +424,101 @@ app.delete("/api/knowledge", async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     sendError(res, error, "Kirje kustutamine ebaõnnestus.");
+  }
+});
+
+const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
+const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
+const DALLE3_MODEL = "dall-e-3";
+
+function buildTattooPrompt(subjectText, hasReference) {
+  const subject = subjectText.trim() ? ` Subject: ${subjectText.trim()}.` : "";
+  const base =
+    `Black and grey realistic tattoo design with detailed stylized patterns featuring sharp, layered scale-like textures and intricate linework.${subject} ` +
+    "Highly detailed illustrative tattoo art with smooth shading, strong contrast between deep black and soft grey, fine line work. " +
+    "White background, professional tattoo flash design. No texture, colors or dark areas outside the illustration are allowed. " +
+    "Mandala, frame, border, surrounding decorations and floral wreath are not allowed. " +
+    "Not on skin. Not on body. Ink on white paper only. " +
+    "1:1 aspect ratio --style raw --v 6 --no skin, arm, body, leg, person, photograph. " +
+    "The entire design must be fully contained within the frame with clear margins on all sides.";
+  return hasReference ? base + " Base the design on the uploaded reference image." : base;
+}
+
+function buildTattooOnBodyPrompt(hasReference) {
+  const base =
+    "Professional tattoo photography, black and grey realistic tattoo visible on the upper arm or forearm of a person, " +
+    "close-up shot focusing on the tattoo, natural skin texture, soft studio lighting, shallow depth of field, " +
+    "DSLR photography style, sharp focus on tattoo details, warm ambient tones, cinematic composition. " +
+    "The tattoo features neo-traditional black-and-grey realism style, intricate linework, smooth shading, " +
+    "strong contrast between deep black and soft grey, fine detailed artwork. " +
+    "Professional tattoo studio setting, high resolution, 8K detail, realistic skin with visible pores, " +
+    "centered composition, the tattoo fully visible and unobstructed.";
+  return hasReference ? base + " Base the design on the uploaded reference image." : base;
+}
+
+app.post("/api/tattoo-generation", async (req, res) => {
+  const { subjectText = "", sourceImageDataUrl, mode = "eskiis" } = req.body || {};
+  const apiKey = (process.env.OPENAI_API_KEY || "").trim();
+
+  if (!apiKey) {
+    res.status(503).json({ ok: false, error: "OPENAI_API_KEY puudub." });
+    return;
+  }
+
+  const prompt = mode === "kehal"
+    ? buildTattooOnBodyPrompt(Boolean(sourceImageDataUrl))
+    : buildTattooPrompt(subjectText, Boolean(sourceImageDataUrl));
+
+  try {
+    let imageDataUrl;
+
+    if (sourceImageDataUrl && mode !== "kehal") {
+      const base64 = sourceImageDataUrl.includes(",") ? sourceImageDataUrl.split(",")[1] : sourceImageDataUrl;
+      const mediaType = sourceImageDataUrl.startsWith("data:") ? sourceImageDataUrl.split(";")[0].slice(5) : "image/png";
+      const buffer = Buffer.from(base64, "base64");
+
+      const { FormData, Blob } = await import("node:buffer").then(() => globalThis).catch(() => ({}));
+      const formData = new (globalThis.FormData || (await import("undici")).FormData)();
+      formData.append("model", OPENAI_IMAGE_MODEL);
+      formData.append("image[]", new Blob([buffer], { type: mediaType }), "reference.png");
+      formData.append("prompt", prompt);
+      formData.append("n", "1");
+      formData.append("size", "1024x1024");
+
+      const apiRes = await fetch(`${OPENAI_BASE_URL}/images/edits`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: formData,
+      });
+      const payload = await apiRes.json().catch(() => null);
+      if (!apiRes.ok) throw new Error(payload?.error?.message || `OpenAI edits viga ${apiRes.status}`);
+      const first = payload?.data?.[0];
+      if (first?.b64_json) imageDataUrl = `data:image/png;base64,${first.b64_json}`;
+      else if (first?.url) {
+        const imgRes = await fetch(first.url);
+        const buf = Buffer.from(await imgRes.arrayBuffer());
+        imageDataUrl = `data:image/png;base64,${buf.toString("base64")}`;
+      } else throw new Error("Tatoo genereerimine ei tagastanud väljundit.");
+    } else {
+      const apiRes = await fetch(`${OPENAI_BASE_URL}/images/generations`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: DALLE3_MODEL, prompt, n: 1, size: "1024x1024", quality: "standard", response_format: "b64_json" }),
+      });
+      const payload = await apiRes.json().catch(() => null);
+      if (!apiRes.ok) throw new Error(payload?.error?.message || `OpenAI generations viga ${apiRes.status}`);
+      const first = payload?.data?.[0];
+      if (first?.b64_json) imageDataUrl = `data:image/png;base64,${first.b64_json}`;
+      else if (first?.url) {
+        const imgRes = await fetch(first.url);
+        const buf = Buffer.from(await imgRes.arrayBuffer());
+        imageDataUrl = `data:image/png;base64,${buf.toString("base64")}`;
+      } else throw new Error("Tatoo genereerimine ei tagastanud väljundit.");
+    }
+
+    res.json({ ok: true, imageDataUrl });
+  } catch (error) {
+    res.status(502).json({ ok: false, error: error?.message || "Tatoo loomine ebaõnnestus." });
   }
 });
 
