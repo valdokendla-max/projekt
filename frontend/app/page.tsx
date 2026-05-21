@@ -422,9 +422,8 @@ export default function LaserGraveerimiseApp() {
           sourceImageDataUrl: sourceUrl || undefined,
         }),
       })
-      const data = (await res.json()) as { ok: boolean; imageDataUrl?: string; error?: string }
+      const data = await res.json().catch(() => { throw new Error(`Logo loomine ebaõnnestus (HTTP ${res.status}).`) }) as { ok: boolean; imageDataUrl?: string; error?: string }
       if (!data.ok || !data.imageDataUrl) throw new Error(data.error || 'Logo loomine ebaõnnestus.')
-      const userParts: UIMessage['parts'] = []
       if (inputText) userParts.push({ type: 'text', text: inputText })
       if (sourceUrl) userParts.push({ type: 'file', url: sourceUrl, mediaType: activeImage?.mediaType || 'image/png', filename: 'allikas.png' } as UIMessage['parts'][number])
       setMessages((prev) => [
@@ -461,7 +460,7 @@ export default function LaserGraveerimiseApp() {
       if (!res.ok && !res.headers.get('content-type')?.includes('application/json')) {
         throw new Error(`Tatoo eskiisi loomine ebaõnnestus (HTTP ${res.status}).`)
       }
-      const data = (await res.json()) as { ok: boolean; imageDataUrl?: string; error?: string }
+      const data = await res.json().catch(() => { throw new Error(`Tatoo eskiisi loomine ebaõnnestus (HTTP ${res.status}).`) }) as { ok: boolean; imageDataUrl?: string; error?: string }
       if (!data.ok || !data.imageDataUrl) throw new Error(data.error || 'Tatoo eskiisi loomine ebaõnnestus.')
       const userParts: UIMessage['parts'] = []
       if (inputText) userParts.push({ type: 'text', text: inputText })
@@ -502,7 +501,7 @@ export default function LaserGraveerimiseApp() {
       if (!res.ok && !res.headers.get('content-type')?.includes('application/json')) {
         throw new Error(`Tattoo kehale loomine ebaõnnestus (HTTP ${res.status}).`)
       }
-      const data = (await res.json()) as { ok: boolean; imageDataUrl?: string; error?: string }
+      const data = await res.json().catch(() => { throw new Error(`Tattoo kehale loomine ebaõnnestus (HTTP ${res.status}).`) }) as { ok: boolean; imageDataUrl?: string; error?: string }
       if (!data.ok || !data.imageDataUrl) throw new Error(data.error || 'Tattoo kehale loomine ebaõnnestus.')
       const userParts: UIMessage['parts'] = []
       if (inputText) userParts.push({ type: 'text', text: inputText })
@@ -538,7 +537,7 @@ export default function LaserGraveerimiseApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sourceImageDataUrl: sourceUrl }),
       })
-      const data = (await res.json()) as { ok: boolean; imageDataUrl?: string; error?: string }
+      const data = await res.json().catch(() => { throw new Error(`Foto puhastamine ebaõnnestus (HTTP ${res.status}).`) }) as { ok: boolean; imageDataUrl?: string; error?: string }
       if (!data.ok || !data.imageDataUrl) throw new Error(data.error || 'Foto puhastamine ebaõnnestus.')
       setMessages((prev) => [
         ...prev,
@@ -587,7 +586,7 @@ export default function LaserGraveerimiseApp() {
           savedSettingsSummary: savedSettingsSummary || undefined,
         }),
       })
-      const data = (await res.json()) as { ok: boolean; archiveBase64?: string; exportManifest?: { archiveName: string }; lightBurnProject?: { fileName: string }; error?: string }
+      const data = await res.json().catch(() => { throw new Error(`LightBurn eksport ebaõnnestus (HTTP ${res.status}).`) }) as { ok: boolean; archiveBase64?: string; exportManifest?: { archiveName: string }; lightBurnProject?: { fileName: string }; error?: string }
       if (!data.archiveBase64) throw new Error(data.error || 'LightBurn eksport ebaõnnestus.')
       const archiveName = data.exportManifest?.archiveName || 'lightburn-export.zip'
       const lbrnName = data.lightBurnProject?.fileName || 'project.lbrn'
