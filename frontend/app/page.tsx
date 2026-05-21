@@ -334,6 +334,7 @@ export default function LaserGraveerimiseApp() {
   const hasLoadedRef = useRef(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevAuthStatusRef = useRef<'loading' | 'authenticated' | 'anonymous'>('loading')
+  const skipNextSaveRef = useRef(false)
   const [localStorageLoaded, setLocalStorageLoaded] = useState(false)
   const auth = useAuth()
   const canAccessKnowledge = auth.status === 'authenticated' && auth.user?.role === 'admin'
@@ -639,7 +640,10 @@ export default function LaserGraveerimiseApp() {
       const active = convs.find((c) => c.id === activeId) ?? convs[0]
       setConversations(convs)
       setActiveConversationId(activeId)
-      if (active.messages.length > 0) setMessages(active.messages)
+      if (active.messages.length > 0) {
+        skipNextSaveRef.current = true
+        setMessages(active.messages)
+      }
       const maxNum = convs.reduce((max, c) => {
         const m = c.name.match(/Vestlus (\d+)/)
         return Math.max(max, m ? parseInt(m[1]) : 0)
@@ -653,6 +657,10 @@ export default function LaserGraveerimiseApp() {
   // Save to localStorage on every change — skip until localStorage has been read on mount
   useEffect(() => {
     if (!localStorageLoaded) return
+    if (skipNextSaveRef.current) {
+      skipNextSaveRef.current = false
+      return
+    }
     try {
       const updated = conversations.map((c) => (c.id === activeConversationId ? { ...c, messages } : c))
       localStorage.setItem('laser-conversations', JSON.stringify(updated))
@@ -849,7 +857,9 @@ export default function LaserGraveerimiseApp() {
     e.stopPropagation()
     if (auth.token) void deleteConversationFromServer(auth.token, id)
     if (conversations.length === 1) {
-      setConversations([{ ...conversations[0], messages: [] }])
+      setConversations([{ id: 'conv-0', name: 'Vestlus 1', messages: [], createdAt: new Date() }])
+      setActiveConversationId('conv-0')
+      setConversationCounter(2)
       setMessages([])
       setPendingImage(null)
       setChatInputError('')
@@ -857,13 +867,23 @@ export default function LaserGraveerimiseApp() {
     }
     const remaining = conversations.filter((c) => c.id !== id)
     const withSaved = remaining.map((c) => (c.id === activeConversationId ? { ...c, messages } : c))
-    setConversations(withSaved)
+    // If only 1 remains, rename it "Vestlus 1" and reset counter
+    const finalConvs = withSaved.length === 1
+      ? [{ ...withSaved[0], name: 'Vestlus 1' }]
+      : withSaved
+    if (withSaved.length === 1) setConversationCounter(2)
+    setConversations(finalConvs)
     if (id === activeConversationId) {
-      const newActive = withSaved[withSaved.length - 1]
+      // Switch to the conversation just before the deleted one, or the first
+      const deletedIndex = conversations.findIndex((c) => c.id === id)
+      const newActive = finalConvs[Math.max(0, deletedIndex - 1)]
       setActiveConversationId(newActive.id)
       setMessages(newActive.messages)
       setPendingImage(null)
       setInput('')
+    } else if (withSaved.length === 1) {
+      // Renamed remaining conversation — update activeConversationId if it was renamed
+      setActiveConversationId(finalConvs[0].id)
     }
   }
 
