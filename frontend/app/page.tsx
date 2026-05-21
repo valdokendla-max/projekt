@@ -667,6 +667,9 @@ export default function LaserGraveerimiseApp() {
       icon: <UserRound className="h-5 w-5" />,
       onCustomAction: handleTattooOnBody,
       isCustomActionRunning: isGeneratingTattooKehal,
+      prompt: '',
+    },
+  ]
 
   useEffect(() => {
     const storedSettings = readSavedLaserSettings()
