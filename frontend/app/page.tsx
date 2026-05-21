@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode }
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type FileUIPart, type UIMessage } from 'ai'
 import Image from 'next/image'
-import { Camera, Download, Layers, PenLine, Plus, Settings2, SlidersHorizontal, Sparkles, UserRound, X } from 'lucide-react'
+import { Camera, Download, Layers, Plus, Settings2, SlidersHorizontal, Sparkles, X } from 'lucide-react'
 import { ChatHeader } from '@/components/chat-header'
 import { ChatInput } from '@/components/chat-input'
 import { ChatMessage } from '@/components/chat-message'
@@ -323,10 +323,6 @@ export default function LaserGraveerimiseApp() {
   const [savedSettings, setSavedSettings] = useState<StoredLaserSettings | null>(null)
   const [chatInputError, setChatInputError] = useState('')
   const [isGeneratingLogo, setIsGeneratingLogo] = useState(false)
-  const [isGeneratingTattooEskiis, setIsGeneratingTattooEskiis] = useState(false)
-  const [isGeneratingTattooKehal, setIsGeneratingTattooKehal] = useState(false)
-  const tattooEskiisLockRef = useRef(false)
-  const tattooKehalLockRef = useRef(false)
   const [isEnhancingPhoto, setIsEnhancingPhoto] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([
@@ -439,81 +435,6 @@ export default function LaserGraveerimiseApp() {
       setChatInputError(error instanceof Error ? error.message : 'Logo loomine ebaõnnestus.')
     } finally {
       setIsGeneratingLogo(false)
-    }
-  }
-
-  const handleTattooCreate = async () => {
-    if (tattooEskiisLockRef.current) return
-    tattooEskiisLockRef.current = true
-    setIsGeneratingTattooEskiis(true)
-    setChatInputError('')
-    try {
-      const inputText = input.trim()
-      const activeImage = getActiveImage()
-      const sourceUrl = activeImage?.url
-      const res = await fetch('/api/tattoo-generation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subjectText: inputText,
-          sourceImageDataUrl: sourceUrl || undefined,
-        }),
-      })
-      const data = await res.json().catch(() => { throw new Error(`Tatoo eskiisi loomine ebaõnnestus (HTTP ${res.status}).`) }) as { ok: boolean; imageDataUrl?: string; error?: string }
-      if (!data.ok || !data.imageDataUrl) throw new Error(data.error || 'Tatoo eskiisi loomine ebaõnnestus.')
-      const userParts: UIMessage['parts'] = []
-      if (inputText) userParts.push({ type: 'text', text: inputText })
-      if (sourceUrl) userParts.push({ type: 'file', url: sourceUrl, mediaType: activeImage?.mediaType || 'image/png', filename: 'allikas.png' } as UIMessage['parts'][number])
-      setMessages((prev) => [
-        ...prev,
-        ...(userParts.length > 0 ? [{ id: crypto.randomUUID(), role: 'user' as const, parts: userParts, content: inputText, createdAt: new Date() } as UIMessage] : []),
-        { id: crypto.randomUUID(), role: 'assistant' as const, parts: [{ type: 'file', url: data.imageDataUrl, mediaType: 'image/png', filename: 'tattoo-eskiis.png' } as UIMessage['parts'][number], { type: 'text', text: effectiveLanguage === 'eng' ? 'Tattoo sketch has been created.' : 'Tatoo eskiis on loodud.' }], content: '', createdAt: new Date() } as UIMessage,
-      ])
-      setInput('')
-      setPendingImage(null)
-    } catch (error) {
-      setChatInputError(error instanceof Error ? error.message : 'Tatoo eskiisi loomine ebaõnnestus.')
-    } finally {
-      setIsGeneratingTattooEskiis(false)
-      tattooEskiisLockRef.current = false
-    }
-  }
-
-  const handleTattooOnBody = async () => {
-    if (tattooKehalLockRef.current) return
-    tattooKehalLockRef.current = true
-    setIsGeneratingTattooKehal(true)
-    setChatInputError('')
-    try {
-      const inputText = input.trim()
-      const activeImage = getActiveImage()
-      const sourceUrl = activeImage?.url
-      const res = await fetch('/api/tattoo-generation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subjectText: inputText || '',
-          sourceImageDataUrl: sourceUrl || undefined,
-          mode: 'kehal',
-        }),
-      })
-      const data = await res.json().catch(() => { throw new Error(`Tattoo kehale loomine ebaõnnestus (HTTP ${res.status}).`) }) as { ok: boolean; imageDataUrl?: string; error?: string }
-      if (!data.ok || !data.imageDataUrl) throw new Error(data.error || 'Tattoo kehale loomine ebaõnnestus.')
-      const userParts: UIMessage['parts'] = []
-      if (inputText) userParts.push({ type: 'text', text: inputText })
-      if (sourceUrl) userParts.push({ type: 'file', url: sourceUrl, mediaType: activeImage?.mediaType || 'image/png', filename: 'allikas.png' } as UIMessage['parts'][number])
-      setMessages((prev) => [
-        ...prev,
-        ...(userParts.length > 0 ? [{ id: crypto.randomUUID(), role: 'user' as const, parts: userParts, content: inputText, createdAt: new Date() } as UIMessage] : []),
-        { id: crypto.randomUUID(), role: 'assistant' as const, parts: [{ type: 'file', url: data.imageDataUrl, mediaType: 'image/png', filename: 'tattoo-kehal.png' } as UIMessage['parts'][number], { type: 'text', text: effectiveLanguage === 'eng' ? 'Tattoo on body visualization created.' : 'Tattoo kehale visualiseering loodud.' }], content: '', createdAt: new Date() } as UIMessage,
-      ])
-      setInput('')
-      setPendingImage(null)
-    } catch (error) {
-      setChatInputError(error instanceof Error ? error.message : 'Tattoo kehale loomine ebaõnnestus.')
-    } finally {
-      setIsGeneratingTattooKehal(false)
-      tattooKehalLockRef.current = false
     }
   }
 
@@ -645,13 +566,6 @@ export default function LaserGraveerimiseApp() {
       prompt: '',
     },
     {
-      label: effectiveLanguage === 'eng' ? 'Tattoo sketch' : 'Tatoo eskiis',
-      icon: <PenLine className="h-5 w-5" />,
-      onCustomAction: handleTattooCreate,
-      isCustomActionRunning: isGeneratingTattooEskiis,
-      prompt: '',
-    },
-    {
       label: effectiveLanguage === 'eng' ? 'Photo enhance (AI)' : 'Foto puhastus (AI)',
       icon: <Camera className="h-5 w-5" />,
       onCustomAction: handlePhotoEnhance,
@@ -663,13 +577,6 @@ export default function LaserGraveerimiseApp() {
       icon: <Download className="h-5 w-5" />,
       onCustomAction: handleLightBurnExport,
       isCustomActionRunning: isExporting,
-      prompt: '',
-    },
-    {
-      label: effectiveLanguage === 'eng' ? 'Tattoo on body' : 'Tattoo kehal',
-      icon: <UserRound className="h-5 w-5" />,
-      onCustomAction: handleTattooOnBody,
-      isCustomActionRunning: isGeneratingTattooKehal,
       prompt: '',
     },
   ]
