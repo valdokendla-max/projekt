@@ -412,16 +412,36 @@ export default function LaserGraveerimiseApp() {
       const inputText = input.trim()
       const activeImage = getActiveImage()
       const sourceUrl = activeImage?.url
-      const res = await fetch('/api/logo-generation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          brandText: inputText,
-          sourceImageDataUrl: sourceUrl || undefined,
-        }),
-      })
-      const data = await res.json().catch(() => { throw new Error(`Tattoo loomine ebaõnnestus (HTTP ${res.status}).`) }) as { ok: boolean; imageDataUrl?: string; error?: string }
-      if (!data.ok || !data.imageDataUrl) throw new Error(data.error || 'Tattoo loomine ebaõnnestus.')
+      const subject = inputText ? `of ${inputText}, ` : ''
+      const prompt =
+        `Tattoo stencil design ${subject}in neo-traditional ` +
+        'black and grey realism tattoo style, ' +
+        'fur texture with stylized scales or feather patterns ' +
+        'with shading, intricate whip shading technique, ' +
+        'dense dotwork, bold black ' +
+        'crosshatching for deep shadows, clear clean contour lines ' +
+        'with solid outlines, high contrast grayscale with deep ' +
+        'blacks and light highlights, piercing detailed eyes ' +
+        'with strong white reflections, framed, delicate airy smoke or motion lines ' +
+        'as background, professional tattoo flash sheet, COMPLETELY ' +
+        'PURE WHITE BACKGROUND, isolated design on pure white paper, ' +
+        'NOT ON SKIN, NOT ON ARM, NOT ON BODY, NOT ON SKIN, ' +
+        'tattoo design reference sheet, studio lighting, ' +
+        'centered vertical composition, sharp focus, ' +
+        'highly detailed, 1:1 aspect ratio'
+      const seed = Math.floor(Math.random() * 999999)
+      const pollinationsUrl =
+        `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}` +
+        `?width=1024&height=1024&model=flux&nologo=true&seed=${seed}`
+      const res = await fetch(pollinationsUrl)
+      if (!res.ok) throw new Error(`Tattoo loomine ebaõnnestus (HTTP ${res.status}).`)
+      const arrayBuffer = await res.arrayBuffer()
+      const bytes = new Uint8Array(arrayBuffer)
+      let binary = ''
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+      const imageDataUrl = `data:image/jpeg;base64,${btoa(binary)}`
+      const data = { ok: true, imageDataUrl }
+      if (!data.ok || !data.imageDataUrl) throw new Error('Tattoo loomine ebaõnnestus.')
       const userParts: UIMessage['parts'] = []
       if (inputText) userParts.push({ type: 'text', text: inputText })
       if (sourceUrl) userParts.push({ type: 'file', url: sourceUrl, mediaType: activeImage?.mediaType || 'image/png', filename: 'allikas.png' } as UIMessage['parts'][number])
