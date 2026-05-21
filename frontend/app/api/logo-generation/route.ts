@@ -64,7 +64,6 @@ export async function POST(req: Request) {
       formData.append('prompt', prompt)
       formData.append('n', '1')
       formData.append('size', '1024x1024')
-      formData.append('output_format', 'png')
 
       const res = await fetch(`${OPENAI_BASE_URL}/images/edits`, {
         method: 'POST',
