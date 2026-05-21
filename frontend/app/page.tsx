@@ -336,6 +336,7 @@ export default function LaserGraveerimiseApp() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const hasLoadedRef = useRef(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prevAuthStatusRef = useRef<'loading' | 'authenticated' | 'anonymous'>('loading')
   const auth = useAuth()
   const canAccessKnowledge = auth.status === 'authenticated' && auth.user?.role === 'admin'
   const [language, setLanguage] = useState<'est' | 'eng'>('est')
@@ -749,9 +750,11 @@ export default function LaserGraveerimiseApp() {
     } catch { /* ignore */ }
   }, [messages, conversations, activeConversationId])
 
-  // Reset when logged out
+  // Reset when logged out — only on authenticated→anonymous transition, not on initial page load
   useEffect(() => {
-    if (auth.status === 'anonymous') {
+    const prev = prevAuthStatusRef.current
+    prevAuthStatusRef.current = auth.status
+    if (auth.status === 'anonymous' && prev === 'authenticated') {
       hasLoadedRef.current = false
       localStorage.removeItem('laser-conversations')
       localStorage.removeItem('laser-active-conv-id')
