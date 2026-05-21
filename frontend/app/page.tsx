@@ -325,7 +325,8 @@ export default function LaserGraveerimiseApp() {
   const [isGeneratingLogo, setIsGeneratingLogo] = useState(false)
   const [isGeneratingTattooEskiis, setIsGeneratingTattooEskiis] = useState(false)
   const [isGeneratingTattooKehal, setIsGeneratingTattooKehal] = useState(false)
-  const tattooLockRef = useRef(false)
+  const tattooEskiisLockRef = useRef(false)
+  const tattooKehalLockRef = useRef(false)
   const [isEnhancingPhoto, setIsEnhancingPhoto] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([
@@ -442,8 +443,8 @@ export default function LaserGraveerimiseApp() {
   }
 
   const handleTattooCreate = async () => {
-    if (tattooLockRef.current) return
-    tattooLockRef.current = true
+    if (tattooEskiisLockRef.current) return
+    tattooEskiisLockRef.current = true
     setIsGeneratingTattooEskiis(true)
     setChatInputError('')
     try {
@@ -474,13 +475,13 @@ export default function LaserGraveerimiseApp() {
       setChatInputError(error instanceof Error ? error.message : 'Tatoo eskiisi loomine ebaõnnestus.')
     } finally {
       setIsGeneratingTattooEskiis(false)
-      tattooLockRef.current = false
+      tattooEskiisLockRef.current = false
     }
   }
 
   const handleTattooOnBody = async () => {
-    if (tattooLockRef.current) return
-    tattooLockRef.current = true
+    if (tattooKehalLockRef.current) return
+    tattooKehalLockRef.current = true
     setIsGeneratingTattooKehal(true)
     setChatInputError('')
     try {
@@ -512,7 +513,7 @@ export default function LaserGraveerimiseApp() {
       setChatInputError(error instanceof Error ? error.message : 'Tattoo kehale loomine ebaõnnestus.')
     } finally {
       setIsGeneratingTattooKehal(false)
-      tattooLockRef.current = false
+      tattooKehalLockRef.current = false
     }
   }
 
