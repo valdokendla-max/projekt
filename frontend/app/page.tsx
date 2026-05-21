@@ -456,6 +456,9 @@ export default function LaserGraveerimiseApp() {
           sourceImageDataUrl: sourceUrl || undefined,
         }),
       })
+      if (!res.ok && !res.headers.get('content-type')?.includes('application/json')) {
+        throw new Error(`Tatoo eskiisi loomine ebaõnnestus (HTTP ${res.status}).`)
+      }
       const data = (await res.json()) as { ok: boolean; imageDataUrl?: string; error?: string }
       if (!data.ok || !data.imageDataUrl) throw new Error(data.error || 'Tatoo eskiisi loomine ebaõnnestus.')
       const userParts: UIMessage['parts'] = []
@@ -494,6 +497,9 @@ export default function LaserGraveerimiseApp() {
           mode: 'kehal',
         }),
       })
+      if (!res.ok && !res.headers.get('content-type')?.includes('application/json')) {
+        throw new Error(`Tattoo kehale loomine ebaõnnestus (HTTP ${res.status}).`)
+      }
       const data = (await res.json()) as { ok: boolean; imageDataUrl?: string; error?: string }
       if (!data.ok || !data.imageDataUrl) throw new Error(data.error || 'Tattoo kehale loomine ebaõnnestus.')
       const userParts: UIMessage['parts'] = []
