@@ -153,12 +153,11 @@ export async function POST(req: Request) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: DALLE3_MODEL,
+          model: OPENAI_IMAGE_MODEL,
           prompt,
           n: 1,
           size: '1024x1024',
-          quality: 'standard',
-          response_format: 'b64_json',
+          quality: process.env.OPENAI_IMAGE_QUALITY || 'medium',
         }),
         signal: req.signal,
       })
