@@ -433,18 +433,19 @@ app.delete("/api/knowledge", async (req, res) => {
 
 const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
 const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
-const DALLE3_MODEL = "dall-e-3";
 
 function buildTattooPrompt(subjectText, hasReference) {
-  const subject = subjectText.trim() ? ` Subject: ${subjectText.trim()}.` : "";
+  const subject = subjectText.trim() ? subjectText.trim() : "a detailed subject";
   const base =
-    `Black and grey realistic tattoo design with detailed stylized patterns featuring sharp, layered scale-like textures and intricate linework.${subject} ` +
-    "Highly detailed illustrative tattoo art with smooth shading, strong contrast between deep black and soft grey, fine line work. " +
-    "White background, professional tattoo flash design. No texture, colors or dark areas outside the illustration are allowed. " +
-    "Mandala, frame, border, surrounding decorations and floral wreath are not allowed. " +
-    "Not on skin. Not on body. Ink on white paper only. " +
-    "1:1 aspect ratio --style raw --v 6 --no skin, arm, body, leg, person, photograph. " +
-    "The entire design must be fully contained within the frame with clear margins on all sides.";
+    `Black and grey realistic tattoo design of ${subject}, created in a highly detailed neo-traditional illustrative tattoo style. ` +
+    "Stylized layered textures and intricate ornamental detailing adapted naturally to the subject. " +
+    "Sharp overlapping detail patterns, smooth whip shading, soft gradient transitions, dense dotwork stippling, and crisp fine-line contour work. " +
+    "Strong contrast between deep black shadows and soft grey highlights. " +
+    "Piercing realistic eyes with subtle bright reflections. " +
+    "Highly detailed illustrative tattoo art with elegant flow, realistic anatomy, cinematic shading, and refined ornamental realism. " +
+    "Professional tattoo flash artwork, centered subject, isolated on a completely clean white background. " +
+    "No composition elements, no scenery, no decorative background, no branches, no vines, no leaves, no smoke, no rocks, no frame, no border, no mandala, no floral wreath, no geometric background, no skin, no body placement, no extra objects outside the subject. " +
+    "Negative prompt: low quality, blurry, bad anatomy, distorted proportions, extra limbs, duplicate elements, cartoon, anime, watercolor, colorful background, messy composition, low detail, flat shading, oversaturated, text, watermark, frame, border, mandala, floral wreath, glowing neon, realistic environment, photo background, unfinished lines, rough sketch";
   return hasReference ? base + " Base the design on the uploaded reference image." : base;
 }
 
@@ -484,7 +485,7 @@ app.post("/api/tattoo-generation", async (req, res) => {
       const { FormData, Blob } = await import("node:buffer").then(() => globalThis).catch(() => ({}));
       const formData = new (globalThis.FormData || (await import("undici")).FormData)();
       formData.append("model", OPENAI_IMAGE_MODEL);
-      formData.append("image[]", new Blob([buffer], { type: mediaType }), "reference.png");
+      formData.append("image", new Blob([buffer], { type: mediaType }), "reference.png");
       formData.append("prompt", prompt);
       formData.append("n", "1");
       formData.append("size", "1024x1024");

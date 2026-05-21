@@ -6,7 +6,6 @@ export const maxDuration = 60
 
 const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')
 const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1'
-const DALLE3_MODEL = 'dall-e-3'
 
 interface RequestBody {
   subjectText: string
@@ -15,15 +14,17 @@ interface RequestBody {
 }
 
 function buildTattooPrompt(subjectText: string, hasReference: boolean) {
-  const subject = subjectText.trim() ? ` Subject: ${subjectText.trim()}.` : ''
+  const subject = subjectText.trim() ? subjectText.trim() : 'a detailed subject'
   const base =
-    `Black and grey realistic tattoo design with detailed stylized patterns featuring sharp, layered scale-like textures and intricate linework.${subject} ` +
-    'Highly detailed illustrative tattoo art with smooth shading, strong contrast between deep black and soft grey, fine line work. ' +
-    'White background, professional tattoo flash design. No texture, colors or dark areas outside the illustration are allowed. ' +
-    'Mandala, frame, border, surrounding decorations and floral wreath are not allowed. ' +
-    'Not on skin. Not on body. Ink on white paper only. ' +
-    '1:1 aspect ratio --style raw --v 6 --no skin, arm, body, leg, person, photograph. ' +
-    'The entire design must be fully contained within the frame with clear margins on all sides — nothing should be cropped, cut off, or touch the edges of the image.'
+    `Black and grey realistic tattoo design of ${subject}, created in a highly detailed neo-traditional illustrative tattoo style. ` +
+    'Stylized layered textures and intricate ornamental detailing adapted naturally to the subject. ' +
+    'Sharp overlapping detail patterns, smooth whip shading, soft gradient transitions, dense dotwork stippling, and crisp fine-line contour work. ' +
+    'Strong contrast between deep black shadows and soft grey highlights. ' +
+    'Piercing realistic eyes with subtle bright reflections. ' +
+    'Highly detailed illustrative tattoo art with elegant flow, realistic anatomy, cinematic shading, and refined ornamental realism. ' +
+    'Professional tattoo flash artwork, centered subject, isolated on a completely clean white background. ' +
+    'No composition elements, no scenery, no decorative background, no branches, no vines, no leaves, no smoke, no rocks, no frame, no border, no mandala, no floral wreath, no geometric background, no skin, no body placement, no extra objects outside the subject. ' +
+    'Negative prompt: low quality, blurry, bad anatomy, distorted proportions, extra limbs, duplicate elements, cartoon, anime, watercolor, colorful background, messy composition, low detail, flat shading, oversaturated, text, watermark, frame, border, mandala, floral wreath, glowing neon, realistic environment, photo background, unfinished lines, rough sketch'
 
   if (hasReference) {
     return base + ' Base the design on the uploaded reference image.'
@@ -110,15 +111,21 @@ export async function POST(req: Request) {
     // gpt-image-1 edits only for eskiis mode with a reference image
     if (sourceImageDataUrl && mode !== 'kehal') {
       const base64 = sourceImageDataUrl.includes(',') ? sourceImageDataUrl.split(',')[1] : sourceImageDataUrl
-      const mediaType = sourceImageDataUrl.startsWith('data:') ? sourceImageDataUrl.split(';')[0].slice(5) : 'image/png'
-      const buffer = Buffer.from(base64, 'base64')
+      const rawBuffer = Buffer.from(base64, 'base64')
+
+      // Resize to max 1024x1024 — reduces payload and speeds up OpenAI processing
+      const buffer = await sharp(rawBuffer)
+        .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
+        .png()
+        .toBuffer()
 
       const formData = new FormData()
       formData.append('model', OPENAI_IMAGE_MODEL)
-      formData.append('image[]', new Blob([buffer], { type: mediaType }), 'reference.png')
+      formData.append('image', new Blob([buffer], { type: 'image/png' }), 'reference.png')
       formData.append('prompt', prompt)
       formData.append('n', '1')
       formData.append('size', '1024x1024')
+      formData.append('output_format', 'png')
 
       const res = await fetch(`${OPENAI_BASE_URL}/images/edits`, {
         method: 'POST',
@@ -158,6 +165,7 @@ export async function POST(req: Request) {
           n: 1,
           size: '1024x1024',
           quality: process.env.OPENAI_IMAGE_QUALITY || 'medium',
+          output_format: 'png',
         }),
         signal: req.signal,
       })
@@ -181,9 +189,12 @@ export async function POST(req: Request) {
       }
     }
 
-    const rawBuffer = await dataUrlToBuffer(imageDataUrl)
-    const framedBuffer = await trimAndFrame(rawBuffer)
-    const finalDataUrl = `data:image/png;base64,${framedBuffer.toString('base64')}`
+    let finalDataUrl = imageDataUrl
+    if (mode !== 'kehal') {
+      const rawBuffer = await dataUrlToBuffer(imageDataUrl)
+      const framedBuffer = await trimAndFrame(rawBuffer)
+      finalDataUrl = `data:image/png;base64,${framedBuffer.toString('base64')}`
+    }
 
     return Response.json({ ok: true, imageDataUrl: finalDataUrl })
   } catch (error) {

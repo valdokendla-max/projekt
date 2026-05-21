@@ -1,3 +1,4 @@
+import sharp from 'sharp'
 import { parseJsonBodyWithLimit } from '@/lib/api-security'
 
 export const runtime = 'nodejs'
@@ -49,15 +50,21 @@ export async function POST(req: Request) {
 
     if (sourceImageDataUrl) {
       const base64 = sourceImageDataUrl.includes(',') ? sourceImageDataUrl.split(',')[1] : sourceImageDataUrl
-      const mediaType = sourceImageDataUrl.startsWith('data:') ? sourceImageDataUrl.split(';')[0].slice(5) : 'image/png'
-      const buffer = Buffer.from(base64, 'base64')
+      const rawBuffer = Buffer.from(base64, 'base64')
+
+      // Resize to max 1024x1024 — reduces payload and speeds up OpenAI processing
+      const buffer = await sharp(rawBuffer)
+        .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
+        .png()
+        .toBuffer()
 
       const formData = new FormData()
       formData.append('model', OPENAI_IMAGE_MODEL)
-      formData.append('image[]', new Blob([buffer], { type: mediaType }), 'reference.png')
+      formData.append('image', new Blob([buffer], { type: 'image/png' }), 'reference.png')
       formData.append('prompt', prompt)
       formData.append('n', '1')
       formData.append('size', '1024x1024')
+      formData.append('output_format', 'png')
 
       const res = await fetch(`${OPENAI_BASE_URL}/images/edits`, {
         method: 'POST',

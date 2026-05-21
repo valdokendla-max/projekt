@@ -451,7 +451,7 @@ export default function LaserGraveerimiseApp() {
       const inputText = input.trim()
       const activeImage = getActiveImage()
       const sourceUrl = activeImage?.url
-      const res = await fetch('/backend/api/tattoo-generation', {
+      const res = await fetch('/api/tattoo-generation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -488,7 +488,7 @@ export default function LaserGraveerimiseApp() {
       const inputText = input.trim()
       const activeImage = getActiveImage()
       const sourceUrl = activeImage?.url
-      const res = await fetch('/backend/api/tattoo-generation', {
+      const res = await fetch('/api/tattoo-generation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
