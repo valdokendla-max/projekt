@@ -424,6 +424,7 @@ export default function LaserGraveerimiseApp() {
       })
       const data = await res.json().catch(() => { throw new Error(`Logo loomine ebaõnnestus (HTTP ${res.status}).`) }) as { ok: boolean; imageDataUrl?: string; error?: string }
       if (!data.ok || !data.imageDataUrl) throw new Error(data.error || 'Logo loomine ebaõnnestus.')
+      const userParts: UIMessage['parts'] = []
       if (inputText) userParts.push({ type: 'text', text: inputText })
       if (sourceUrl) userParts.push({ type: 'file', url: sourceUrl, mediaType: activeImage?.mediaType || 'image/png', filename: 'allikas.png' } as UIMessage['parts'][number])
       setMessages((prev) => [
