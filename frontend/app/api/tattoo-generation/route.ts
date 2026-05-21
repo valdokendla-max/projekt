@@ -156,7 +156,6 @@ export async function POST(req: Request) {
           n: 1,
           size: '1024x1536',
           quality: 'high',
-          response_format: 'b64_json',
         }),
         signal: req.signal,
       })
