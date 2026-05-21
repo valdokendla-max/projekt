@@ -20,14 +20,8 @@ jobs:
         run: npm ci
         working-directory: frontend
 
-      - name: Build (Netlify + Next.js plugin)
-        run: npx netlify-cli@latest build
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-
-      - name: Deploy to production
-        run: npx netlify-cli@latest deploy --prod
+      - name: Build and deploy to Netlify
+        run: npx netlify-cli@latest deploy --build --prod
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}

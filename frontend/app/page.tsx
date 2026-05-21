@@ -323,7 +323,9 @@ export default function LaserGraveerimiseApp() {
   const [savedSettings, setSavedSettings] = useState<StoredLaserSettings | null>(null)
   const [chatInputError, setChatInputError] = useState('')
   const [isGeneratingLogo, setIsGeneratingLogo] = useState(false)
-  const [isGeneratingTattoo, setIsGeneratingTattoo] = useState(false)
+  const [isGeneratingTattooEskiis, setIsGeneratingTattooEskiis] = useState(false)
+  const [isGeneratingTattooKehal, setIsGeneratingTattooKehal] = useState(false)
+  const tattooLockRef = useRef(false)
   const [isEnhancingPhoto, setIsEnhancingPhoto] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([
@@ -438,8 +440,9 @@ export default function LaserGraveerimiseApp() {
   }
 
   const handleTattooCreate = async () => {
-    if (isGeneratingTattoo) return
-    setIsGeneratingTattoo(true)
+    if (tattooLockRef.current) return
+    tattooLockRef.current = true
+    setIsGeneratingTattooEskiis(true)
     setChatInputError('')
     try {
       const inputText = input.trim()
@@ -468,13 +471,15 @@ export default function LaserGraveerimiseApp() {
     } catch (error) {
       setChatInputError(error instanceof Error ? error.message : 'Tatoo eskiisi loomine ebaõnnestus.')
     } finally {
-      setIsGeneratingTattoo(false)
+      setIsGeneratingTattooEskiis(false)
+      tattooLockRef.current = false
     }
   }
 
   const handleTattooOnBody = async () => {
-    if (isGeneratingTattoo) return
-    setIsGeneratingTattoo(true)
+    if (tattooLockRef.current) return
+    tattooLockRef.current = true
+    setIsGeneratingTattooKehal(true)
     setChatInputError('')
     try {
       const inputText = input.trim()
@@ -504,7 +509,8 @@ export default function LaserGraveerimiseApp() {
     } catch (error) {
       setChatInputError(error instanceof Error ? error.message : 'Tattoo kehale loomine ebaõnnestus.')
     } finally {
-      setIsGeneratingTattoo(false)
+      setIsGeneratingTattooKehal(false)
+      tattooLockRef.current = false
     }
   }
 
@@ -639,7 +645,7 @@ export default function LaserGraveerimiseApp() {
       label: effectiveLanguage === 'eng' ? 'Tattoo sketch' : 'Tatoo eskiis',
       icon: <PenLine className="h-5 w-5" />,
       onCustomAction: handleTattooCreate,
-      isCustomActionRunning: isGeneratingTattoo,
+      isCustomActionRunning: isGeneratingTattooEskiis,
       prompt: '',
     },
     {
@@ -660,10 +666,7 @@ export default function LaserGraveerimiseApp() {
       label: effectiveLanguage === 'eng' ? 'Tattoo on body' : 'Tattoo kehal',
       icon: <UserRound className="h-5 w-5" />,
       onCustomAction: handleTattooOnBody,
-      isCustomActionRunning: isGeneratingTattoo,
-      prompt: '',
-    },
-  ]
+      isCustomActionRunning: isGeneratingTattooKehal,
 
   useEffect(() => {
     const storedSettings = readSavedLaserSettings()
