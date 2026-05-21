@@ -107,7 +107,8 @@ export async function POST(req: Request) {
   try {
     let imageDataUrl: string
 
-    if (sourceImageDataUrl) {
+    // gpt-image-1 edits only for eskiis mode with a reference image
+    if (sourceImageDataUrl && mode !== 'kehal') {
       const base64 = sourceImageDataUrl.includes(',') ? sourceImageDataUrl.split(',')[1] : sourceImageDataUrl
       const mediaType = sourceImageDataUrl.startsWith('data:') ? sourceImageDataUrl.split(';')[0].slice(5) : 'image/png'
       const buffer = Buffer.from(base64, 'base64')
@@ -132,7 +133,7 @@ export async function POST(req: Request) {
       } | null
 
       if (!res.ok) {
-        throw new Error(payload?.error?.message || 'Tatoo eskiisi loomine ebaõnnestus.')
+        throw new Error(payload?.error?.message || `OpenAI edits viga ${res.status}`)
       }
 
       const first = payload?.data?.[0]
@@ -144,6 +145,7 @@ export async function POST(req: Request) {
         throw new Error('Tatoo genereerimine ei tagastanud väljundit.')
       }
     } else {
+      // dall-e-3 generations for kehal mode (any) and eskiis without reference
       const res = await fetch(`${OPENAI_BASE_URL}/images/generations`, {
         method: 'POST',
         headers: {
@@ -167,7 +169,7 @@ export async function POST(req: Request) {
       } | null
 
       if (!res.ok) {
-        throw new Error(payload?.error?.message || 'Tatoo genereerimine ebaõnnestus.')
+        throw new Error(payload?.error?.message || `OpenAI generations viga ${res.status}`)
       }
 
       const first = payload?.data?.[0]
