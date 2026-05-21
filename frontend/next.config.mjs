@@ -11,6 +11,7 @@ const contentSecurityPolicy = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ['sharp', 'pg'],
+  cacheMaxMemorySize: 0,
   typescript: {
     ignoreBuildErrors: false,
   },
