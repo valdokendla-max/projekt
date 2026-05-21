@@ -500,10 +500,11 @@ app.post("/api/tattoo-generation", async (req, res) => {
         imageDataUrl = `data:image/png;base64,${buf.toString("base64")}`;
       } else throw new Error("Tatoo genereerimine ei tagastanud väljundit.");
     } else {
+      const imageQuality = process.env.OPENAI_IMAGE_QUALITY || "medium";
       const apiRes = await fetch(`${OPENAI_BASE_URL}/images/generations`, {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: DALLE3_MODEL, prompt, n: 1, size: "1024x1024", quality: "standard", response_format: "b64_json" }),
+        body: JSON.stringify({ model: OPENAI_IMAGE_MODEL, prompt, n: 1, size: "1024x1024", quality: imageQuality }),
       });
       const payload = await apiRes.json().catch(() => null);
       if (!apiRes.ok) throw new Error(payload?.error?.message || `OpenAI generations viga ${apiRes.status}`);
