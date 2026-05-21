@@ -709,7 +709,12 @@ export default function LaserGraveerimiseApp() {
       const serverConvs = await fetchServerConversations(auth.token!)
       if (!serverConvs || serverConvs.length === 0) return
       const first = serverConvs[0]
-      setConversations(serverConvs)
+      // Merge: server data wins for known IDs, keep local-only conversations
+      setConversations((prev) => {
+        const serverIds = new Set(serverConvs.map((c) => c.id))
+        const localOnly = prev.filter((c) => !serverIds.has(c.id) && c.messages.length > 0)
+        return [...serverConvs, ...localOnly]
+      })
       setActiveConversationId(first.id)
       setMessages(first.messages)
       const maxNum = serverConvs.reduce((max, c) => {
@@ -787,11 +792,13 @@ export default function LaserGraveerimiseApp() {
       const activeConv = conversations.find((c) => c.id === activeConversationId)
       if (!activeConv) return
       const token = auth.token
-      // Eemalda base64 pildid — keepalive limit on 64KB
+      // Strip only base64 data URLs (too large for keepalive 64KB limit), keep server URLs
       const safeMessages = messages.map((msg) => ({
         ...msg,
         parts: (msg.parts ?? []).map((part) =>
-          part.type === 'file' ? { ...part, url: '' } : part
+          part.type === 'file' && typeof (part as { url?: string }).url === 'string' && (part as { url?: string }).url!.startsWith('data:')
+            ? { ...part, url: '' }
+            : part
         ),
       }))
       fetch(`${BACKEND_URL}/api/conversations/${activeConv.id}`, {
@@ -924,7 +931,9 @@ export default function LaserGraveerimiseApp() {
     if (id === activeConversationId) return
     const target = conversations.find((c) => c.id === id)
     if (!target) return
-    const updatedCurrent = { ...conversations.find((c) => c.id === activeConversationId)!, messages }
+    const currentConv = conversations.find((c) => c.id === activeConversationId)
+    if (!currentConv) return
+    const updatedCurrent = { ...currentConv, messages }
     if (auth.token && messages.length > 0) void saveConversationToServer(auth.token, updatedCurrent)
     setConversations((prev) => prev.map((c) => (c.id === activeConversationId ? { ...c, messages } : c)))
     setActiveConversationId(id)
