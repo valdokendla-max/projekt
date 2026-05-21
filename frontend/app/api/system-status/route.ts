@@ -1,9 +1,7 @@
-import { relative } from 'node:path'
-import { KNOWLEDGE_FILE_PATH, knowledgeStore } from '@/lib/knowledge-store'
 import type { ServiceStatus, SystemStatusResponse } from '@/lib/system-status'
 
 export const dynamic = 'force-dynamic'
-export const runtime = 'nodejs'
+export const runtime = 'edge'
 
 // Server-side: use direct Railway URL; client proxy (/backend) doesn't resolve in Node fetch
 const BACKEND_URL = (
@@ -60,15 +58,18 @@ async function checkBackend(checkedAt: string): Promise<ServiceStatus> {
 
 async function checkKnowledgeBase(checkedAt: string): Promise<ServiceStatus> {
   try {
-    const items = await knowledgeStore.getAll()
-
+    const response = await fetch(`${BACKEND_URL}/api/knowledge`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(4000),
+    })
+    if (!response.ok) throw new Error(`Backend vastas staatusega ${response.status}.`)
+    const items = (await response.json()) as unknown[]
     return buildServiceStatus(
       {
         label: 'Teadmistebaas',
         ok: true,
-        detail: `Püsisalvestus töötab (${items.length} kirjet).`,
-        itemCount: items.length,
-        storage: relative(process.cwd(), KNOWLEDGE_FILE_PATH).replace(/\\/g, '/'),
+        detail: `Teadmistebaas töötab (${Array.isArray(items) ? items.length : '?'} kirjet).`,
+        itemCount: Array.isArray(items) ? items.length : undefined,
       },
       checkedAt,
     )
@@ -77,7 +78,7 @@ async function checkKnowledgeBase(checkedAt: string): Promise<ServiceStatus> {
       {
         label: 'Teadmistebaas',
         ok: false,
-        detail: 'Teadmistebaasi püsisalvestust ei õnnestunud avada.',
+        detail: 'Teadmistebaasiga ei saanud ühendust.',
       },
       checkedAt,
     )

@@ -7,7 +7,7 @@ import type { EngravingMode, ExportAssetPayload, ModeDecision, VectorizationPlan
 import { renderVectorAssetsFromRaster } from '@/lib/engraving/vector-engraving'
 import { buildZipExportPlan } from '@/lib/engraving/zip-export'
 
-export const runtime = 'nodejs'
+export const runtime = 'edge'
 
 interface RequestBody {
   savedSettingsSummary?: string

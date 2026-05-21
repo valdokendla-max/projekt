@@ -1,8 +1,7 @@
 import { getServerBackendUrl } from '@/lib/backend-url'
-import { normalizeChatImageDataUrl } from '@/lib/engraving/chat-image-normalizer'
 
 export const maxDuration = 60
-export const runtime = 'nodejs'
+export const runtime = 'edge'
 
 const BACKEND_URL = getServerBackendUrl()
 
@@ -85,36 +84,6 @@ function isImagePart(part: UIMessagePart): part is ImageUIMessagePart {
   return part.type === 'file' && typeof part.url === 'string' && typeof part.mediaType === 'string' && part.mediaType.startsWith('image/')
 }
 
-async function normalizeMessages(messages: UIMessage[]) {
-  return Promise.all(
-    messages.map(async (message) => {
-      if (!Array.isArray(message.parts)) {
-        return message
-      }
-
-      const parts = await Promise.all(
-        message.parts.map(async (part) => {
-          if (!isImagePart(part) || !part.url.startsWith('data:')) {
-            return part
-          }
-
-          const normalized = await normalizeChatImageDataUrl(part.url)
-
-          return {
-            ...part,
-            url: normalized.dataUrl,
-            mediaType: normalized.mediaType,
-          }
-        }),
-      )
-
-      return {
-        ...message,
-        parts,
-      }
-    }),
-  )
-}
 
 function toModelContent(msg: UIMessage) {
   if (!msg.parts || !Array.isArray(msg.parts)) {
@@ -235,16 +204,8 @@ function resolveProvider(usesVision: boolean): ProviderConfig | null {
 export async function POST(req: Request) {
   const { messages, savedSettingsSummary, language: rawLanguage }: { messages: UIMessage[]; savedSettingsSummary?: string; language?: string } = await req.json()
   const language: 'est' | 'eng' = rawLanguage === 'eng' ? 'eng' : 'est'
-  let normalizedMessages = messages
 
-  try {
-    normalizedMessages = await normalizeMessages(messages)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Pildi normaliseerimine ebaõnnestus.'
-    return new Response(JSON.stringify({ error: message }), { status: 400 })
-  }
-
-  const usesVision = normalizedMessages.some((message) => message.parts?.some(isImagePart))
+  const usesVision = messages.some((message) => message.parts?.some(isImagePart))
   const provider = resolveProvider(usesVision)
 
   if (!provider) {
@@ -259,7 +220,7 @@ export async function POST(req: Request) {
 
   const providerMessages = [
     { role: 'system', content: system },
-    ...normalizedMessages.map((m) => ({
+    ...messages.map((m) => ({
       role: m.role as string,
       content: toModelContent(m),
     })),

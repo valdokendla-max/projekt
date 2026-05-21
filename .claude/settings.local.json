@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(gh auth *)",
+      "Bash(node server.js)",
+      "Bash(curl -s http://localhost:4000/api/health)",
+      "Bash(npm install *)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(mkdir -p /home/valdo/.cache/next-swc)",
+      "Bash(chmod 755 /home/valdo/.cache/next-swc)",
+      "Read(//home/valdo/.cache/**)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:3000/api/system-status)",
+      "Bash(curl *)",
+      "Bash(pkill -f \"node scripts/dev\")",
+      "Bash(NEXT_TELEMETRY_DISABLED=1 node_modules/.bin/next dev --no-turbopack)",
+      "Bash(NEXT_TELEMETRY_DISABLED=1 node_modules/.bin/next dev)",
+      "Bash(pkill -f \"next\")",
+      "Bash(NEXT_TELEMETRY_DISABLED=1 node_modules/.bin/next build)",
+      "Bash(node *)",
+      "Bash(git commit -m 'fix: remove output_format from images/edits FormData — not supported by edits endpoint *)",
+      "Bash(git rm *)",
+      "Bash(Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue)"
+    ]
+  }
+}

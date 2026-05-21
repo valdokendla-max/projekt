@@ -67,6 +67,91 @@ function readFileAsDataUrl(file: File) {
   })
 }
 
+function enhancePhotoInBrowser(dataUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image()
+    img.onload = () => {
+      try {
+        const MAX = 1800
+        let w = img.naturalWidth, h = img.naturalHeight
+        if (w > MAX || h > MAX) {
+          const scale = Math.min(MAX / w, MAX / h)
+          w = Math.round(w * scale)
+          h = Math.round(h * scale)
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, w, h)
+        const imageData = ctx.getImageData(0, 0, w, h)
+        const d = imageData.data
+        for (let i = 0; i < d.length; i += 4) {
+          const g = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2])
+          d[i] = d[i + 1] = d[i + 2] = g
+        }
+        let mn = 255, mx = 0
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i] < mn) mn = d[i]
+          if (d[i] > mx) mx = d[i]
+        }
+        const range = mx - mn || 1
+        for (let i = 0; i < d.length; i += 4) {
+          const v = Math.round((d[i] - mn) * 255 / range)
+          d[i] = d[i + 1] = d[i + 2] = v
+        }
+        for (let i = 0; i < d.length; i += 4) {
+          const v = Math.max(0, Math.min(255, Math.round(d[i] * 1.22 - 14)))
+          d[i] = d[i + 1] = d[i + 2] = v
+        }
+        for (let i = 0; i < d.length; i += 4) {
+          const v = Math.max(0, Math.min(255, Math.round(d[i] * 1.04)))
+          d[i] = d[i + 1] = d[i + 2] = v
+        }
+        const orig = new Uint8ClampedArray(d)
+        const kernel = [0, -1, 0, -1, 5, -1, 0, -1, 0]
+        for (let y = 1; y < h - 1; y++) {
+          for (let x = 1; x < w - 1; x++) {
+            let sum = 0
+            for (let ky = -1; ky <= 1; ky++)
+              for (let kx = -1; kx <= 1; kx++)
+                sum += orig[((y + ky) * w + (x + kx)) * 4] * kernel[(ky + 1) * 3 + (kx + 1)]
+            const idx = (y * w + x) * 4
+            const v = Math.max(0, Math.min(255, sum))
+            d[idx] = d[idx + 1] = d[idx + 2] = v
+          }
+        }
+        ctx.putImageData(imageData, 0, 0)
+        resolve(canvas.toDataURL('image/png'))
+      } catch (e) { reject(e) }
+    }
+    img.onerror = () => reject(new Error('Pildi laadimine ebaõnnestus.'))
+    img.src = dataUrl
+  })
+}
+
+function resizeImageForChat(dataUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image()
+    img.onload = () => {
+      try {
+        const MAX = 1280
+        const w = img.naturalWidth, h = img.naturalHeight
+        if (w <= MAX && h <= MAX) { resolve(dataUrl); return }
+        const scale = Math.min(MAX / w, MAX / h)
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.round(w * scale)
+        canvas.height = Math.round(h * scale)
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/jpeg', 0.82))
+      } catch (e) { reject(e) }
+    }
+    img.onerror = () => reject(new Error('Pildi laadimine ebaõnnestus.'))
+    img.src = dataUrl
+  })
+}
+
 function messageHasImage(message: { parts?: Array<{ type?: string; mediaType?: string }> }) {
   return Array.isArray(message.parts)
     && message.parts.some(
@@ -470,17 +555,11 @@ export default function LaserGraveerimiseApp() {
     setChatInputError('')
     try {
       const sourceUrl = activeImage.url
-      const res = await fetch('/api/photo-enhance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceImageDataUrl: sourceUrl }),
-      })
-      const data = await res.json().catch(() => { throw new Error(`Foto puhastamine ebaõnnestus (HTTP ${res.status}).`) }) as { ok: boolean; imageDataUrl?: string; error?: string }
-      if (!data.ok || !data.imageDataUrl) throw new Error(data.error || 'Foto puhastamine ebaõnnestus.')
+      const imageDataUrl = await enhancePhotoInBrowser(sourceUrl)
       setMessages((prev) => [
         ...prev,
         { id: crypto.randomUUID(), role: 'user' as const, parts: [{ type: 'file', url: sourceUrl, mediaType: activeImage.mediaType, filename: 'originaal.png' } as UIMessage['parts'][number]], content: '', createdAt: new Date() } as UIMessage,
-        { id: crypto.randomUUID(), role: 'assistant' as const, parts: [{ type: 'file', url: data.imageDataUrl, mediaType: 'image/png', filename: 'puhastatud.png' } as UIMessage['parts'][number], { type: 'text', text: effectiveLanguage === 'eng' ? 'Photo has been cleaned and enhanced.' : 'Foto on puhastatud ja täiustatud.' }], content: '', createdAt: new Date() } as UIMessage,
+        { id: crypto.randomUUID(), role: 'assistant' as const, parts: [{ type: 'file', url: imageDataUrl, mediaType: 'image/png', filename: 'puhastatud.png' } as UIMessage['parts'][number], { type: 'text', text: effectiveLanguage === 'eng' ? 'Photo has been cleaned and enhanced.' : 'Foto on puhastatud ja täiustatud.' }], content: '', createdAt: new Date() } as UIMessage,
       ])
       setPendingImage(null)
     } catch (error) {
@@ -815,11 +894,12 @@ export default function LaserGraveerimiseApp() {
     }
 
     try {
-      const dataUrl = await readFileAsDataUrl(file)
+      const raw = await readFileAsDataUrl(file)
+      const dataUrl = await resizeImageForChat(raw)
       setPendingImage({
         type: 'file',
         filename: file.name,
-        mediaType: file.type,
+        mediaType: dataUrl.startsWith('data:image/jpeg') ? 'image/jpeg' : file.type,
         url: dataUrl,
       })
       setChatInputError('')

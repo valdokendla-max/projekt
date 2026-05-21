@@ -1,6 +1,6 @@
 import { getServerBackendUrl } from '@/lib/backend-url'
 
-export const runtime = 'nodejs'
+export const runtime = 'edge'
 export const maxDuration = 30
 
 const BACKEND_URL = getServerBackendUrl()
