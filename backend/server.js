@@ -1,4 +1,10 @@
 const express = require("express");
+const defaultAuthStore = require("./auth-store");
+const defaultLaserData = require("./laser-data");
+const defaultConversationsStore = require("./conversations-store");
+const defaultKnowledgeStore = require("./knowledge-store");
+
+function createApp(dependencies = {}) {
 const {
   changePassword,
   deleteUser,
@@ -12,13 +18,11 @@ const {
   requestPasswordReset,
   registerUser,
   updateUserRole,
-} = require("./auth-store");
-const { LASER_MACHINES, MATERIALS, getRecommendation } = require("./laser-data");
-const { getUserConversations, upsertConversation, deleteConversation } = require("./conversations-store");
-const { KNOWLEDGE_CATEGORIES, knowledgeStore } = require("./knowledge-store");
-
+} = dependencies.authStore || defaultAuthStore;
+const { LASER_MACHINES, MATERIALS, getRecommendation } = dependencies.laserData || defaultLaserData;
+const { getUserConversations, upsertConversation, deleteConversation } = dependencies.conversationsStore || defaultConversationsStore;
+const { KNOWLEDGE_CATEGORIES, knowledgeStore } = dependencies.knowledgeStore || defaultKnowledgeStore;
 const app = express();
-const port = Number(process.env.PORT) || 4000;
 
 app.use(express.json({ limit: "10mb" }));
 
@@ -532,6 +536,14 @@ app.use((err, req, res, _next) => {
   res.status(500).json({ ok: false, error: err?.message || "Serveri viga" });
 });
 
-app.listen(port, () => {
+return app;
+}
+
+if (require.main === module) {
+  const port = Number(process.env.PORT) || 4000;
+  createApp().listen(port, () => {
   console.log(`Server töötab pordil ${port}`);
-});
+  });
+}
+
+module.exports = { createApp };

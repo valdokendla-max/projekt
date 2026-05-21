@@ -718,7 +718,7 @@ export default function LaserGraveerimiseApp() {
       }, 0)
       if (maxNum > 0) setConversationCounter(maxNum + 1)
     })()
-  }, [auth.status, auth.token])
+  }, [auth.status, auth.token, setMessages])
 
   // Load from localStorage on mount — shows conversations immediately before server responds
   useEffect(() => {
@@ -766,7 +766,7 @@ export default function LaserGraveerimiseApp() {
       setConversationCounter(2)
       setMessages([])
     }
-  }, [auth.status])
+  }, [auth.status, setMessages])
 
   // Auto-save: 800ms debounce, streaming ajal ei sega
   useEffect(() => {
@@ -778,7 +778,7 @@ export default function LaserGraveerimiseApp() {
     const token = auth.token
     saveTimerRef.current = setTimeout(() => { void saveConversationToServer(token, convToSave) }, 800)
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
-  }, [messages, activeConversationId, auth.token, auth.status, isLoading])
+  }, [messages, activeConversationId, conversations, auth.token, auth.status, isLoading])
 
   // Salvesta enne refressi — keepalive: true garanteerib et fetch lõpetab isegi pärast lehe sulgemist
   useEffect(() => {

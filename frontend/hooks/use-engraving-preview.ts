@@ -14,17 +14,21 @@ export function useEngravingPreview(
 
   useEffect(() => {
     if (!imageUrl || typeof window === 'undefined') {
-      setPreviewUrl(null)
       return
     }
 
     let cancelled = false
-    setIsProcessing(true)
+    const processingTimer = window.setTimeout(() => {
+      if (!cancelled) {
+        setIsProcessing(true)
+      }
+    }, 0)
 
     const img = new Image()
 
     img.onload = () => {
       if (cancelled) return
+      window.clearTimeout(processingTimer)
 
       const MAX = 400
       const scale = Math.min(1, MAX / Math.max(img.width, img.height))
@@ -80,6 +84,7 @@ export function useEngravingPreview(
     }
 
     img.onerror = () => {
+      window.clearTimeout(processingTimer)
       if (!cancelled) setIsProcessing(false)
     }
 
@@ -87,8 +92,9 @@ export function useEngravingPreview(
 
     return () => {
       cancelled = true
+      window.clearTimeout(processingTimer)
     }
   }, [imageUrl, powerPct])
 
-  return { previewUrl, isProcessing }
+  return { previewUrl: imageUrl ? previewUrl : null, isProcessing: imageUrl ? isProcessing : false }
 }

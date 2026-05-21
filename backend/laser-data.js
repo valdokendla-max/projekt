@@ -956,7 +956,29 @@ function formatExports(mode, laserType) {
   return [...base, ...machineFormats];
 }
 
-function getRecommendation({ machineId, materialId, thicknessMm, mode }) {
+function estimateDurationMinutes({ mode, widthMm, heightMm, speedMmpm, lineIntervalMm, passes }) {
+  const hasDimensions = Number.isFinite(widthMm) && widthMm > 0 && Number.isFinite(heightMm) && heightMm > 0;
+
+  if (!hasDimensions) {
+    return {
+      requiresDimensions: true,
+      durationMinutes: null,
+    };
+  }
+
+  const safeSpeed = Math.max(1, speedMmpm);
+  const safePasses = Math.max(1, passes);
+  const travelMm = mode === "cut"
+    ? 2 * (widthMm + heightMm) * safePasses
+    : (heightMm / Math.max(0.05, lineIntervalMm || 0.1)) * widthMm * safePasses;
+
+  return {
+    requiresDimensions: false,
+    durationMinutes: Number(Math.max(0.1, travelMm / safeSpeed).toFixed(1)),
+  };
+}
+
+function getRecommendation({ machineId, materialId, thicknessMm, mode, widthMm, heightMm }) {
   const machine = LASER_MACHINES.find((m) => m.id === machineId);
   if (!machine) {
     return { error: "Valitud masinat ei leitud." };
@@ -1007,6 +1029,19 @@ function getRecommendation({ machineId, materialId, thicknessMm, mode }) {
     warnings.push("Anodeeritud alumiiniumi lõikamine pole soovituslik. Kasuta graveerimist.");
   }
 
+  const estimates = estimateDurationMinutes({
+    mode,
+    widthMm,
+    heightMm,
+    speedMmpm,
+    lineIntervalMm: profile.lineIntervalMm,
+    passes,
+  });
+
+  if (!estimates.requiresDimensions) {
+    warnings.push(`Hinnanguline t\u00f6\u00f6aeg: ${estimates.durationMinutes} min.`);
+  }
+
   return {
     machine: {
       id: machine.id,
@@ -1028,6 +1063,7 @@ function getRecommendation({ machineId, materialId, thicknessMm, mode }) {
       lineIntervalMm: profile.lineIntervalMm,
       airAssist: profile.airAssist,
     },
+    estimates,
     exports: formatExports(mode, machine.laserType),
     warnings,
   };

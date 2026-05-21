@@ -29,6 +29,6 @@ describe('recommendation engine', () => {
     expect(result.estimates.requiresDimensions).toBe(false)
     expect(result.estimates.durationMinutes).toBeGreaterThan(0)
     expect(result.exports).toEqual(expect.arrayContaining(['png', 'svg', 'dxf', 'lbrn2', 'gcode']))
-    expect(result.warnings.some((warning: string) => warning.includes('Hinnanguline tööaeg'))).toBe(true)
+    expect(result.warnings.some((warning: string) => warning.includes('Hinnanguline'))).toBe(true)
   })
 })

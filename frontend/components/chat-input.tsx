@@ -80,26 +80,30 @@ export function ChatInput({
   return (
     <div className={cn('pt-4', className)}>
       <div className="mb-3 flex flex-wrap gap-2 px-1">
-        {[
-          { label: 'Enter = saada', onClick: handleSubmit, disabled: (!input.trim() && !pendingImage) || isLoading },
-          { label: 'Shift+Enter = uus rida', onClick: handleInsertNewLine, disabled: isLoading },
-          { label: 'Pilt = vision', onClick: handleOpenImagePicker, disabled: isLoading },
-        ].map((action, index) => (
-          <button
-            key={action.label}
-            type="button"
-            onClick={action.onClick}
-            disabled={action.disabled}
-            className={cn(
-              'inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] transition-colors disabled:cursor-not-allowed disabled:opacity-45',
-              index === 0
-                ? 'border-primary/16 bg-cyan-300/8 text-cyan-100/68 hover:border-primary/28 hover:text-cyan-50'
-                : 'border-white/8 bg-white/4 text-cyan-100/36 hover:border-primary/18 hover:text-cyan-50'
-            )}
-          >
-            {action.label}
-          </button>
-        ))}
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={(!input.trim() && !pendingImage) || isLoading}
+          className="inline-flex items-center rounded-full border border-primary/16 bg-cyan-300/8 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/68 transition-colors hover:border-primary/28 hover:text-cyan-50 disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          Enter = saada
+        </button>
+        <button
+          type="button"
+          onClick={handleInsertNewLine}
+          disabled={isLoading}
+          className="inline-flex items-center rounded-full border border-white/8 bg-white/4 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/36 transition-colors hover:border-primary/18 hover:text-cyan-50 disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          Shift+Enter = uus rida
+        </button>
+        <button
+          type="button"
+          onClick={handleOpenImagePicker}
+          disabled={isLoading}
+          className="inline-flex items-center rounded-full border border-white/8 bg-white/4 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/36 transition-colors hover:border-primary/18 hover:text-cyan-50 disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          Pilt = vision
+        </button>
       </div>
 
       <div className="rounded-[26px] border border-primary/12 bg-black/30 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.22)]">

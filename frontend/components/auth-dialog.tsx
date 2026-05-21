@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useState } from 'react'
 import { ArrowLeft, LoaderCircle, LockKeyhole, Mail, UserRound } from 'lucide-react'
 import type { AuthActionResult, LoginCredentials, RegisterCredentials, RequestPasswordResetCredentials } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
@@ -60,25 +60,27 @@ export function AuthDialog({
   const [showPasswordReset, setShowPasswordReset] = useState(false)
   const [passwordResetSuccess, setPasswordResetSuccess] = useState('')
 
-  useEffect(() => {
-    if (!open) {
-      setMode(initialMode)
-      setError('')
-      setIsSubmitting(false)
-      setLoginForm(emptyLoginForm)
-      setRegisterForm(emptyRegisterForm)
-      setPasswordResetForm(emptyPasswordResetForm)
-      setShowPasswordReset(false)
-      setPasswordResetSuccess('')
-    }
-  }, [initialMode, open])
-
-  const closeDialog = () => {
+  const resetDialogState = () => {
+    setMode(initialMode)
     setError('')
     setIsSubmitting(false)
+    setLoginForm(emptyLoginForm)
+    setRegisterForm(emptyRegisterForm)
     setPasswordResetSuccess('')
     setPasswordResetForm(emptyPasswordResetForm)
     setShowPasswordReset(false)
+  }
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      resetDialogState()
+    }
+
+    onOpenChange(nextOpen)
+  }
+
+  const closeDialog = () => {
+    resetDialogState()
     onOpenChange(false)
   }
 
@@ -147,7 +149,7 @@ export function AuthDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className="overflow-hidden border border-primary/14 bg-[radial-gradient(circle_at_top,rgba(84,244,255,0.16),rgba(3,9,16,0.98)_42%),linear-gradient(180deg,rgba(5,15,24,0.98),rgba(2,7,12,0.98))] p-0 text-cyan-50 shadow-[0_32px_90px_rgba(0,0,0,0.5)] sm:max-w-140"
         showCloseButton={false}

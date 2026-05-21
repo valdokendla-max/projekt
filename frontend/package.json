@@ -17,7 +17,6 @@
     "@radix-ui/react-slot": "1.2.4",
     "@radix-ui/react-tabs": "1.1.13",
     "@types/pngjs": "^6.0.5",
-    "@vercel/analytics": "1.6.1",
     "ai": "^6.0.0",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
