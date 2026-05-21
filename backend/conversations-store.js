@@ -14,7 +14,7 @@ function getPool() {
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.DATABASE_SSL === 'false'
       ? false
-      : { rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false' },
+      : { rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === 'true' },
   })
   return pool
 }
