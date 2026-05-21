@@ -10,4 +10,7 @@
   package = "@netlify/plugin-nextjs"
 
 [functions]
-  timeout = 60
+  node_bundler = "esbuild"
+
+  [functions."*"]
+    timeout = 60
