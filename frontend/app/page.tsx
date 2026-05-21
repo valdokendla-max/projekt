@@ -420,20 +420,20 @@ export default function LaserGraveerimiseApp() {
           sourceImageDataUrl: sourceUrl || undefined,
         }),
       })
-      const data = await res.json().catch(() => { throw new Error(`Logo loomine ebaõnnestus (HTTP ${res.status}).`) }) as { ok: boolean; imageDataUrl?: string; error?: string }
-      if (!data.ok || !data.imageDataUrl) throw new Error(data.error || 'Logo loomine ebaõnnestus.')
+      const data = await res.json().catch(() => { throw new Error(`Tattoo loomine ebaõnnestus (HTTP ${res.status}).`) }) as { ok: boolean; imageDataUrl?: string; error?: string }
+      if (!data.ok || !data.imageDataUrl) throw new Error(data.error || 'Tattoo loomine ebaõnnestus.')
       const userParts: UIMessage['parts'] = []
       if (inputText) userParts.push({ type: 'text', text: inputText })
       if (sourceUrl) userParts.push({ type: 'file', url: sourceUrl, mediaType: activeImage?.mediaType || 'image/png', filename: 'allikas.png' } as UIMessage['parts'][number])
       setMessages((prev) => [
         ...prev,
         ...(userParts.length > 0 ? [{ id: crypto.randomUUID(), role: 'user' as const, parts: userParts, content: inputText, createdAt: new Date() } as UIMessage] : []),
-        { id: crypto.randomUUID(), role: 'assistant' as const, parts: [{ type: 'file', url: data.imageDataUrl, mediaType: 'image/png', filename: 'logo.png' } as UIMessage['parts'][number], { type: 'text', text: effectiveLanguage === 'eng' ? 'Logo has been created.' : 'Logo on loodud.' }], content: '', createdAt: new Date() } as UIMessage,
+        { id: crypto.randomUUID(), role: 'assistant' as const, parts: [{ type: 'file', url: data.imageDataUrl, mediaType: 'image/png', filename: 'tattoo.png' } as UIMessage['parts'][number], { type: 'text', text: effectiveLanguage === 'eng' ? 'Tattoo has been created.' : 'Tattoo on loodud.' }], content: '', createdAt: new Date() } as UIMessage,
       ])
       setInput('')
       setPendingImage(null)
     } catch (error) {
-      setChatInputError(error instanceof Error ? error.message : 'Logo loomine ebaõnnestus.')
+      setChatInputError(error instanceof Error ? error.message : 'Tattoo loomine ebaõnnestus.')
     } finally {
       setIsGeneratingLogo(false)
     }
@@ -554,7 +554,7 @@ export default function LaserGraveerimiseApp() {
   ]
   const useCaseActions: UseCaseAction[] = [
     {
-      label: effectiveLanguage === 'eng' ? 'Create logo' : 'Logo loomine',
+      label: effectiveLanguage === 'eng' ? 'Tattoo' : 'Tattoo',
       icon: <Layers className="h-5 w-5" />,
       onCustomAction: handleLogoCreate,
       isCustomActionRunning: isGeneratingLogo,

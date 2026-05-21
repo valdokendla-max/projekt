@@ -12,13 +12,26 @@ interface RequestBody {
   sourceImageDataUrl?: string
 }
 
-function buildLogoPrompt(brandText: string) {
-  const textPart = brandText.trim()
-    ? ` Include the text "${brandText.trim()}" as a prominent part of the logo design.`
-    : ''
+function buildTattooPrompt(subjectText: string) {
+  const subject = subjectText.trim() ? `of ${subjectText.trim()}, ` : ''
   return (
-    `Create a minimalist black and white logo for laser engraving.${textPart}` +
-    ' Bold clean lines, high contrast, no gradients, no shading. The design must be clearly visible when laser engraved on wood or metal.'
+    `Tattoo stencil design ${subject}in neo-traditional ` +
+    'black and grey realism tattoo style, ' +
+    'fur texture with stylized scales or feather patterns ' +
+    'with shading, intricate whip shading technique, ' +
+    'dense dotwork, bold black ' +
+    'crosshatching for deep shadows, clear clean contour lines ' +
+    'with solid outlines, high contrast grayscale with deep ' +
+    'blacks and light highlights, piercing detailed eyes ' +
+    'with strong white reflections, framed, delicate airy smoke or motion lines ' +
+    'as background, professional tattoo flash sheet, COMPLETELY ' +
+    'PURE WHITE BACKGROUND, isolated design on pure white paper, ' +
+    'NOT ON SKIN, NOT ON ARM, NOT ON BODY, NOT ON SKIN, ' +
+    'tattoo design reference sheet, studio lighting, ' +
+    'centered vertical composition, sharp focus, ' +
+    'highly detailed, 1:1 aspect ratio ' +
+    '--style raw --v 6 --no skin, arm, body, leg, person, photo, ' +
+    'color, blurred, soft, watercolor'
   )
 }
 
@@ -43,7 +56,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: 'OPENAI_API_KEY puudub.' }, { status: 503 })
   }
 
-  const prompt = buildLogoPrompt(brandText)
+  const prompt = buildTattooPrompt(brandText)
 
   try {
     let imageDataUrl: string
@@ -78,7 +91,7 @@ export async function POST(req: Request) {
       } | null
 
       if (!res.ok) {
-        throw new Error(payload?.error?.message || 'Logo loomine ebaõnnestus.')
+        throw new Error(payload?.error?.message || 'Tattoo loomine ebaõnnestus.')
       }
 
       const first = payload?.data?.[0]
@@ -87,7 +100,7 @@ export async function POST(req: Request) {
       } else if (first?.url) {
         imageDataUrl = await fetchImageAsDataUrl(first.url, req.signal)
       } else {
-        throw new Error('Logo genereerimine ei tagastanud väljundit.')
+        throw new Error('Tattoo genereerimine ei tagastanud väljundit.')
       }
     } else {
       const res = await fetch(`${OPENAI_BASE_URL}/images/generations`, {
@@ -112,7 +125,7 @@ export async function POST(req: Request) {
       } | null
 
       if (!res.ok) {
-        throw new Error(payload?.error?.message || 'Logo genereerimine ebaõnnestus.')
+        throw new Error(payload?.error?.message || 'Tattoo genereerimine ebaõnnestus.')
       }
 
       const first = payload?.data?.[0]
@@ -121,13 +134,13 @@ export async function POST(req: Request) {
       } else if (first?.url) {
         imageDataUrl = await fetchImageAsDataUrl(first.url, req.signal)
       } else {
-        throw new Error('Logo genereerimine ei tagastanud väljundit.')
+        throw new Error('Tattoo genereerimine ei tagastanud väljundit.')
       }
     }
 
     return Response.json({ ok: true, imageDataUrl })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Logo loomine ebaõnnestus.'
+    const message = error instanceof Error ? error.message : 'Tattoo loomine ebaõnnestus.'
     return Response.json({ ok: false, error: message }, { status: 502 })
   }
 }
