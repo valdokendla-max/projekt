@@ -285,21 +285,36 @@ function generateLightBurnFile(
 
 ## 9. Migratsiooni sammud
 
-### ETAPP 1: Cloudflare konto ettevalmistus (30 min)
-- [ ] Loo Cloudflare konto: https://dash.cloudflare.com/sign-up
-- [ ] Lisa domeen `vkengraveai.eu` Cloudflare'i (vajalik DNS)
-- [ ] Paigalda Wrangler CLI: `npm install -g wrangler`
-- [ ] Logi sisse: `wrangler login`
+### ETAPP 1: Cloudflare konto ettevalmistus ✅ VALMIS (2026-05-23)
+- [x] Loo Cloudflare konto (valdokendla@gmail.com, Account ID `960eee4367abcab10b4649108fc001e4`)
+- [x] Lisa domeen `vkengraveai.eu` Cloudflare'i (Free plan, nimeserverid `bella` + `simon` — DNS pole veel vahetatud, ootame Etapp 9)
+- [x] Paigalda Wrangler CLI 4.94.0
+- [x] `wrangler login` — autenditud
+- [x] Backup Railway PostgreSQL: `C:\Users\Admin\Downloads\railway_postgres_backup_2026-05-23.sql` (37.67 KB, 8 tabelit)
 
-### ETAPP 2: Cloudflare Pages (frontend) (1-2 tundi)
-- [ ] Ühenda GitHub repo Cloudflare Pages'iga
-- [ ] Vali build setup: Next.js
-- [ ] Konfigureeri `next.config.ts`:
-  ```ts
-  const nextConfig = { output: 'export' };
-  ```
-- [ ] Eemalda Netlify-spetsiifilised paketid
-- [ ] Esimene deploy → veendu, et töötab
+### ETAPP 2: Cloudflare Pages (frontend) ✅ VALMIS (2026-05-23)
+**Strateegia:** `@cloudflare/next-on-pages` (pragmaatiline — säilitab olemasolevad Next.js API route'd edge runtime'is)
+**Live URL:** https://laser-graveerimine.pages.dev (custom domain vkengraveai.eu pole veel ühendatud)
+
+**Tehtud:**
+- [x] Kustutatud: `netlify.toml`, `frontend/.env.netlify.example`, GitHub Actions Netlify workflow
+- [x] Lisatud: `@cloudflare/next-on-pages` + `vercel` devDeps, `frontend/wrangler.toml`, `zod@^3.25.76`
+- [x] Kõik 8 API route'i → edge runtime
+- [x] `node:crypto` → Web Crypto API (`lib/api-security.ts` `hashActorKey` nüüd async)
+- [x] `logo-generation` route: nodejs → edge, Buffer → Uint8Array+btoa
+- [x] `engraving-export` route: eemaldatud server-side raster→vector tracing (pngjs ei ühildu edge'iga; lisada tagasi Etapp 5-s)
+- [x] Build: lokaalselt WSL Ubuntu'is (Windows + bash kombo ei tööta), deploy CLI-ga
+- [x] Pages secret'id: `OPENAI_API_KEY`, `OPENAI_IMAGE_MODEL=gpt-image-1`, `OPENAI_IMAGE_QUALITY=medium`
+- [x] Build env (lokaalselt): `NEXT_PUBLIC_BACKEND_URL` + `BACKEND_PROXY_TARGET` mõlemad = `https://backend-production-24e5a.up.railway.app`
+
+**Lahendatud probleemid sessiooni jooksul:**
+- ❌→✅ **Chat 500 (Invalid URL):** PowerShelli pipe `"..." | wrangler pages secret put` lisab UTF-16 BOM (U+FEFF) väärtuse ette → secret rikutud. **Lahendus:** kasuta bash `printf` või `echo -n` (ei lisa BOM-i).
+- ❌→✅ **Chat 400 (assistant image_url):** `localStorage`-st laetud vestluse ajalugu sisaldas assistant'i pildiosi (logo, photo-enhance, tattoo previewid). Meie route saatis need OpenAI'le `image_url` kujul → OpenAI keelab assistant'i sõnumites pilte. **Lahendus:** `frontend/app/api/chat/route.ts:88` `toModelContent()` filtreerib pildiosi assistant rollide puhul välja.
+- ❌→✅ **Tattoo eskiis (img2img) kadunud:** vana `/api/tattoo-generation` route (commit `8e87164`) eemaldas line-art → realistlik teisendamise. **Lahendus:** taastatud edge runtime'is uue route'iga `frontend/app/api/tattoo-generation/route.ts` + brauseri Canvas resize 1024×1024 (sharp ei tööta edge'is) + `handleLogoCreate` hargneb (pildiga = OpenAI realistlik, ilma pildita = Pollinations.ai line-art).
+- ⚠️ **Chat stream formaat (kahtlustatav, edasi lükatud):** AI SDK v6 `useChat` võib oodata UI Message Stream SSE formaati, kuid route emiteerib vana v1 data stream formaati (`0:"text"`). Praegune `text/event-stream` polematused võivad põhjustada sõnumite mitterenderimist. Backlogis Variant B taasvaatluseks.
+
+**Mida ei tehtud (`output: 'export'` plaani versus pragmaatiline tee):**
+- Plaan ütles `output: 'export'` static export. Tegime hoopis `@cloudflare/next-on-pages` mis säilitab kõik Next.js API route'd edge Functions'idena. Tulemus sama — frontend töötab Cloudflare's tasuta tier'is.
 
 ### ETAPP 3: D1 andmebaas (1 tund)
 - [ ] Loo D1 andmebaas: `wrangler d1 create vkengraveai-db`
@@ -453,3 +468,53 @@ Realistlik ajakulu: **3-5 päeva**, kui teha päevas 3-4 tundi.
 **LÕPP**
 
 Lihtsam projekt, tasuta hosting, vähem peavalu, samade võimalustega sait.
+
+---
+
+## 15. Hilisemaks (backlog) — pärast Etapp 2 lõpetamist (2026-05-23)
+
+**Järgmise sessiooni prioriteedid (järjekorras):**
+
+1. **Custom domain `vkengraveai.eu` ühendamine Cloudflare Pages'ile**
+   - Cloudflare dashboard → Pages → laser-graveerimine → Custom domains → Add `vkengraveai.eu`
+   - Cloudflare väljastab automaatselt SSL sertifikaadi
+   - Veebimajutus.ee juures vahetada nimeserverid: `bella.ns.cloudflare.com` + `simon.ns.cloudflare.com`
+   - DNS propagatsioon ~15-60 min
+   - **MÄRKUS:** Cloudflare juures domeen on juba lisatud, ainult NS vahetus + Pages binding puudub
+
+2. **Etapp 3: D1 andmebaas (1-2 tundi)**
+   - `wrangler d1 create vkengraveai-db`
+   - Skeemi loomine plaani sektsioonist 6 (users, machines, materials, images, chat_messages)
+   - Andmete migreerimine `railway_postgres_backup_2026-05-23.sql`-st D1-le
+
+3. **Etapp 4-10:** R2 storage, Workers backend (Hono), Lucia Auth, vanade teenuste kustutamine — plaani järgi
+
+**Tehniline võlg (mitte-blokeeriv, kuid soovitatav):**
+
+- **Chat stream formaat — Variant B taasvaatlus**
+  - Praegune route emiteerib AI SDK v1 data stream'i (`0:"text"`)
+  - AI SDK v6 `useChat` võib eeldada UI Message Stream SSE formaati
+  - Lahendus: vahetada `streamText` + `.toUIMessageStreamResponse()` helperile (`@ai-sdk/openai` pakett, ~50KB)
+  - Praegu kasutaja kinnitanud, et chat töötab — võimalik et v3.x `useChat` aktsepteerib veel vana formaati. Kontrollida brauseri devtools'is, kas assistant messages renderivad korralikult.
+
+- **Tattoo kehal funktsioon** (eemaldatud commit `8e87164`-s koos eskiisiga)
+  - Vana kood git ajaloos: `git show 8e87164^:frontend/app/api/tattoo-generation/route.ts` `mode: 'kehal'` haru
+  - Kasutab `/v1/images/generations` (text-to-image, mitte edits)
+  - Prompt: `buildTattooOnBodyPrompt()` — "Professional tattoo photography, black and grey realistic tattoo visible on upper arm or forearm..."
+  - Lisamine: uus nupp, eraldi käsitleja, sama edge route'i laiendamine `mode` paramteriga
+  - **Hinnang:** ~1-2h töö
+
+- **`engraving-export` server-side raster→vector tracing**
+  - Eemaldatud Cloudflare migratsiooni käigus (pngjs ei tööta edge'is)
+  - Plaanitud taastada Etapp 5-s Workers backendis (eraldi Worker, kus pngjs või wasm-based PNG decoder)
+  - Praegune käitumine: kasutaja peab pre-traced SVG/DXF kaasa panema või kasutama threshold režiimi
+
+- **`OPENAI_API_KEY` rotateerimine (turvalisus)**
+  - Võti tuli nähtavale tool output'is praeguse sessiooni jooksul
+  - Soovitus: OpenAI dashboard'is loo uus võti, asenda `wrangler pages secret put OPENAI_API_KEY ...` käsuga (bash kaudu, MITTE PowerShell pipe!) ja `wrangler pages deploy ...` (secret bind toimub uue deploy ajal)
+  - Vana võti dashboard'is revoke
+
+- **Lokaalne dev keskkond Cloudflare jaoks**
+  - Praegu `npm run build:cf` ei tööta Windows/PowerShell + bash kombos (`@cloudflare/next-on-pages` shellac'i probleem). Töötab ainult WSL Ubuntu'is.
+  - Variant: Cloudflare Pages git integration (auto-deploy push'i pealt, Linux builder)
+  - Variant: GitHub Actions workflow (vajab `CLOUDFLARE_API_TOKEN` ja `CLOUDFLARE_ACCOUNT_ID` repo secret'idesse)

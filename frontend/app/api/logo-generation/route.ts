@@ -8,23 +8,15 @@ interface RequestBody {
 }
 
 function buildTattooPrompt(subjectText: string) {
-  const subject = subjectText.trim() ? `of ${subjectText.trim()}, ` : ''
+  const subject = subjectText.trim() ? `${subjectText.trim()}, ` : ''
   return (
-    `Tattoo stencil design ${subject}in neo-traditional ` +
-    'black and grey realism tattoo style, ' +
-    'fur texture with stylized scales or feather patterns ' +
-    'with shading, intricate whip shading technique, ' +
-    'dense dotwork, bold black ' +
-    'crosshatching for deep shadows, clear clean contour lines ' +
-    'with solid outlines, high contrast grayscale with deep ' +
-    'blacks and light highlights, piercing detailed eyes ' +
-    'with strong white reflections, framed, delicate airy smoke or motion lines ' +
-    'as background, professional tattoo flash sheet, COMPLETELY ' +
-    'PURE WHITE BACKGROUND, isolated design on pure white paper, ' +
-    'NOT ON SKIN, NOT ON ARM, NOT ON BODY, NOT ON SKIN, ' +
-    'tattoo design reference sheet, studio lighting, ' +
-    'centered vertical composition, sharp focus, ' +
-    'highly detailed, 1:1 aspect ratio'
+    `${subject}Black and grey realistic tattoo design with highly detailed illustrative linework and layered feather textures, ` +
+    'dynamic bird-of-prey composition, smooth gradient shading, deep black tones and soft grey transitions, ' +
+    'ultra-clean contour lines, high-contrast monochromatic style, realistic anatomy combined with stylized ornamental details, ' +
+    'intricate scale-like feather patterns, crystalline geometric elements, subtle dotwork particles, ' +
+    'soft glowing light accents, professional tattoo flash style, centered composition, ' +
+    'fully isolated illustration on a pure white background, extremely clean and polished final result, ' +
+    'no text, no frame, no flowers, no additional background outside the illustration.'
   )
 }
 

@@ -130,6 +130,29 @@ function enhancePhotoInBrowser(dataUrl: string): Promise<string> {
   })
 }
 
+function resizeImageTo1024(dataUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image()
+    img.onload = () => {
+      try {
+        const MAX = 1024
+        const w = img.naturalWidth, h = img.naturalHeight
+        const scale = Math.min(MAX / w, MAX / h, 1)
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.round(w * scale)
+        canvas.height = Math.round(h * scale)
+        const ctx = canvas.getContext('2d')!
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/png'))
+      } catch (e) { reject(e) }
+    }
+    img.onerror = () => reject(new Error('Pildi laadimine ebaõnnestus.'))
+    img.src = dataUrl
+  })
+}
+
 function resizeImageForChat(dataUrl: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new window.Image()
@@ -490,50 +513,67 @@ export default function LaserGraveerimiseApp() {
     void sendChatRequest(prompt)
   }
 
-  const handleLogoCreate = async () => {    if (isGeneratingLogo) return
+  const handleLogoCreate = async () => {
+    if (isGeneratingLogo) return
     setIsGeneratingLogo(true)
     setChatInputError('')
     try {
       const inputText = input.trim()
       const activeImage = getActiveImage()
       const sourceUrl = activeImage?.url
-      const subject = inputText ? `of ${inputText}, ` : ''
-      const prompt =
-        `Tattoo stencil design ${subject}in neo-traditional ` +
-        'black and grey realism tattoo style, ' +
-        'fur texture with stylized scales or feather patterns ' +
-        'with shading, intricate whip shading technique, ' +
-        'dense dotwork, bold black ' +
-        'crosshatching for deep shadows, clear clean contour lines ' +
-        'with solid outlines, high contrast grayscale with deep ' +
-        'blacks and light highlights, piercing detailed eyes ' +
-        'with strong white reflections, framed, delicate airy smoke or motion lines ' +
-        'as background, professional tattoo flash sheet, COMPLETELY ' +
-        'PURE WHITE BACKGROUND, isolated design on pure white paper, ' +
-        'NOT ON SKIN, NOT ON ARM, NOT ON BODY, NOT ON SKIN, ' +
-        'tattoo design reference sheet, studio lighting, ' +
-        'centered vertical composition, sharp focus, ' +
-        'highly detailed, 1:1 aspect ratio'
-      const seed = Math.floor(Math.random() * 999999)
-      const pollinationsUrl =
-        `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}` +
-        `?width=1024&height=1024&model=flux&nologo=true&seed=${seed}`
-      const res = await fetch(pollinationsUrl)
-      if (!res.ok) throw new Error(`Tattoo loomine ebaõnnestus (HTTP ${res.status}).`)
-      const arrayBuffer = await res.arrayBuffer()
-      const bytes = new Uint8Array(arrayBuffer)
-      let binary = ''
-      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-      const imageDataUrl = `data:image/jpeg;base64,${btoa(binary)}`
-      const data = { ok: true, imageDataUrl }
-      if (!data.ok || !data.imageDataUrl) throw new Error('Tattoo loomine ebaõnnestus.')
+
+      let imageDataUrl: string
+      let outputFilename: string
+      let doneText: string
+
+      if (sourceUrl) {
+        // Realistic tattoo sketch from reference image via OpenAI gpt-image-1 /images/edits
+        const resized = await resizeImageTo1024(sourceUrl)
+        const res = await fetch('/api/tattoo-generation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subjectText: inputText, sourceImageDataUrl: resized }),
+        })
+        const data = await res.json().catch(() => {
+          throw new Error(`Tatoo eskiisi loomine ebaõnnestus (HTTP ${res.status}).`)
+        }) as { ok: boolean; imageDataUrl?: string; error?: string }
+        if (!data.ok || !data.imageDataUrl) throw new Error(data.error || 'Tatoo eskiisi loomine ebaõnnestus.')
+        imageDataUrl = data.imageDataUrl
+        outputFilename = 'tattoo-eskiis.png'
+        doneText = effectiveLanguage === 'eng' ? 'Tattoo sketch has been created.' : 'Tatoo eskiis on loodud.'
+      } else {
+        // No reference image — free line-art generation via Pollinations.ai
+        const subject = inputText ? `${inputText}, ` : ''
+        const prompt =
+          `${subject}Black and grey realistic tattoo design with highly detailed illustrative linework and layered feather textures, ` +
+          'dynamic bird-of-prey composition, smooth gradient shading, deep black tones and soft grey transitions, ' +
+          'ultra-clean contour lines, high-contrast monochromatic style, realistic anatomy combined with stylized ornamental details, ' +
+          'intricate scale-like feather patterns, crystalline geometric elements, subtle dotwork particles, ' +
+          'soft glowing light accents, professional tattoo flash style, centered composition, ' +
+          'fully isolated illustration on a pure white background, extremely clean and polished final result, ' +
+          'no text, no frame, no flowers, no additional background outside the illustration.'
+        const seed = Math.floor(Math.random() * 999999)
+        const pollinationsUrl =
+          `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}` +
+          `?width=1024&height=1024&model=flux&nologo=true&seed=${seed}`
+        const res = await fetch(pollinationsUrl)
+        if (!res.ok) throw new Error(`Tattoo loomine ebaõnnestus (HTTP ${res.status}).`)
+        const arrayBuffer = await res.arrayBuffer()
+        const bytes = new Uint8Array(arrayBuffer)
+        let binary = ''
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+        imageDataUrl = `data:image/jpeg;base64,${btoa(binary)}`
+        outputFilename = 'tattoo.png'
+        doneText = effectiveLanguage === 'eng' ? 'Tattoo has been created.' : 'Tattoo on loodud.'
+      }
+
       const userParts: UIMessage['parts'] = []
       if (inputText) userParts.push({ type: 'text', text: inputText })
       if (sourceUrl) userParts.push({ type: 'file', url: sourceUrl, mediaType: activeImage?.mediaType || 'image/png', filename: 'allikas.png' } as UIMessage['parts'][number])
       setMessages((prev) => [
         ...prev,
         ...(userParts.length > 0 ? [{ id: crypto.randomUUID(), role: 'user' as const, parts: userParts, content: inputText, createdAt: new Date() } as UIMessage] : []),
-        { id: crypto.randomUUID(), role: 'assistant' as const, parts: [{ type: 'file', url: data.imageDataUrl, mediaType: 'image/png', filename: 'tattoo.png' } as UIMessage['parts'][number], { type: 'text', text: effectiveLanguage === 'eng' ? 'Tattoo has been created.' : 'Tattoo on loodud.' }], content: '', createdAt: new Date() } as UIMessage,
+        { id: crypto.randomUUID(), role: 'assistant' as const, parts: [{ type: 'file', url: imageDataUrl, mediaType: 'image/png', filename: outputFilename } as UIMessage['parts'][number], { type: 'text', text: doneText }], content: '', createdAt: new Date() } as UIMessage,
       ])
       setInput('')
       setPendingImage(null)

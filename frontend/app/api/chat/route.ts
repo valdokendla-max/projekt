@@ -90,6 +90,9 @@ function toModelContent(msg: UIMessage) {
     return msg.content || ''
   }
 
+  // OpenAI lubab image_url ainult role='user' sõnumites. Assistant'i pildiosad
+  // (logo, photo-enhance, tattoo, threshold preview) jäetakse vaikselt välja.
+  const allowImages = msg.role === 'user'
   const content: ModelContentPart[] = []
 
   for (const part of msg.parts) {
@@ -98,7 +101,7 @@ function toModelContent(msg: UIMessage) {
       continue
     }
 
-    if (isImagePart(part)) {
+    if (allowImages && isImagePart(part)) {
       content.push({ type: 'image_url', image_url: { url: part.url } })
     }
   }
