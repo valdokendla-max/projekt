@@ -4,7 +4,6 @@ import { buildLightBurnProjectManifest } from '@/lib/engraving/lightburn-project
 import { serializeLightBurnProject } from '@/lib/engraving/lightburn-project'
 import { parseSavedSettingsSummary } from '@/lib/engraving/preset-engine'
 import type { EngravingMode, ExportAssetPayload, ModeDecision, VectorizationPlan } from '@/lib/engraving/types'
-import { renderVectorAssetsFromRaster } from '@/lib/engraving/vector-engraving'
 import { buildZipExportPlan } from '@/lib/engraving/zip-export'
 
 export const runtime = 'edge'
@@ -102,67 +101,24 @@ export async function POST(req: Request) {
   }
 
   if (vectorizationPlan.enabled && !hasProvidedVectorAssets) {
+    // Server-side rasterist-vektor tracing on Cloudflare migratsiooni jaoks ajutiselt eemaldatud
+    // (pngjs ei ühildu edge runtime'iga). Lisada tagasi Etapp 5-s Workers backendis.
     const rasterSource = findVectorSourceAsset(providedAssets)
 
-    if (rasterSource) {
-      try {
-        const generated = renderVectorAssetsFromRaster({
-          dataUrl: rasterSource.dataUrl,
-          strokeStrategy: vectorizationPlan.strokeStrategy,
-        })
-        const basePath = rasterSource.path.replace(/\.png$/i, '')
-
-        generatedVectorAssets.push(
-          {
-            path: `${basePath}.svg`,
-            mediaType: 'image/svg+xml',
-            description: 'Deterministic SVG trace generated from the optimized raster',
-            dataUrl: generated.svgDataUrl,
-          },
-          {
-            path: `${basePath}.dxf`,
-            mediaType: 'application/dxf',
-            description: 'Deterministic DXF trace generated from the optimized raster',
-            dataUrl: generated.dxfDataUrl,
-          },
-        )
-
-        vectorizationPlan.reasons.push(
-          `Vector traces were generated from ${rasterSource.path} using ${generated.rectangleCount} merged raster region(s).`,
-        )
-      } catch (error) {
-        const detail = error instanceof Error ? error.message : 'Vector trace generation failed.'
-
-        supportAssets.push(
-          createTextAsset(
-            'exports/vectorization-report.txt',
-            'Vector export report with fallback guidance',
-            [
-              'Vector delivery was requested for this export package.',
-              `Tracing source: ${rasterSource.path}`,
-              `Result: ${detail}`,
-              'Fallback: use the included PNG asset in LightBurn or switch this job to threshold mode.',
-            ].join('\n'),
-          ),
-        )
-
-        vectorizationPlan.reasons.push('Raster tracing exceeded the safe export limits, so a fallback report was attached.')
-      }
-    } else {
-      supportAssets.push(
-        createTextAsset(
-          'exports/vectorization-report.txt',
-          'Vector export report with fallback guidance',
-          [
-            'Vector delivery was requested for this export package.',
-            'No PNG asset was included in the request, so deterministic SVG/DXF tracing could not run.',
-            'Fallback: include exports/output.png from the optimizer step or disable vector export for this job.',
-          ].join('\n'),
-        ),
-      )
-
-      vectorizationPlan.reasons.push('No PNG asset was available for tracing, so a fallback report was attached.')
-    }
+    supportAssets.push(
+      createTextAsset(
+        'exports/vectorization-report.txt',
+        'Vector export report with fallback guidance',
+        [
+          'Vector delivery was requested for this export package.',
+          rasterSource
+            ? `Server-side tracing of ${rasterSource.path} is temporarily unavailable on the Cloudflare deploy.`
+            : 'No PNG asset was included in the request.',
+          'Fallback: include a pre-traced SVG/DXF asset, or use threshold mode for this job.',
+        ].join('\n'),
+      ),
+    )
+    vectorizationPlan.reasons.push('Server-side raster-to-vector tracing is disabled on the Cloudflare deploy.')
   }
 
   const finalAssets = [...providedAssets, ...generatedVectorAssets, ...supportAssets]

@@ -11,6 +11,16 @@ const contentSecurityPolicy = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   cacheMaxMemorySize: 0,
+  webpack: (config, { nextRuntime }) => {
+    if (nextRuntime === 'edge') {
+      config.resolve.fallback = {
+        ...(config.resolve.fallback || {}),
+        zlib: false,
+        stream: false,
+      }
+    }
+    return config
+  },
   typescript: {
     ignoreBuildErrors: false,
   },

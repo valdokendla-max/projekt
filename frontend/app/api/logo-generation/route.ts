@@ -1,7 +1,6 @@
 import { parseJsonBodyWithLimit } from '@/lib/api-security'
 
-export const runtime = 'nodejs'
-export const maxDuration = 60
+export const runtime = 'edge'
 
 interface RequestBody {
   brandText: string
@@ -51,9 +50,14 @@ export async function POST(req: Request) {
       throw new Error(`Pollinations viga ${res.status}`)
     }
 
-    const buf = Buffer.from(await res.arrayBuffer())
+    const bytes = new Uint8Array(await res.arrayBuffer())
+    let binary = ''
+    const chunk = 0x8000
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+    }
     const ct = res.headers.get('content-type') || 'image/jpeg'
-    const imageDataUrl = `data:${ct};base64,${buf.toString('base64')}`
+    const imageDataUrl = `data:${ct};base64,${btoa(binary)}`
 
     return Response.json({ ok: true, imageDataUrl })
   } catch (error) {

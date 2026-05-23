@@ -4,7 +4,7 @@ const config = [
   {
     ignores: [
       ".next/**",
-      ".netlify/**",
+      ".vercel/**",
       "node_modules/**",
       "tsconfig.tsbuildinfo",
     ],

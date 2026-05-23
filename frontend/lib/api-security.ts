@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { getServerBackendUrl } from '@/lib/backend-url'
 
 export interface AuthenticatedRouteUser {
@@ -44,8 +43,12 @@ function getBearerToken(request: Request) {
   return header.slice(7).trim()
 }
 
-function hashActorKey(value: string) {
-  return createHash('sha256').update(value).digest('hex')
+async function hashActorKey(value: string) {
+  const data = new TextEncoder().encode(value)
+  const digest = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 function getClientIp(request: Request) {
@@ -149,7 +152,7 @@ export async function requireAuthenticatedRouteUser(
 }
 
 export async function enforceRouteRateLimit(options: RateLimitOptions) {
-  const actorKeyHash = hashActorKey(options.actorKey)
+  const actorKeyHash = await hashActorKey(options.actorKey)
   const windowMs = options.windowSeconds * 1000
   const now = Date.now()
   const windowStart = Math.floor(now / windowMs) * windowMs
@@ -204,7 +207,7 @@ export async function requireInternalRouteAuthorization(
 
   return {
     ok: true as const,
-    actorKey: `internal-token:${hashActorKey(token)}`,
+    actorKey: `internal-token:${await hashActorKey(token)}`,
   }
 }
 
