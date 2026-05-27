@@ -514,6 +514,24 @@ Lihtsam projekt, tasuta hosting, vähem peavalu, samade võimalustega sait.
   - Soovitus: OpenAI dashboard'is loo uus võti, asenda `wrangler pages secret put OPENAI_API_KEY ...` käsuga (bash kaudu, MITTE PowerShell pipe!) ja `wrangler pages deploy ...` (secret bind toimub uue deploy ajal)
   - Vana võti dashboard'is revoke
 
+- **Cost optimization — pildi genereerimise odavam alternatiiv (~10× kulude vähendus)**
+
+  Vahetada OpenAI pildi genereerimine odavama alternatiivi vastu:
+
+  **Eelistatud: Replicate API** (FLUX.1 schnell = $0.003/pilt vs OpenAI $0.04/pilt)
+  - Minimaalne kood muutus — POST `https://api.replicate.com/v1/predictions` `black-forest-labs/flux-schnell` mudeliga
+  - Pole oma serverit vaja
+  - **Test esmalt tattoo eskiis route'is** (`frontend/app/api/tattoo-generation/route.ts`), seejärel logo-generation
+  - Edge runtime ühilduvus OK (ainult `fetch`)
+  - Vajab `REPLICATE_API_TOKEN` Pages secret'ina
+
+  **Tulevikuks: Cloudflare Tunnel + lokaalne AMUSE/ComfyUI**
+  - Kasutaja AMD GPU peal (AMD Radeon RX 6700 XT)
+  - Täiesti tasuta peale elektri
+  - Vajab PC 24/7 üleval
+  - Eelistatav kui kasutajate arv kasvab oluliselt (>1000 päringut/päev)
+  - Cloudflare Tunnel ühendab lokaalse ComfyUI HTTP API turvaliselt Cloudflare Worker'iga
+
 - **Lokaalne dev keskkond Cloudflare jaoks**
   - Praegu `npm run build:cf` ei tööta Windows/PowerShell + bash kombos (`@cloudflare/next-on-pages` shellac'i probleem). Töötab ainult WSL Ubuntu'is.
   - Variant: Cloudflare Pages git integration (auto-deploy push'i pealt, Linux builder)
