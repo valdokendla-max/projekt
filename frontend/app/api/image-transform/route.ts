@@ -1,5 +1,6 @@
 // Unified OpenAI /v1/images/edits endpoint for the 6 reference-image-based actions.
 // Frontend already resizes to 1024x1024 (Canvas) before calling.
+// Quality is hard-coded to "high" so output matches ChatGPT web behaviour.
 import { IMAGE_TRANSFORM_PROMPTS, type ImageTransformVariant } from '@/lib/image-prompts'
 
 export const runtime = 'edge'
@@ -66,6 +67,7 @@ export async function POST(req: Request) {
     formData.append('prompt', prompt)
     formData.append('n', '1')
     formData.append('size', '1024x1024')
+    formData.append('quality', 'high')
 
     const res = await fetch(`${OPENAI_BASE_URL}/images/edits`, {
       method: 'POST',
