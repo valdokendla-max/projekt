@@ -1,0 +1,25 @@
+name = "vkengraveai-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-15"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Custom domain binding (apex zone vkengraveai.eu must be Cloudflare-managed)
+[[routes]]
+pattern = "api.vkengraveai.eu/*"
+zone_name = "vkengraveai.eu"
+
+# D1 database binding (already created: vkengraveai-db, id 4ca8b502-0d19-4f0b-9b7a-41e03371bdd7)
+[[d1_databases]]
+binding = "DB"
+database_name = "vkengraveai-db"
+database_id = "4ca8b502-0d19-4f0b-9b7a-41e03371bdd7"
+
+# Observability — light by default
+[observability]
+enabled = true
+
+# Limits: explicit cpu_ms requires Workers Paid plan. Free plan = 10ms default.
+# Uncomment after upgrading to Paid if scrypt password verify exceeds free limit.
+# [limits]
+# cpu_ms = 50

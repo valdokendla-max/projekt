@@ -155,6 +155,10 @@ export function ChatInput({
 
           <textarea
             ref={textareaRef}
+            id="chat-input"
+            name="chat-input"
+            aria-label="Vestluse sõnumi sisend"
+            autoComplete="off"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {

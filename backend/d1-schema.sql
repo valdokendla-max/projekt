@@ -74,3 +74,15 @@ CREATE TABLE IF NOT EXISTS conversations (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id, user_id)
 );
+
+-- Knowledge base (new for Workers backend; was file-based on Railway)
+CREATE TABLE IF NOT EXISTS knowledge_entries (
+  id         TEXT PRIMARY KEY,
+  title      TEXT NOT NULL,
+  content    TEXT NOT NULL,
+  category   TEXT NOT NULL CHECK (category IN ('juhis', 'naidis', 'fakt', 'stiil')),
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS knowledge_entries_created_at_idx
+  ON knowledge_entries(created_at DESC);
