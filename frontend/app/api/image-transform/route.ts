@@ -67,7 +67,8 @@ export async function POST(req: Request) {
     formData.append('prompt', prompt)
     formData.append('n', '1')
     formData.append('size', '1024x1024')
-    formData.append('quality', 'high')
+    // quality intentionally omitted (defaults to "auto") to keep per-image cost down.
+    // ComfyUI tunnel is the planned path for full quality at $0 — see migration plan.
 
     const res = await fetch(`${OPENAI_BASE_URL}/images/edits`, {
       method: 'POST',
