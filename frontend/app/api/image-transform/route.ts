@@ -1,30 +1,25 @@
+// Unified OpenAI /v1/images/edits endpoint for the 6 reference-image-based actions.
+// Frontend already resizes to 1024x1024 (Canvas) before calling.
+import { IMAGE_TRANSFORM_PROMPTS, type ImageTransformVariant } from '@/lib/image-prompts'
+
 export const runtime = 'edge'
 
 const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')
 const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1'
 
 interface RequestBody {
-  subjectText?: string
+  variant?: ImageTransformVariant
   sourceImageDataUrl?: string
 }
 
-function buildTattooPrompt(subjectText: string, hasReference: boolean) {
-  const subject = subjectText.trim() ? subjectText.trim() : 'a detailed subject'
-  const base =
-    `Black and grey realistic tattoo design of ${subject}, neo-traditional illustrative tattoo style. ` +
-    'For human subjects (portraits, faces, people): clean smooth skin texture, soft natural shading on faces, preserve natural age and youthful features, NO heavy stippling on facial features, NO wrinkles added, NO aging effects, NO rough texture on cheeks or foreheads, sharp clean portrait realism, faces remain crisp and unaltered from reference, only enhance with subtle smooth gradient shading. ' +
-    'For ornamental elements (background, flowers, leaves, scrollwork, animals, objects): intricate detailed linework, smooth whip shading, soft gradient transitions, dense dotwork stippling on decorative elements only, sharp overlapping detail patterns, refined ornamental realism. ' +
-    'Strong contrast between deep black shadows and soft grey highlights on ornaments. Cinematic shading. ' +
-    'Professional tattoo flash artwork, centered composition, isolated on a completely clean white background. ' +
-    'No composition elements outside the subject and its ornamental frame, no scenery, no random objects, no wooden structures, no architecture, no stairs, no railings, no buildings, no realistic environment, no photo background, no frame, no border. ' +
-    'Negative prompt: aged faces, wrinkled skin on young people, rough facial texture, heavy stippling on faces, distorted facial features, low quality, blurry, bad anatomy, extra limbs, cartoon, anime, watercolor, colorful background, messy composition, flat shading, oversaturated, text, watermark, glowing neon, realistic environment, photo background, unfinished lines, rough sketch, wooden objects appearing randomly, architectural elements behind subject.'
-
-  if (hasReference) {
-    return base + ' Base the design on the uploaded reference image — preserve the exact identity, age, and facial features of all people in the reference. Do not alter ages.'
-  }
-
-  return base
-}
+const VALID_VARIANTS: ImageTransformVariant[] = [
+  'tattoo-realistic',
+  'tattoo-portrait',
+  'enhance',
+  'line-art',
+  'text-logo',
+  'relief-3d',
+]
 
 async function fetchImageAsDataUrl(url: string, signal: AbortSignal) {
   const res = await fetch(url, { signal })
@@ -40,14 +35,14 @@ async function fetchImageAsDataUrl(url: string, signal: AbortSignal) {
 
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as RequestBody
-  const subjectText = body.subjectText || ''
+  const variant = body.variant
   const sourceImageDataUrl = body.sourceImageDataUrl
 
+  if (!variant || !VALID_VARIANTS.includes(variant)) {
+    return Response.json({ ok: false, error: 'Vigane variant.' }, { status: 400 })
+  }
   if (!sourceImageDataUrl) {
-    return Response.json(
-      { ok: false, error: 'Tatoo eskiis vajab lähtepilti.' },
-      { status: 400 },
-    )
+    return Response.json({ ok: false, error: 'Pildi muundamiseks lisa esmalt pilt.' }, { status: 400 })
   }
 
   const apiKey = (process.env.OPENAI_API_KEY || '').trim()
@@ -55,7 +50,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: 'OPENAI_API_KEY puudub.' }, { status: 503 })
   }
 
-  const prompt = buildTattooPrompt(subjectText, true)
+  const prompt = IMAGE_TRANSFORM_PROMPTS[variant]
 
   try {
     const base64 = sourceImageDataUrl.includes(',')
@@ -95,12 +90,12 @@ export async function POST(req: Request) {
     } else if (first?.url) {
       imageDataUrl = await fetchImageAsDataUrl(first.url, req.signal)
     } else {
-      throw new Error('Tatoo genereerimine ei tagastanud väljundit.')
+      throw new Error('Pildi muundamine ei tagastanud väljundit.')
     }
 
     return Response.json({ ok: true, imageDataUrl })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Tatoo loomine ebaõnnestus.'
+    const message = error instanceof Error ? error.message : 'Pildi muundamine ebaõnnestus.'
     return Response.json({ ok: false, error: message }, { status: 502 })
   }
 }

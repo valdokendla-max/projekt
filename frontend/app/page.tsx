@@ -4,15 +4,25 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode }
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type FileUIPart, type UIMessage } from 'ai'
 import Image from 'next/image'
-import { Camera, Download, Layers, Plus, Settings2, SlidersHorizontal, Sparkles, X } from 'lucide-react'
+import { Box, Brush, Download, Pen, Plus, Settings2, SlidersHorizontal, Sparkles, Stars, Type, User as UserIcon, X } from 'lucide-react'
 import { ChatHeader } from '@/components/chat-header'
 import { ChatInput } from '@/components/chat-input'
 import { ChatMessage } from '@/components/chat-message'
 import { KnowledgePanel } from '@/components/knowledge-panel'
 import { LaserSettingsPanel } from '@/components/laser-settings-panel'
+import { BirthCardModal } from '@/components/birth-card-modal'
 import { readSavedLaserSettings, type StoredLaserSettings } from '@/lib/engraving/saved-settings-storage'
 import { useAuth } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
+import {
+  IMAGE_TRANSFORM_LABELS,
+  IMAGE_TRANSFORM_DONE_MESSAGES,
+  IMAGE_TRANSFORM_FILENAMES,
+  BIRTH_CARD_LABELS,
+  type ImageTransformVariant,
+  type ZodiacSign,
+  type ChineseZodiacAnimal,
+} from '@/lib/image-prompts'
 
 const MAX_CHAT_IMAGE_BYTES = 3 * 1024 * 1024
 const SUPPORTED_CHAT_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
@@ -64,69 +74,6 @@ function readFileAsDataUrl(file: File) {
     }
     reader.onerror = () => reject(new Error('Pildi lugemine ebaõnnestus.'))
     reader.readAsDataURL(file)
-  })
-}
-
-function enhancePhotoInBrowser(dataUrl: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new window.Image()
-    img.onload = () => {
-      try {
-        const MAX = 1800
-        let w = img.naturalWidth, h = img.naturalHeight
-        if (w > MAX || h > MAX) {
-          const scale = Math.min(MAX / w, MAX / h)
-          w = Math.round(w * scale)
-          h = Math.round(h * scale)
-        }
-        const canvas = document.createElement('canvas')
-        canvas.width = w
-        canvas.height = h
-        const ctx = canvas.getContext('2d')!
-        ctx.drawImage(img, 0, 0, w, h)
-        const imageData = ctx.getImageData(0, 0, w, h)
-        const d = imageData.data
-        for (let i = 0; i < d.length; i += 4) {
-          const g = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2])
-          d[i] = d[i + 1] = d[i + 2] = g
-        }
-        let mn = 255, mx = 0
-        for (let i = 0; i < d.length; i += 4) {
-          if (d[i] < mn) mn = d[i]
-          if (d[i] > mx) mx = d[i]
-        }
-        const range = mx - mn || 1
-        for (let i = 0; i < d.length; i += 4) {
-          const v = Math.round((d[i] - mn) * 255 / range)
-          d[i] = d[i + 1] = d[i + 2] = v
-        }
-        for (let i = 0; i < d.length; i += 4) {
-          const v = Math.max(0, Math.min(255, Math.round(d[i] * 1.22 - 14)))
-          d[i] = d[i + 1] = d[i + 2] = v
-        }
-        for (let i = 0; i < d.length; i += 4) {
-          const v = Math.max(0, Math.min(255, Math.round(d[i] * 1.04)))
-          d[i] = d[i + 1] = d[i + 2] = v
-        }
-        const orig = new Uint8ClampedArray(d)
-        const kernel = [0, -1, 0, -1, 5, -1, 0, -1, 0]
-        for (let y = 1; y < h - 1; y++) {
-          for (let x = 1; x < w - 1; x++) {
-            let sum = 0
-            for (let ky = -1; ky <= 1; ky++)
-              for (let kx = -1; kx <= 1; kx++)
-                sum += orig[((y + ky) * w + (x + kx)) * 4] * kernel[(ky + 1) * 3 + (kx + 1)]
-            const idx = (y * w + x) * 4
-            const v = Math.max(0, Math.min(255, sum))
-            d[idx] = d[idx + 1] = d[idx + 2] = v
-          }
-        }
-        ctx.putImageData(imageData, 0, 0)
-        resolve(canvas.toDataURL('image/png'))
-      } catch (e) { reject(e) }
-    }
-    img.onerror = () => reject(new Error('Pildi laadimine ebaõnnestus.'))
-    img.src = dataUrl
   })
 }
 
@@ -430,8 +377,9 @@ export default function LaserGraveerimiseApp() {
   const [savedSettingsSummary, setSavedSettingsSummary] = useState('')
   const [savedSettings, setSavedSettings] = useState<StoredLaserSettings | null>(null)
   const [chatInputError, setChatInputError] = useState('')
-  const [isGeneratingLogo, setIsGeneratingLogo] = useState(false)
-  const [isEnhancingPhoto, setIsEnhancingPhoto] = useState(false)
+  const [transformingVariant, setTransformingVariant] = useState<ImageTransformVariant | null>(null)
+  const [isGeneratingBirthCard, setIsGeneratingBirthCard] = useState(false)
+  const [birthCardOpen, setBirthCardOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([
     { id: 'conv-0', name: 'Vestlus 1', messages: [], createdAt: new Date() },
@@ -513,99 +461,142 @@ export default function LaserGraveerimiseApp() {
     void sendChatRequest(prompt)
   }
 
-  const handleLogoCreate = async () => {
-    if (isGeneratingLogo) return
-    setIsGeneratingLogo(true)
-    setChatInputError('')
-    try {
-      const inputText = input.trim()
-      const activeImage = getActiveImage()
-      const sourceUrl = activeImage?.url
-
-      let imageDataUrl: string
-      let outputFilename: string
-      let doneText: string
-
-      if (sourceUrl) {
-        // Realistic tattoo sketch from reference image via OpenAI gpt-image-1 /images/edits
-        const resized = await resizeImageTo1024(sourceUrl)
-        const res = await fetch('/api/tattoo-generation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ subjectText: inputText, sourceImageDataUrl: resized }),
-        })
-        const data = await res.json().catch(() => {
-          throw new Error(`Tatoo eskiisi loomine ebaõnnestus (HTTP ${res.status}).`)
-        }) as { ok: boolean; imageDataUrl?: string; error?: string }
-        if (!data.ok || !data.imageDataUrl) throw new Error(data.error || 'Tatoo eskiisi loomine ebaõnnestus.')
-        imageDataUrl = data.imageDataUrl
-        outputFilename = 'tattoo-eskiis.png'
-        doneText = effectiveLanguage === 'eng' ? 'Tattoo sketch has been created.' : 'Tatoo eskiis on loodud.'
-      } else {
-        // No reference image — free line-art generation via Pollinations.ai
-        const subject = inputText ? `${inputText}, ` : ''
-        const prompt =
-          `${subject}Black and grey realistic tattoo design with highly detailed illustrative linework and layered feather textures, ` +
-          'dynamic bird-of-prey composition, smooth gradient shading, deep black tones and soft grey transitions, ' +
-          'ultra-clean contour lines, high-contrast monochromatic style, realistic anatomy combined with stylized ornamental details, ' +
-          'intricate scale-like feather patterns, crystalline geometric elements, subtle dotwork particles, ' +
-          'soft glowing light accents, professional tattoo flash style, centered composition, ' +
-          'fully isolated illustration on a pure white background, extremely clean and polished final result, ' +
-          'no text, no frame, no flowers, no additional background outside the illustration.'
-        const seed = Math.floor(Math.random() * 999999)
-        const pollinationsUrl =
-          `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}` +
-          `?width=1024&height=1024&model=flux&nologo=true&seed=${seed}`
-        const res = await fetch(pollinationsUrl)
-        if (!res.ok) throw new Error(`Tattoo loomine ebaõnnestus (HTTP ${res.status}).`)
-        const arrayBuffer = await res.arrayBuffer()
-        const bytes = new Uint8Array(arrayBuffer)
-        let binary = ''
-        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-        imageDataUrl = `data:image/jpeg;base64,${btoa(binary)}`
-        outputFilename = 'tattoo.png'
-        doneText = effectiveLanguage === 'eng' ? 'Tattoo has been created.' : 'Tattoo on loodud.'
-      }
-
-      const userParts: UIMessage['parts'] = []
-      if (inputText) userParts.push({ type: 'text', text: inputText })
-      if (sourceUrl) userParts.push({ type: 'file', url: sourceUrl, mediaType: activeImage?.mediaType || 'image/png', filename: 'allikas.png' } as UIMessage['parts'][number])
-      setMessages((prev) => [
-        ...prev,
-        ...(userParts.length > 0 ? [{ id: crypto.randomUUID(), role: 'user' as const, parts: userParts, content: inputText, createdAt: new Date() } as UIMessage] : []),
-        { id: crypto.randomUUID(), role: 'assistant' as const, parts: [{ type: 'file', url: imageDataUrl, mediaType: 'image/png', filename: outputFilename } as UIMessage['parts'][number], { type: 'text', text: doneText }], content: '', createdAt: new Date() } as UIMessage,
-      ])
-      setInput('')
-      setPendingImage(null)
-    } catch (error) {
-      setChatInputError(error instanceof Error ? error.message : 'Tattoo loomine ebaõnnestus.')
-    } finally {
-      setIsGeneratingLogo(false)
-    }
-  }
-
-  const handlePhotoEnhance = async () => {
+  const handleImageTransform = async (variant: ImageTransformVariant) => {
+    if (transformingVariant) return
     const activeImage = getActiveImage()
     if (!activeImage) {
-      setChatInputError(effectiveLanguage === 'eng' ? 'Please add an image first for photo enhancement.' : 'Foto puhastuseks lisa esmalt pilt.')
+      setChatInputError(
+        effectiveLanguage === 'eng'
+          ? 'Please add an image first for this action.'
+          : 'Selle tegevuse jaoks lisa esmalt pilt.',
+      )
       return
     }
-    if (isEnhancingPhoto) return
-    setIsEnhancingPhoto(true)
+    setTransformingVariant(variant)
     setChatInputError('')
     try {
       const sourceUrl = activeImage.url
-      const imageDataUrl = await enhancePhotoInBrowser(sourceUrl)
+      const resized = await resizeImageTo1024(sourceUrl)
+      const res = await fetch('/api/image-transform', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variant, sourceImageDataUrl: resized }),
+      })
+      const data = (await res.json().catch(() => {
+        throw new Error(`HTTP ${res.status}`)
+      })) as { ok: boolean; imageDataUrl?: string; error?: string }
+      if (!data.ok || !data.imageDataUrl) {
+        throw new Error(data.error || (effectiveLanguage === 'eng' ? 'Image transform failed.' : 'Pildi muundamine ebaõnnestus.'))
+      }
+
+      const doneText = IMAGE_TRANSFORM_DONE_MESSAGES[variant][effectiveLanguage].name
+      const outputFilename = IMAGE_TRANSFORM_FILENAMES[variant]
+
       setMessages((prev) => [
         ...prev,
-        { id: crypto.randomUUID(), role: 'user' as const, parts: [{ type: 'file', url: sourceUrl, mediaType: activeImage.mediaType, filename: 'originaal.png' } as UIMessage['parts'][number]], content: '', createdAt: new Date() } as UIMessage,
-        { id: crypto.randomUUID(), role: 'assistant' as const, parts: [{ type: 'file', url: imageDataUrl, mediaType: 'image/png', filename: 'puhastatud.png' } as UIMessage['parts'][number], { type: 'text', text: effectiveLanguage === 'eng' ? 'Photo has been cleaned and enhanced.' : 'Foto on puhastatud ja täiustatud.' }], content: '', createdAt: new Date() } as UIMessage,
+        {
+          id: crypto.randomUUID(),
+          role: 'user' as const,
+          parts: [{ type: 'file', url: sourceUrl, mediaType: activeImage.mediaType, filename: 'allikas.png' } as UIMessage['parts'][number]],
+          content: '',
+          createdAt: new Date(),
+        } as UIMessage,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant' as const,
+          parts: [
+            { type: 'file', url: data.imageDataUrl, mediaType: 'image/png', filename: outputFilename } as UIMessage['parts'][number],
+            { type: 'text', text: doneText },
+          ],
+          content: '',
+          createdAt: new Date(),
+        } as UIMessage,
       ])
       setPendingImage(null)
     } catch (error) {
-      setChatInputError(error instanceof Error ? error.message : 'Foto puhastamine ebaõnnestus.')
+      setChatInputError(
+        error instanceof Error
+          ? error.message
+          : effectiveLanguage === 'eng'
+          ? 'Image transform failed.'
+          : 'Pildi muundamine ebaõnnestus.',
+      )
     } finally {
-      setIsEnhancingPhoto(false)
+      setTransformingVariant(null)
+    }
+  }
+
+  const handleBirthCardSubmit = async (inputs: { tahtkuju: ZodiacSign; sunniaasta_loom: ChineseZodiacAnimal; hingeloom: string }) => {
+    setBirthCardOpen(false)
+    if (isGeneratingBirthCard) return
+    setIsGeneratingBirthCard(true)
+    setChatInputError('')
+
+    const submittedText = `${inputs.tahtkuju} · ${inputs.sunniaasta_loom} · ${inputs.hingeloom}`
+    const startId = crypto.randomUUID()
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        role: 'user' as const,
+        parts: [{ type: 'text', text: submittedText }],
+        content: submittedText,
+        createdAt: new Date(),
+      } as UIMessage,
+      {
+        id: startId,
+        role: 'assistant' as const,
+        parts: [{ type: 'text', text: effectiveLanguage === 'eng' ? 'Generating birth card…' : 'Sünnikaart loomisel…' }],
+        content: '',
+        createdAt: new Date(),
+      } as UIMessage,
+    ])
+
+    try {
+      const res = await fetch('/api/birth-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(inputs),
+      })
+      const data = (await res.json().catch(() => {
+        throw new Error(`HTTP ${res.status}`)
+      })) as { ok: boolean; imageDataUrl?: string; error?: string }
+      if (!data.ok || !data.imageDataUrl) {
+        throw new Error(data.error || (effectiveLanguage === 'eng' ? 'Birth card generation failed.' : 'Sünnikaardi loomine ebaõnnestus.'))
+      }
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === startId
+            ? ({
+                ...msg,
+                parts: [
+                  { type: 'file', url: data.imageDataUrl, mediaType: 'image/png', filename: 'synnikaart.png' } as UIMessage['parts'][number],
+                  { type: 'text', text: effectiveLanguage === 'eng' ? 'Birth card created.' : 'Sünnikaart on loodud.' },
+                ],
+              } as UIMessage)
+            : msg,
+        ),
+      )
+    } catch (error) {
+      const errorMessage = error instanceof Error
+        ? error.message
+        : effectiveLanguage === 'eng'
+        ? 'Birth card generation failed.'
+        : 'Sünnikaardi loomine ebaõnnestus.'
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === startId
+            ? ({
+                ...msg,
+                parts: [{ type: 'text', text: `⚠️ ${errorMessage}` }],
+              } as UIMessage)
+            : msg,
+        ),
+      )
+      setChatInputError(errorMessage)
+    } finally {
+      setIsGeneratingBirthCard(false)
     }
   }
 
@@ -691,25 +682,63 @@ export default function LaserGraveerimiseApp() {
         : 'Selgita, millal kasutada PNG, SVG või DXF väljundit minu aktiivse masina ja materjali puhul.',
     },
   ]
+  const transformLabel = (variant: ImageTransformVariant) =>
+    IMAGE_TRANSFORM_LABELS[variant][effectiveLanguage].name
+
   const useCaseActions: UseCaseAction[] = [
     {
-      label: effectiveLanguage === 'eng' ? 'Tattoo' : 'Tattoo',
-      icon: <Layers className="h-5 w-5" />,
-      onCustomAction: handleLogoCreate,
-      isCustomActionRunning: isGeneratingLogo,
+      label: transformLabel('tattoo-realistic'),
+      icon: <Brush className="h-5 w-5" />,
+      onCustomAction: () => void handleImageTransform('tattoo-realistic'),
+      isCustomActionRunning: transformingVariant === 'tattoo-realistic',
+      prompt: '',
+    },
+    {
+      label: transformLabel('tattoo-portrait'),
+      icon: <UserIcon className="h-5 w-5" />,
+      onCustomAction: () => void handleImageTransform('tattoo-portrait'),
+      isCustomActionRunning: transformingVariant === 'tattoo-portrait',
+      prompt: '',
+    },
+    {
+      label: transformLabel('enhance'),
+      icon: <Sparkles className="h-5 w-5" />,
+      onCustomAction: () => void handleImageTransform('enhance'),
+      isCustomActionRunning: transformingVariant === 'enhance',
+      prompt: '',
+    },
+    {
+      label: transformLabel('line-art'),
+      icon: <Pen className="h-5 w-5" />,
+      onCustomAction: () => void handleImageTransform('line-art'),
+      isCustomActionRunning: transformingVariant === 'line-art',
+      prompt: '',
+    },
+    {
+      label: transformLabel('text-logo'),
+      icon: <Type className="h-5 w-5" />,
+      onCustomAction: () => void handleImageTransform('text-logo'),
+      isCustomActionRunning: transformingVariant === 'text-logo',
+      prompt: '',
+    },
+    {
+      label: transformLabel('relief-3d'),
+      icon: <Box className="h-5 w-5" />,
+      onCustomAction: () => void handleImageTransform('relief-3d'),
+      isCustomActionRunning: transformingVariant === 'relief-3d',
+      prompt: '',
+    },
+    {
+      label: BIRTH_CARD_LABELS[effectiveLanguage].name,
+      icon: <Stars className="h-5 w-5" />,
+      onCustomAction: () => setBirthCardOpen(true),
+      isCustomActionRunning: isGeneratingBirthCard,
       prompt: '',
     },
     {
       label: effectiveLanguage === 'eng' ? 'Engrave settings' : 'Graveeri seaded',
       icon: <SlidersHorizontal className="h-5 w-5" />,
       onCustomAction: handleShowSettings,
-      prompt: '',
-    },
-    {
-      label: effectiveLanguage === 'eng' ? 'Photo enhance (AI)' : 'Foto puhastus (AI)',
-      icon: <Camera className="h-5 w-5" />,
-      onCustomAction: handlePhotoEnhance,
-      isCustomActionRunning: isEnhancingPhoto,
       prompt: '',
     },
     {
@@ -1039,6 +1068,13 @@ export default function LaserGraveerimiseApp() {
         isOpen={Boolean(canAccessKnowledge && knowledgeOpen)}
         onClose={() => setKnowledgeOpen(false)}
         sessionToken={auth.token}
+      />
+
+      <BirthCardModal
+        open={birthCardOpen}
+        onOpenChange={setBirthCardOpen}
+        onSubmit={handleBirthCardSubmit}
+        language={effectiveLanguage}
       />
 
       <div className="hud-shell relative mx-auto flex min-h-[calc(100dvh-1.5rem)] max-w-400 flex-col p-3 md:p-5 xl:pr-24">
