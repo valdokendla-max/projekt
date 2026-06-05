@@ -2,7 +2,7 @@
 // (localStorage'ist) + valib kas txt2img (kui ainult prompt) või img2img
 // (kui ka referents-pilt antud). ComfyUI-only, no paid fallback.
 import { ComfyClient, ComfyError, bytesToDataUrl, type ComfyImageRef, type ComfyHistoryEntry } from '@/lib/comfyui-client'
-import { buildTxt2ImgWorkflow, buildImg2ImgWorkflow } from '@/lib/comfyui-workflows'
+import { buildTxt2ImgWithFaceFixWorkflow, buildImg2ImgWorkflow } from '@/lib/comfyui-workflows'
 import type { PlaygroundCheckpoint } from '@/lib/playground-storage'
 
 export const runtime = 'edge'
@@ -62,7 +62,9 @@ export async function POST(req: Request) {
         filenamePrefix: 'playground',
       })
     } else {
-      workflow = buildTxt2ImgWorkflow({
+      // Txt2img kasutab automaatselt Face Detailer'it (kui näo tuvastab, parandab silmad+naha).
+      // Kui pildil ei ole nägu, Face Detailer lihtsalt jätab vahele — turvaline lisada igale txt2img'le.
+      workflow = buildTxt2ImgWithFaceFixWorkflow({
         prompt,
         negativePrompt,
         width: 832,

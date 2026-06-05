@@ -7,7 +7,7 @@ import {
   type AdultVariant,
 } from '@/lib/adult-prompts'
 import { ComfyClient, ComfyError, bytesToDataUrl, type ComfyImageRef, type ComfyHistoryEntry } from '@/lib/comfyui-client'
-import { buildTxt2ImgWorkflow } from '@/lib/comfyui-workflows'
+import { buildTxt2ImgWithFaceFixWorkflow } from '@/lib/comfyui-workflows'
 
 export const runtime = 'edge'
 
@@ -45,7 +45,9 @@ export async function POST(req: Request) {
 
   try {
     const client = new ComfyClient({ baseUrl: COMFYUI_BASE_URL })
-    const workflow = buildTxt2ImgWorkflow({
+    // buildTxt2ImgWithFaceFixWorkflow ajab pildi läbi Face Detailer'i, mis tuvastab
+    // näo ja re-sample'ib selle kõrgemal eraldusvõimel — silmad/nahk tulevad teravad.
+    const workflow = buildTxt2ImgWithFaceFixWorkflow({
       prompt,
       negativePrompt,
       width: cfg.width,
