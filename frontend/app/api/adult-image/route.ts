@@ -1,77 +1,59 @@
-// Image transform endpoint — ComfyUI img2img only (local SDXL on user's GPU).
-// No paid AI fallback. Variants without comfyEnabled return a "not yet supported"
-// message until Phase 2 (Regional Conditioning / ControlNet / IPAdapter) lands.
-import { IMAGE_TRANSFORM_PROMPTS, type ImageTransformVariant } from '@/lib/image-prompts'
-import { VARIANT_CONFIG } from '@/lib/image-transform-config'
+// Adult/18+ image generation — ComfyUI txt2img on local GPU.
+// POST /api/adult-image      -> {variant, subject} -> {ok, status:"pending", promptId}
+// GET  /api/adult-image?id=  -> poll for ready/pending/error
+import {
+  ADULT_VARIANTS,
+  buildAdultPrompt,
+  type AdultVariant,
+} from '@/lib/adult-prompts'
 import { ComfyClient, ComfyError, bytesToDataUrl, type ComfyImageRef, type ComfyHistoryEntry } from '@/lib/comfyui-client'
-import { buildImg2ImgWorkflow } from '@/lib/comfyui-workflows'
+import { buildTxt2ImgWorkflow } from '@/lib/comfyui-workflows'
 
 export const runtime = 'edge'
 
 const COMFYUI_BASE_URL = (process.env.COMFYUI_BASE_URL || '').trim()
 
 interface SubmitBody {
-  variant?: ImageTransformVariant
-  sourceImageDataUrl?: string
+  variant?: AdultVariant
+  subject?: string
+  ageConfirmed?: boolean
 }
 
-const VALID_VARIANTS: ImageTransformVariant[] = [
-  'tattoo-realistic',
-  'tattoo-portrait',
-  'enhance',
-  'line-art',
-  'text-logo',
-  'relief-3d',
-]
-
-function dataUrlToBytes(dataUrl: string): Uint8Array {
-  const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1]! : dataUrl
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-  return bytes
-}
-
-// ---------------------------------------------------------------------------
-// POST — submit
-// ---------------------------------------------------------------------------
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as SubmitBody
   const variant = body.variant
-  const sourceImageDataUrl = body.sourceImageDataUrl
+  const subject = String(body.subject || '').trim()
 
-  if (!variant || !VALID_VARIANTS.includes(variant)) {
+  if (!body.ageConfirmed) {
+    return Response.json({ ok: false, error: 'Vanus 18+ peab olema kinnitatud.' }, { status: 403 })
+  }
+  if (!variant || !(variant in ADULT_VARIANTS)) {
     return Response.json({ ok: false, error: 'Vigane variant.' }, { status: 400 })
   }
-  if (!sourceImageDataUrl) {
-    return Response.json({ ok: false, error: 'Pildi muundamiseks lisa esmalt pilt.' }, { status: 400 })
+  if (subject.length < 3) {
+    return Response.json({ ok: false, error: 'Kirjelda subjekti vähemalt 3 tähemärgiga.' }, { status: 400 })
+  }
+  if (subject.length > 300) {
+    return Response.json({ ok: false, error: 'Subjekti kirjeldus kuni 300 tähemärki.' }, { status: 400 })
   }
   if (!COMFYUI_BASE_URL) {
     return Response.json({ ok: false, error: 'ComfyUI server pole hetkel saadaval.' }, { status: 503 })
   }
 
-  const cfg = VARIANT_CONFIG[variant]
-  if (!cfg.comfyEnabled) {
-    return Response.json({
-      ok: false,
-      error: 'See variant on hetkel arenduses — vajab ControlNet / IPAdapter custom node\'e. Tuleb peagi.',
-    }, { status: 501 })
-  }
-
-  const prompt = IMAGE_TRANSFORM_PROMPTS[variant]
+  const cfg = ADULT_VARIANTS[variant]
+  const { prompt, negativePrompt } = buildAdultPrompt(variant, subject)
 
   try {
-    const bytes = dataUrlToBytes(sourceImageDataUrl)
     const client = new ComfyClient({ baseUrl: COMFYUI_BASE_URL })
-    const uploaded = await client.uploadImage(bytes, `src_${variant}_${Date.now()}.png`, req.signal)
-    const workflow = buildImg2ImgWorkflow({
+    const workflow = buildTxt2ImgWorkflow({
       prompt,
-      sourceImageName: uploaded.name,
-      denoise: cfg.denoise,
+      negativePrompt,
+      width: cfg.width,
+      height: cfg.height,
       steps: cfg.steps,
       cfg: cfg.cfg,
       checkpoint: cfg.checkpoint,
-      filenamePrefix: `tx_${variant}`,
+      filenamePrefix: `adult_${variant}`,
     })
     const promptId = await client.submit(workflow, req.signal)
     return Response.json({
@@ -81,17 +63,14 @@ export async function POST(req: Request) {
       provider: `comfyui-${cfg.checkpoint.replace(/\.safetensors$/, '')}`,
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Pildi muundamine ebaõnnestus.'
+    const message = error instanceof Error ? error.message : 'Pildi loomine ebaõnnestus.'
     return Response.json({ ok: false, error: message }, { status: 502 })
   }
 }
 
-// ---------------------------------------------------------------------------
-// GET — poll status (ComfyUI variants only)
-// ---------------------------------------------------------------------------
 export async function GET(req: Request) {
   if (!COMFYUI_BASE_URL) {
-    return Response.json({ ok: false, error: 'Polling on ainult ComfyUI puhul.' }, { status: 400 })
+    return Response.json({ ok: false, error: 'ComfyUI server pole hetkel saadaval.' }, { status: 503 })
   }
   const url = new URL(req.url)
   const promptId = (url.searchParams.get('id') || '').trim()
@@ -108,13 +87,11 @@ export async function GET(req: Request) {
     }
     const data = (await histRes.json().catch(() => ({}))) as Record<string, ComfyHistoryEntry>
     const entry = data[promptId]
-
     if (!entry) return Response.json({ ok: true, status: 'pending', promptId })
 
     if (entry.status?.status_str === 'error') {
       return Response.json({ ok: false, status: 'error', error: 'ComfyUI execution error', promptId }, { status: 502 })
     }
-
     if (entry.status?.completed) {
       const images: ComfyImageRef[] = []
       for (const out of Object.values(entry.outputs || {})) {
@@ -134,12 +111,7 @@ export async function GET(req: Request) {
       }
       const bytes = new Uint8Array(await imgRes.arrayBuffer())
       const mediaType = imgRes.headers.get('content-type') || 'image/png'
-      return Response.json({
-        ok: true,
-        status: 'ready',
-        imageDataUrl: bytesToDataUrl(bytes, mediaType),
-        promptId,
-      })
+      return Response.json({ ok: true, status: 'ready', imageDataUrl: bytesToDataUrl(bytes, mediaType), promptId })
     }
 
     return Response.json({ ok: true, status: 'pending', promptId })

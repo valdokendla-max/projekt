@@ -246,7 +246,21 @@ export async function POST(req: Request) {
   if (!response.ok) {
     const providerError = await response.text()
     const providerMessage = extractProviderMessage(providerError)
-    return new Response(JSON.stringify({ error: formatProviderError(providerMessage, provider) }), { status: response.status })
+    let formatted = formatProviderError(providerMessage, provider)
+    // Kui Groq/OpenAI blokeerib sisu või tagastab 5xx, suuna kasutaja pildi-ikoonidele.
+    const looksLikeContentBlock =
+      response.status === 400 ||
+      response.status === 403 ||
+      response.status === 422 ||
+      response.status >= 500 ||
+      /content|policy|filter|moderation|safety|blocked|nsfw|adult/i.test(providerMessage)
+    if (looksLikeContentBlock) {
+      formatted =
+        (language === 'eng'
+          ? 'Your message was blocked by the chat content filter. The chat is for laser engraving tech questions. To generate an image, use the icons "Loo ise" (your own prompt, saved in Knowledge) or "Täiskasvanutele" (21 styles).'
+          : 'Sinu sõnum blokeeriti vestluse modereerimisega. Pealehe chat on tehniliste küsimuste jaoks. Pildi loomiseks kasuta ikoone "Loo ise" (sinu enda prompt Teadmistest) või "Täiskasvanutele" (21 stiili).')
+    }
+    return new Response(JSON.stringify({ error: formatted }), { status: response.status })
   }
 
   const encoder = new TextEncoder()

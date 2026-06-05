@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { X, Plus, BookOpen, Lightbulb, FileText, Palette, Trash2, ArrowLeft, KeyRound, Shield, Users } from 'lucide-react'
 import type { AuthUser } from '@/hooks/use-auth'
+import { PlaygroundEditor } from '@/components/playground-editor'
 
 const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000').replace(/\/$/, '')
 
@@ -387,6 +388,10 @@ export function KnowledgePanel({ authStatus, currentUser, isOpen, onClose, sessi
             {error}
           </div>
         )}
+
+        <div className="border-b border-border px-5 py-4">
+          <PlaygroundEditor />
+        </div>
 
         {canManageKnowledge && (
           <div className="border-b border-border px-5 py-4">

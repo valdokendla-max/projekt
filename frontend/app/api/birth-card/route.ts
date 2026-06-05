@@ -1,5 +1,9 @@
-// OpenAI /v1/images/generations endpoint for the birth card (no source image).
-// Client sends Estonian inputs; we translate to English via the prompt builder before sending.
+// Two-step birth card via ComfyUI.
+// DISABLED IN UI (icon removed from homepage) — kept for direct API testing
+// until Phase 2 (Regional Conditioning) can separate 3 distinct animal subjects.
+//
+//   POST /api/birth-card  -> submits workflow, returns promptId
+//   GET  /api/birth-card?id=<promptId> -> polls for ready/pending/error
 import {
   buildBirthCardPrompt,
   CHINESE_ZODIAC_ANIMALS,
@@ -8,33 +12,29 @@ import {
   type ChineseZodiacAnimal,
   type ZodiacSign,
 } from '@/lib/image-prompts'
+import { ComfyClient, ComfyError, bytesToDataUrl, type ComfyImageRef, type ComfyHistoryEntry } from '@/lib/comfyui-client'
+import { buildTxt2ImgWorkflow } from '@/lib/comfyui-workflows'
 
 export const runtime = 'edge'
 
-const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')
-const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1'
-const OPENAI_IMAGE_QUALITY = process.env.OPENAI_IMAGE_QUALITY || 'medium'
+const COMFYUI_BASE_URL = (process.env.COMFYUI_BASE_URL || '').trim()
 
-interface RequestBody {
+interface SubmitBody {
   tahtkuju?: string
   sunniaasta_loom?: string
   hingeloom?: string
 }
 
-async function fetchImageAsDataUrl(url: string, signal: AbortSignal) {
-  const res = await fetch(url, { signal })
-  const bytes = new Uint8Array(await res.arrayBuffer())
-  let binary = ''
-  const chunk = 0x8000
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
-  }
-  const ct = res.headers.get('content-type') || 'image/png'
-  return `data:${ct};base64,${btoa(binary)}`
-}
+const NEGATIVE_PROMPT =
+  'photo, photorealistic, 3D rendering, modern art, cartoon, anime, watercolor, colorful, neon, glowing effects, ' +
+  'extra animals, extra people, modern clothing, technology, vehicles, buildings, watermark, signature, ' +
+  'hands holding the card, real plants, real flowers, decorations outside the card frame, low quality, blurry'
 
+// ---------------------------------------------------------------------------
+// POST — submit
+// ---------------------------------------------------------------------------
 export async function POST(req: Request) {
-  const body = (await req.json().catch(() => ({}))) as RequestBody
+  const body = (await req.json().catch(() => ({}))) as SubmitBody
   const tahtkuju = String(body.tahtkuju || '').trim()
   const sunniaasta_loom = String(body.sunniaasta_loom || '').trim()
   const hingeloom = String(body.hingeloom || '').trim()
@@ -52,11 +52,6 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: 'Hingeloom peab olema kuni 60 tähemärki.' }, { status: 400 })
   }
 
-  const apiKey = (process.env.OPENAI_API_KEY || '').trim()
-  if (!apiKey) {
-    return Response.json({ ok: false, error: 'OPENAI_API_KEY puudub.' }, { status: 503 })
-  }
-
   const inputs: BirthCardInputs = {
     tahtkuju: tahtkuju as ZodiacSign,
     sunniaasta_loom: sunniaasta_loom as ChineseZodiacAnimal,
@@ -64,45 +59,90 @@ export async function POST(req: Request) {
   }
   const prompt = buildBirthCardPrompt(inputs)
 
+  if (!COMFYUI_BASE_URL) {
+    return Response.json({ ok: false, error: 'ComfyUI server pole hetkel saadaval.' }, { status: 503 })
+  }
+  // Birth card is temporarily disabled in UI until Phase 2 (Regional Conditioning)
+  // can separate 3 distinct animal subjects. Route still works for direct testing.
   try {
-    const res = await fetch(`${OPENAI_BASE_URL}/images/generations`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: OPENAI_IMAGE_MODEL,
-        prompt,
-        n: 1,
-        size: '1024x1536',
-        quality: OPENAI_IMAGE_QUALITY,
-      }),
-      signal: req.signal,
+    const client = new ComfyClient({ baseUrl: COMFYUI_BASE_URL })
+    const workflow = buildTxt2ImgWorkflow({
+      prompt,
+      negativePrompt: NEGATIVE_PROMPT,
+      width: 832,
+      height: 1216,
+      filenamePrefix: 'birthcard',
     })
-
-    const payload = (await res.json().catch(() => null)) as {
-      data?: Array<{ b64_json?: string; url?: string }>
-      error?: { message?: string }
-    } | null
-
-    if (!res.ok) {
-      throw new Error(payload?.error?.message || `OpenAI generations viga ${res.status}`)
-    }
-
-    const first = payload?.data?.[0]
-    let imageDataUrl: string
-    if (first?.b64_json) {
-      imageDataUrl = `data:image/png;base64,${first.b64_json}`
-    } else if (first?.url) {
-      imageDataUrl = await fetchImageAsDataUrl(first.url, req.signal)
-    } else {
-      throw new Error('Sünnikaardi loomine ei tagastanud väljundit.')
-    }
-
-    return Response.json({ ok: true, imageDataUrl })
+    const promptId = await client.submit(workflow, req.signal)
+    return Response.json({ ok: true, status: 'pending', promptId, provider: 'comfyui-sdxl' })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Sünnikaardi loomine ebaõnnestus.'
     return Response.json({ ok: false, error: message }, { status: 502 })
+  }
+}
+
+// ---------------------------------------------------------------------------
+// GET — poll status
+// ---------------------------------------------------------------------------
+export async function GET(req: Request) {
+  if (!COMFYUI_BASE_URL) {
+    return Response.json({ ok: false, error: 'Polling on ainult ComfyUI puhul.' }, { status: 400 })
+  }
+  const url = new URL(req.url)
+  const promptId = (url.searchParams.get('id') || '').trim()
+  if (!promptId) {
+    return Response.json({ ok: false, error: 'id puudub.' }, { status: 400 })
+  }
+
+  try {
+    const histRes = await fetch(`${COMFYUI_BASE_URL}/history/${encodeURIComponent(promptId)}`, {
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!histRes.ok) {
+      return Response.json({ ok: false, error: `ComfyUI history viga ${histRes.status}` }, { status: 502 })
+    }
+    const data = (await histRes.json().catch(() => ({}))) as Record<string, ComfyHistoryEntry>
+    const entry = data[promptId]
+
+    if (!entry) {
+      return Response.json({ ok: true, status: 'pending', promptId })
+    }
+
+    if (entry.status?.status_str === 'error') {
+      return Response.json({ ok: false, status: 'error', error: 'ComfyUI execution error', promptId }, { status: 502 })
+    }
+
+    if (entry.status?.completed) {
+      const images: ComfyImageRef[] = []
+      for (const out of Object.values(entry.outputs || {})) {
+        for (const img of out.images || []) images.push(img)
+      }
+      if (images.length === 0) {
+        return Response.json({ ok: false, status: 'error', error: 'No images produced.', promptId }, { status: 502 })
+      }
+      const ref = images[0]!
+      const imgUrl = new URL(`${COMFYUI_BASE_URL}/view`)
+      imgUrl.searchParams.set('filename', ref.filename)
+      imgUrl.searchParams.set('subfolder', ref.subfolder)
+      imgUrl.searchParams.set('type', ref.type)
+      const imgRes = await fetch(imgUrl.toString(), { signal: AbortSignal.timeout(20_000) })
+      if (!imgRes.ok) {
+        return Response.json({ ok: false, error: `View viga ${imgRes.status}` }, { status: 502 })
+      }
+      const bytes = new Uint8Array(await imgRes.arrayBuffer())
+      const mediaType = imgRes.headers.get('content-type') || 'image/png'
+      return Response.json({
+        ok: true,
+        status: 'ready',
+        imageDataUrl: bytesToDataUrl(bytes, mediaType),
+        promptId,
+      })
+    }
+
+    return Response.json({ ok: true, status: 'pending', promptId })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Polling ebaõnnestus.'
+    const status = error instanceof ComfyError ? 504 : 502
+    return Response.json({ ok: false, error: message }, { status })
   }
 }

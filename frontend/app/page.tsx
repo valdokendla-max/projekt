@@ -11,6 +11,9 @@ import { ChatMessage } from '@/components/chat-message'
 import { KnowledgePanel } from '@/components/knowledge-panel'
 import { LaserSettingsPanel } from '@/components/laser-settings-panel'
 import { BirthCardModal } from '@/components/birth-card-modal'
+import { AdultModal } from '@/components/adult-modal'
+import { ADULT_TOP_LEVEL_LABELS, type AdultVariant } from '@/lib/adult-prompts'
+import { loadPlayground } from '@/lib/playground-storage'
 import { readSavedLaserSettings, type StoredLaserSettings } from '@/lib/engraving/saved-settings-storage'
 import { useAuth } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
@@ -380,6 +383,9 @@ export default function LaserGraveerimiseApp() {
   const [transformingVariant, setTransformingVariant] = useState<ImageTransformVariant | null>(null)
   const [isGeneratingBirthCard, setIsGeneratingBirthCard] = useState(false)
   const [birthCardOpen, setBirthCardOpen] = useState(false)
+  const [adultModalOpen, setAdultModalOpen] = useState(false)
+  const [isGeneratingAdult, setIsGeneratingAdult] = useState(false)
+  const [isGeneratingPlayground, setIsGeneratingPlayground] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([
     { id: 'conv-0', name: 'Vestlus 1', messages: [], createdAt: new Date() },
@@ -474,8 +480,30 @@ export default function LaserGraveerimiseApp() {
     }
     setTransformingVariant(variant)
     setChatInputError('')
+
+    const doneText = IMAGE_TRANSFORM_DONE_MESSAGES[variant][effectiveLanguage].name
+    const outputFilename = IMAGE_TRANSFORM_FILENAMES[variant]
+    const sourceUrl = activeImage.url
+    const placeholderId = crypto.randomUUID()
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        role: 'user' as const,
+        parts: [{ type: 'file', url: sourceUrl, mediaType: activeImage.mediaType, filename: 'allikas.png' } as UIMessage['parts'][number]],
+        content: '',
+        createdAt: new Date(),
+      } as UIMessage,
+      {
+        id: placeholderId,
+        role: 'assistant' as const,
+        parts: [{ type: 'text', text: effectiveLanguage === 'eng' ? 'Generating…' : 'Loomisel…' }],
+        content: '',
+        createdAt: new Date(),
+      } as UIMessage,
+    ])
+
     try {
-      const sourceUrl = activeImage.url
       const resized = await resizeImageTo1024(sourceUrl)
       const res = await fetch('/api/image-transform', {
         method: 'POST',
@@ -484,45 +512,265 @@ export default function LaserGraveerimiseApp() {
       })
       const data = (await res.json().catch(() => {
         throw new Error(`HTTP ${res.status}`)
-      })) as { ok: boolean; imageDataUrl?: string; error?: string }
-      if (!data.ok || !data.imageDataUrl) {
+      })) as { ok: boolean; status?: 'ready' | 'pending'; imageDataUrl?: string; promptId?: string; error?: string }
+      if (!data.ok) {
         throw new Error(data.error || (effectiveLanguage === 'eng' ? 'Image transform failed.' : 'Pildi muundamine ebaõnnestus.'))
       }
 
-      const doneText = IMAGE_TRANSFORM_DONE_MESSAGES[variant][effectiveLanguage].name
-      const outputFilename = IMAGE_TRANSFORM_FILENAMES[variant]
+      let imageDataUrl: string | undefined = data.imageDataUrl
+      if (!imageDataUrl) {
+        if (!data.promptId) throw new Error('No promptId returned.')
+        const promptId = data.promptId
+        const deadline = Date.now() + 10 * 60 * 1000
+        while (Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 4000))
+          const pollRes = await fetch(`/api/image-transform?id=${encodeURIComponent(promptId)}`)
+          const pollData = (await pollRes.json().catch(() => null)) as
+            | { ok: boolean; status?: 'ready' | 'pending' | 'error'; imageDataUrl?: string; error?: string }
+            | null
+          if (!pollData) continue
+          if (!pollData.ok) throw new Error(pollData.error || 'Polling failed.')
+          if (pollData.status === 'ready' && pollData.imageDataUrl) {
+            imageDataUrl = pollData.imageDataUrl
+            break
+          }
+        }
+        if (!imageDataUrl) {
+          throw new Error(effectiveLanguage === 'eng' ? 'Image transform timed out.' : 'Pildi muundamine aegus.')
+        }
+      }
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: 'user' as const,
-          parts: [{ type: 'file', url: sourceUrl, mediaType: activeImage.mediaType, filename: 'allikas.png' } as UIMessage['parts'][number]],
-          content: '',
-          createdAt: new Date(),
-        } as UIMessage,
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant' as const,
-          parts: [
-            { type: 'file', url: data.imageDataUrl, mediaType: 'image/png', filename: outputFilename } as UIMessage['parts'][number],
-            { type: 'text', text: doneText },
-          ],
-          content: '',
-          createdAt: new Date(),
-        } as UIMessage,
-      ])
+      const finalImageUrl = imageDataUrl
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === placeholderId
+            ? ({
+                ...msg,
+                parts: [
+                  { type: 'file', url: finalImageUrl, mediaType: 'image/png', filename: outputFilename } as UIMessage['parts'][number],
+                  { type: 'text', text: doneText },
+                ],
+              } as UIMessage)
+            : msg,
+        ),
+      )
       setPendingImage(null)
     } catch (error) {
-      setChatInputError(
-        error instanceof Error
-          ? error.message
-          : effectiveLanguage === 'eng'
-          ? 'Image transform failed.'
-          : 'Pildi muundamine ebaõnnestus.',
+      const errorMessage = error instanceof Error
+        ? error.message
+        : effectiveLanguage === 'eng'
+        ? 'Image transform failed.'
+        : 'Pildi muundamine ebaõnnestus.'
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === placeholderId
+            ? ({
+                ...msg,
+                parts: [{ type: 'text', text: `⚠️ ${errorMessage}` }],
+              } as UIMessage)
+            : msg,
+        ),
       )
+      setChatInputError(errorMessage)
     } finally {
       setTransformingVariant(null)
+    }
+  }
+
+  const handlePlaygroundGenerate = async () => {
+    if (isGeneratingPlayground) return
+    const settings = loadPlayground()
+    if (!settings.prompt.trim()) {
+      setChatInputError(effectiveLanguage === 'eng'
+        ? 'Save a prompt first: open Knowledge → "Loo ise" → write prompt → Save.'
+        : 'Salvesta esmalt prompt: ava Teadmised → "Loo ise" → kirjuta prompt → Salvesta.')
+      return
+    }
+    setIsGeneratingPlayground(true)
+    setChatInputError('')
+
+    const active = getActiveImage()
+    const sourceUrl = active?.url
+    const placeholderId = crypto.randomUUID()
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        role: 'user' as const,
+        parts: sourceUrl
+          ? [
+              { type: 'file', url: sourceUrl, mediaType: active!.mediaType, filename: 'allikas.png' } as UIMessage['parts'][number],
+              { type: 'text', text: settings.prompt.slice(0, 200) },
+            ]
+          : [{ type: 'text', text: settings.prompt.slice(0, 200) }],
+        content: settings.prompt.slice(0, 200),
+        createdAt: new Date(),
+      } as UIMessage,
+      {
+        id: placeholderId,
+        role: 'assistant' as const,
+        parts: [{ type: 'text', text: effectiveLanguage === 'eng' ? 'Generating…' : 'Loomisel…' }],
+        content: '',
+        createdAt: new Date(),
+      } as UIMessage,
+    ])
+
+    try {
+      let sourceImageDataUrl: string | undefined
+      if (sourceUrl) {
+        sourceImageDataUrl = await resizeImageTo1024(sourceUrl)
+      }
+      const submitRes = await fetch('/api/playground', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: settings.prompt,
+          negativePrompt: settings.negativePrompt,
+          checkpoint: settings.checkpoint,
+          sourceImageDataUrl,
+        }),
+      })
+      const submitData = (await submitRes.json().catch(() => {
+        throw new Error(`HTTP ${submitRes.status}`)
+      })) as { ok: boolean; status?: 'pending' | 'ready'; promptId?: string; imageDataUrl?: string; error?: string }
+      if (!submitData.ok) throw new Error(submitData.error || 'Playground failed.')
+
+      let imageDataUrl: string | undefined = submitData.imageDataUrl
+      if (!imageDataUrl) {
+        if (!submitData.promptId) throw new Error('No promptId.')
+        const promptId = submitData.promptId
+        const deadline = Date.now() + 10 * 60 * 1000
+        while (Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 4000))
+          const pollRes = await fetch(`/api/playground?id=${encodeURIComponent(promptId)}`)
+          const pollData = (await pollRes.json().catch(() => null)) as
+            | { ok: boolean; status?: 'ready' | 'pending' | 'error'; imageDataUrl?: string; error?: string }
+            | null
+          if (!pollData) continue
+          if (!pollData.ok) throw new Error(pollData.error || 'Polling failed.')
+          if (pollData.status === 'ready' && pollData.imageDataUrl) {
+            imageDataUrl = pollData.imageDataUrl
+            break
+          }
+        }
+        if (!imageDataUrl) throw new Error(effectiveLanguage === 'eng' ? 'Generation timed out.' : 'Loomine aegus.')
+      }
+
+      const finalUrl = imageDataUrl
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === placeholderId
+            ? ({
+                ...msg,
+                parts: [
+                  { type: 'file', url: finalUrl, mediaType: 'image/png', filename: 'playground.png' } as UIMessage['parts'][number],
+                  { type: 'text', text: effectiveLanguage === 'eng' ? 'Generated.' : 'Loodud.' },
+                ],
+              } as UIMessage)
+            : msg,
+        ),
+      )
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Loomine ebaõnnestus.'
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === placeholderId
+            ? ({ ...m, parts: [{ type: 'text', text: `⚠️ ${msg}` }] } as UIMessage)
+            : m,
+        ),
+      )
+      setChatInputError(msg)
+    } finally {
+      setIsGeneratingPlayground(false)
+    }
+  }
+
+  const handleAdultSubmit = async (variant: AdultVariant, subject: string) => {
+    if (isGeneratingAdult) return
+    setIsGeneratingAdult(true)
+    setChatInputError('')
+    const placeholderId = crypto.randomUUID()
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        role: 'user' as const,
+        parts: [{ type: 'text', text: `${variant}: ${subject}` }],
+        content: `${variant}: ${subject}`,
+        createdAt: new Date(),
+      } as UIMessage,
+      {
+        id: placeholderId,
+        role: 'assistant' as const,
+        parts: [{ type: 'text', text: effectiveLanguage === 'eng' ? 'Generating…' : 'Loomisel…' }],
+        content: '',
+        createdAt: new Date(),
+      } as UIMessage,
+    ])
+
+    try {
+      const submitRes = await fetch('/api/adult-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variant, subject, ageConfirmed: true }),
+      })
+      const submitData = (await submitRes.json().catch(() => {
+        throw new Error(`HTTP ${submitRes.status}`)
+      })) as { ok: boolean; status?: 'pending' | 'ready'; promptId?: string; imageDataUrl?: string; error?: string }
+      if (!submitData.ok) {
+        throw new Error(submitData.error || (effectiveLanguage === 'eng' ? 'Image generation failed.' : 'Pildi loomine ebaõnnestus.'))
+      }
+
+      let imageDataUrl: string | undefined = submitData.imageDataUrl
+      if (!imageDataUrl) {
+        if (!submitData.promptId) throw new Error('No promptId returned.')
+        const promptId = submitData.promptId
+        const deadline = Date.now() + 10 * 60 * 1000
+        while (Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 4000))
+          const pollRes = await fetch(`/api/adult-image?id=${encodeURIComponent(promptId)}`)
+          const pollData = (await pollRes.json().catch(() => null)) as
+            | { ok: boolean; status?: 'ready' | 'pending' | 'error'; imageDataUrl?: string; error?: string }
+            | null
+          if (!pollData) continue
+          if (!pollData.ok) throw new Error(pollData.error || 'Polling failed.')
+          if (pollData.status === 'ready' && pollData.imageDataUrl) {
+            imageDataUrl = pollData.imageDataUrl
+            break
+          }
+        }
+        if (!imageDataUrl) {
+          throw new Error(effectiveLanguage === 'eng' ? 'Generation timed out.' : 'Pildi loomine aegus.')
+        }
+      }
+
+      const finalUrl = imageDataUrl
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === placeholderId
+            ? ({
+                ...msg,
+                parts: [
+                  { type: 'file', url: finalUrl, mediaType: 'image/png', filename: `${variant}.png` } as UIMessage['parts'][number],
+                  { type: 'text', text: effectiveLanguage === 'eng' ? 'Image created.' : 'Pilt on loodud.' },
+                ],
+              } as UIMessage)
+            : msg,
+        ),
+      )
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Pildi loomine ebaõnnestus.'
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === placeholderId
+            ? ({ ...msg, parts: [{ type: 'text', text: `⚠️ ${errorMessage}` }] } as UIMessage)
+            : msg,
+        ),
+      )
+      setChatInputError(errorMessage)
+    } finally {
+      setIsGeneratingAdult(false)
     }
   }
 
@@ -553,16 +801,40 @@ export default function LaserGraveerimiseApp() {
     ])
 
     try {
-      const res = await fetch('/api/birth-card', {
+      const submitRes = await fetch('/api/birth-card', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(inputs),
       })
-      const data = (await res.json().catch(() => {
-        throw new Error(`HTTP ${res.status}`)
-      })) as { ok: boolean; imageDataUrl?: string; error?: string }
-      if (!data.ok || !data.imageDataUrl) {
-        throw new Error(data.error || (effectiveLanguage === 'eng' ? 'Birth card generation failed.' : 'Sünnikaardi loomine ebaõnnestus.'))
+      const submitData = (await submitRes.json().catch(() => {
+        throw new Error(`HTTP ${submitRes.status}`)
+      })) as { ok: boolean; status?: 'ready' | 'pending'; imageDataUrl?: string; promptId?: string; error?: string }
+      if (!submitData.ok) {
+        throw new Error(submitData.error || (effectiveLanguage === 'eng' ? 'Birth card generation failed.' : 'Sünnikaardi loomine ebaõnnestus.'))
+      }
+
+      let imageDataUrl: string | undefined = submitData.imageDataUrl
+      if (!imageDataUrl) {
+        if (!submitData.promptId) throw new Error('No promptId returned.')
+        // Poll every 4s up to 10 min. ComfyUI local SDXL takes ~3-5 min.
+        const promptId = submitData.promptId
+        const deadline = Date.now() + 10 * 60 * 1000
+        while (Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 4000))
+          const pollRes = await fetch(`/api/birth-card?id=${encodeURIComponent(promptId)}`)
+          const pollData = (await pollRes.json().catch(() => null)) as
+            | { ok: boolean; status?: 'ready' | 'pending' | 'error'; imageDataUrl?: string; error?: string }
+            | null
+          if (!pollData) continue
+          if (!pollData.ok) throw new Error(pollData.error || 'Polling failed.')
+          if (pollData.status === 'ready' && pollData.imageDataUrl) {
+            imageDataUrl = pollData.imageDataUrl
+            break
+          }
+        }
+        if (!imageDataUrl) {
+          throw new Error(effectiveLanguage === 'eng' ? 'Birth card generation timed out.' : 'Sünnikaardi loomine aegus.')
+        }
       }
 
       setMessages((prev) =>
@@ -571,7 +843,7 @@ export default function LaserGraveerimiseApp() {
             ? ({
                 ...msg,
                 parts: [
-                  { type: 'file', url: data.imageDataUrl, mediaType: 'image/png', filename: 'synnikaart.png' } as UIMessage['parts'][number],
+                  { type: 'file', url: imageDataUrl, mediaType: 'image/png', filename: 'synnikaart.png' } as UIMessage['parts'][number],
                   { type: 'text', text: effectiveLanguage === 'eng' ? 'Birth card created.' : 'Sünnikaart on loodud.' },
                 ],
               } as UIMessage)
@@ -729,10 +1001,17 @@ export default function LaserGraveerimiseApp() {
       prompt: '',
     },
     {
-      label: BIRTH_CARD_LABELS[effectiveLanguage].name,
-      icon: <Stars className="h-5 w-5" />,
-      onCustomAction: () => setBirthCardOpen(true),
-      isCustomActionRunning: isGeneratingBirthCard,
+      label: ADULT_TOP_LEVEL_LABELS[effectiveLanguage].name,
+      icon: <Sparkles className="h-5 w-5" />,
+      onCustomAction: () => setAdultModalOpen(true),
+      isCustomActionRunning: isGeneratingAdult,
+      prompt: '',
+    },
+    {
+      label: effectiveLanguage === 'eng' ? 'Create your own' : 'Loo ise',
+      icon: <Pen className="h-5 w-5" />,
+      onCustomAction: () => void handlePlaygroundGenerate(),
+      isCustomActionRunning: isGeneratingPlayground,
       prompt: '',
     },
     {
@@ -1074,6 +1353,13 @@ export default function LaserGraveerimiseApp() {
         open={birthCardOpen}
         onOpenChange={setBirthCardOpen}
         onSubmit={handleBirthCardSubmit}
+        language={effectiveLanguage}
+      />
+
+      <AdultModal
+        open={adultModalOpen}
+        onOpenChange={setAdultModalOpen}
+        onSubmit={handleAdultSubmit}
         language={effectiveLanguage}
       />
 

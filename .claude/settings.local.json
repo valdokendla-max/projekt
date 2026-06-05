@@ -26,7 +26,21 @@
       "Bash(node *)",
       "Bash(git commit -m 'fix: remove output_format from images/edits FormData — not supported by edits endpoint *)",
       "Bash(git rm *)",
-      "Bash(Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue)"
+      "Bash(Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue)",
+      "Bash(git commit *)",
+      "Bash(railway --version)",
+      "Bash(pg_dump --version)",
+      "PowerShell(Get-Command pg_dump -ErrorAction SilentlyContinue | Select-Object Source; if \\(-not \\(Get-Command pg_dump -ErrorAction SilentlyContinue\\)\\) { Get-ChildItem \"C:\\\\Program Files\\\\PostgreSQL\" -ErrorAction SilentlyContinue | Select-Object Name; Get-ChildItem \"C:\\\\Program Files \\(x86\\)\\\\PostgreSQL\" -ErrorAction SilentlyContinue | Select-Object Name })",
+      "Bash(railway whoami *)",
+      "Bash(railway list *)",
+      "Bash(railway link *)",
+      "Bash(railway service *)",
+      "Bash(wrangler --version)",
+      "Bash(npm --version)",
+      "Bash(wrangler whoami *)",
+      "Read(//c/Users/Admin/AppData/Roaming/xdg.config/.wrangler/config/**)",
+      "Bash(python -m json.tool)",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); z=d['result'][0]; print\\('Status:',z['status']\\); print\\('Cloudflare NS:',z['name_servers']\\); print\\('Current registrar NS:',z['original_name_servers']\\)\")"
     ]
   }
 }
