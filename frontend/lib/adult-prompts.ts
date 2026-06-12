@@ -4,7 +4,7 @@
 
 import type { ActionLabels, Language } from './image-prompts'
 
-export type AdultCategory = 'portrait' | 'glamour' | 'atmosphere' | 'beach' | 'group' | 'tattoo'
+export type AdultCategory = 'portrait' | 'glamour' | 'atmosphere' | 'beach' | 'group' | 'tattoo' | 'explicit'
 
 export type AdultVariant =
   // portrait — single subject, intimate
@@ -34,10 +34,22 @@ export type AdultVariant =
   | 'beach-club'
   // tattoo
   | 'tattoo-reference'
+  // explicit — hardcore sex acts (CyberRealistic Pony)
+  | 'explicit-solo-spread'
+  | 'explicit-couple-missionary'
+  | 'explicit-couple-cowgirl'
+  | 'explicit-couple-doggy'
+  | 'explicit-oral-female'
+  | 'explicit-lesbian-couple'
+  | 'explicit-shower-couple'
+  | 'explicit-cumshot-finish'
 
 export interface AdultVariantConfig {
   category: AdultCategory
-  checkpoint: 'ponyDiffusionV6XL.safetensors' | 'juggernautXI.safetensors'
+  checkpoint:
+    | 'ponyDiffusionV6XL.safetensors'
+    | 'juggernautXI.safetensors'
+    | 'cyberrealisticPony_v18.safetensors'
   steps: number
   cfg: number
   width: number
@@ -49,8 +61,20 @@ export interface AdultVariantConfig {
 
 const COMMON_NEGATIVE =
   'low quality, blurry, bad anatomy, extra fingers, extra limbs, deformed hands, ' +
-  'crossed eyes, duplicate body parts, watermark, text, logo, cropped, out of frame, ' +
-  'child, teen, underage, young, kid, minor'
+  'crossed eyes, duplicate body parts, watermark, text, logo, out of frame, ' +
+  'child, teen, underage, young, kid, minor, ' +
+  // Käsk: kogu keha peab nähtav olema. Tugevdame kärpimise blokki.
+  '((cropped:1.5)), ((close-up:1.4)), ((head shot:1.4)), ((portrait crop:1.4)), ' +
+  '((bust shot:1.4)), ((upper body only:1.5)), ((waist crop:1.4)), ' +
+  '(cut off legs:1.4), (feet out of frame:1.4), (legs not shown:1.4), ' +
+  'hands out of frame, partial body, torso only, 85mm lens, telephoto'
+
+const FULL_BODY_TAG =
+  // Tugev rõhk kogu kehale: kaalud 1.4-1.5, wide-angle lens, zoom out, kaugem kaamera.
+  '((full body shot:1.5)), ((head to toe visible:1.4)), ((entire body in frame:1.4)), ' +
+  '(showing full body length from head to feet:1.3), (zoomed out:1.3), ' +
+  '(wide angle 35mm lens:1.2), (camera far from subject:1.2), ' +
+  '(full figure in frame:1.3), '
 
 const FLUX_QUALITY_BOOST =
   ', ultra realistic, natural skin pores, subsurface scattering, realistic eyes, ' +
@@ -60,237 +84,352 @@ const FLUX_QUALITY_BOOST =
 const PONY_QUALITY = 'score_9, score_8_up, score_7_up, '
 
 export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
-  // ============== PORTRAIT ==============
+  // ============== PORTRAIT (18+) ==============
   'boudoir-elegant': {
     category: 'portrait',
-    checkpoint: 'juggernautXI.safetensors',
-    steps: 30, cfg: 6.5, width: 1024, height: 1024,
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    steps: 30, cfg: 6.5, width: 832, height: 1216,
     promptTemplate:
-      '{SUBJECT}, professional boudoir photography, soft natural light, luxurious bedroom, ' +
-      'elegant atmosphere, realistic anatomy, detailed skin texture, cinematic shadows, ' +
-      'highly detailed, photorealistic, magazine quality' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Boudoir elegantne', description: 'Pehme valgus, luksuslik magamistuba' }, eng: { name: 'Boudoir elegant', description: 'Soft light, luxury bedroom' } },
+      '{SUBJECT}, beautiful adult woman, (nude:1.2), (bare breasts:1.1), lying on luxurious bed with white silk sheets, ' +
+      'professional boudoir photography, soft natural light, intimate atmosphere, ' +
+      'realistic anatomy, detailed skin texture, cinematic shadows, highly detailed, photorealistic, magazine quality' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', clothed, dressed, covered',
+    labels: { est: { name: 'Boudoir alasti', description: 'Alasti naine luksusvoodis, pehme valgus' }, eng: { name: 'Boudoir nude', description: 'Nude on luxury bed, soft light' } },
   },
   'boudoir-sensual': {
     category: 'portrait',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 832, height: 1216,
     promptTemplate:
-      '{SUBJECT}, elegant black lingerie, sitting on the edge of a luxury bed, ' +
-      'soft morning light through large windows, confident gaze, natural skin texture, ' +
-      'cinematic photography, ultra realistic, 85mm lens, shallow depth of field, ' +
-      'highly detailed, sophisticated and sensual atmosphere' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Boudoir sensuaalne', description: 'Hommikune valgus, elegantne pesu' }, eng: { name: 'Boudoir sensual', description: 'Morning light, elegant lingerie' } },
+      '{SUBJECT}, beautiful adult woman, (topless:1.2), bare breasts, sheer panties only, ' +
+      'sitting on the edge of a luxury bed, soft morning light through large windows, ' +
+      'confident gaze, natural skin texture, cinematic photography, ultra realistic, 85mm lens, ' +
+      'shallow depth of field, highly detailed, sensual atmosphere' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', bra, top, shirt, covered chest',
+    labels: { est: { name: 'Boudoir topless', description: 'Topless voodi serval, hommikuvalgus' }, eng: { name: 'Boudoir topless', description: 'Topless on bed edge, morning light' } },
   },
   'boudoir-luxury': {
     category: 'portrait',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 832, height: 1216,
     promptTemplate:
-      '{SUBJECT}, elegant black lace lingerie, sitting on a luxury hotel bed, ' +
-      'soft golden morning sunlight, natural skin texture, confident expression, ' +
+      '{SUBJECT}, beautiful adult woman, (nude:1.2), (full nudity:1.1), lying provocatively on luxury hotel bed, ' +
+      'tousled sheets, soft golden morning sunlight, confident expression, ' +
       'cinematic photography, shallow depth of field, 85mm lens, ultra realistic, ' +
       'masterpiece, high detail, magazine quality' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Luksuslik boudoir', description: 'Pits-pesu, kuldne hommikupäike' }, eng: { name: 'Luxury boudoir', description: 'Lace lingerie, golden morning sun' } },
+    negativePrompt: COMMON_NEGATIVE + ', clothed, lingerie, robe, covered',
+    labels: { est: { name: 'Luksuslik akt', description: 'Täisalasti hotellivoodis, kuldne valgus' }, eng: { name: 'Luxury nude', description: 'Full nude in hotel bed, golden light' } },
   },
   'artistic-nude': {
     category: 'portrait',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 832, height: 1216,
     promptTemplate:
-      '{SUBJECT}, artistic nude portrait, dramatic studio lighting, tasteful composition, ' +
-      'classical fine art photography, realistic anatomy, soft shadows, ' +
-      'high detail, elegant and refined aesthetic, gallery quality' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Kunstiline akt', description: 'Klassikaline fine art, studio valgus' }, eng: { name: 'Artistic nude', description: 'Classical fine art, studio light' } },
+      '{SUBJECT}, beautiful adult woman, (full body nude:1.2), classical artistic nude portrait, ' +
+      'dramatic studio lighting with strong shadows, sculptural pose, ' +
+      'classical fine art photography, realistic anatomy, soft skin highlights, ' +
+      'high detail, elegant and refined aesthetic, gallery quality, Helmut Newton style' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', clothing, covering',
+    labels: { est: { name: 'Kunstiline akt', description: 'Klassikaline täisalasti, studio dramaatiline valgus' }, eng: { name: 'Artistic nude', description: 'Classical full nude, dramatic studio' } },
   },
   'bw-studio': {
     category: 'portrait',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 832, height: 1216,
     promptTemplate:
-      '{SUBJECT}, classic black and white photography, dramatic studio lighting, ' +
-      'elegant pose, luxury fashion aesthetic, ultra realistic, sharp focus, ' +
-      'high contrast shadows, timeless portrait' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE + ', color, colorful',
-    labels: { est: { name: 'Must-valge glamuur', description: 'Klassikaline B&W studio portree' }, eng: { name: 'B&W glamour', description: 'Classic B&W studio portrait' } },
+      '{SUBJECT}, beautiful adult woman, (nude:1.2), (bare body:1.1), classic black and white photography, ' +
+      'dramatic studio lighting, elegant artistic pose, luxury fashion aesthetic, ' +
+      'ultra realistic, sharp focus, high contrast deep shadows, timeless nude portrait' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', color, colorful, clothing',
+    labels: { est: { name: 'Must-valge akt', description: 'B&W studio akt, dramaatiline valgus' }, eng: { name: 'B&W nude', description: 'B&W studio nude, dramatic light' } },
   },
 
-  // ============== GLAMOUR ==============
+  // ============== GLAMOUR (18+) ==============
   'hotel-suite': {
     category: 'glamour',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 832, height: 1216,
     promptTemplate:
-      '{SUBJECT}, elegant silk robe, luxury hotel suite, city lights through window, ' +
-      'cinematic lighting, realistic skin texture, 85mm photography, shallow depth of field, ' +
-      'ultra realistic, masterpiece, high detail, professional photography' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Hotellisviit', description: 'Luksusviit, linnatuled aknast' }, eng: { name: 'Hotel suite', description: 'Luxury suite, city lights' } },
+      '{SUBJECT}, beautiful adult woman, (open silk robe revealing nude body:1.2), ' +
+      '(bare breasts:1.1), luxury hotel suite, city lights through window, ' +
+      'cinematic lighting, realistic skin texture, 85mm photography, ' +
+      'ultra realistic, masterpiece, high detail, sensual atmosphere' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', closed robe, covered chest',
+    labels: { est: { name: 'Hotellisviit avatud mantel', description: 'Avatud hommikumantel, alasti keha, linnatuled' }, eng: { name: 'Hotel open robe', description: 'Open robe, nude body, city lights' } },
   },
   'hotel-satin': {
     category: 'glamour',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 832, height: 1216,
     promptTemplate:
-      '{SUBJECT}, luxury hotel suite, wearing an elegant satin dress, ' +
-      'city skyline at night, cinematic lighting, photorealistic, 85mm lens, ' +
-      'ultra detailed, fashion magazine quality' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Hotell + satiin', description: 'Satiinkleit, linnasiluett öös' }, eng: { name: 'Hotel + satin', description: 'Satin dress, night skyline' } },
+      '{SUBJECT}, beautiful adult woman, (slipping off satin dress:1.2), (bare shoulders:1.1), ' +
+      '(exposed cleavage:1.1), luxury hotel suite, city skyline at night, ' +
+      'cinematic lighting, photorealistic, 85mm lens, ultra detailed, sensual elegance' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', fully clothed, covered',
+    labels: { est: { name: 'Satiinkleit libisemas', description: 'Satiinkleit libiseb maha, paljad õlad' }, eng: { name: 'Slipping satin', description: 'Satin dress slipping, bare shoulders' } },
   },
   'silk-robe-penthouse': {
     category: 'glamour',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 832, height: 1216,
     promptTemplate:
-      '{SUBJECT}, silk robe slightly draped over shoulders, luxury penthouse interior, ' +
-      'city lights at night, warm cinematic lighting, photorealistic, ' +
-      'highly detailed skin texture, professional photography' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Siid hommikumantel', description: 'Penthouse interjöör, öine linn' }, eng: { name: 'Silk robe', description: 'Penthouse interior, night city' } },
+      '{SUBJECT}, beautiful adult woman, (silk robe wide open exposing nude body:1.3), ' +
+      'bare breasts, luxury penthouse interior, city lights at night, ' +
+      'warm cinematic lighting, photorealistic, highly detailed skin texture, sensual pose' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', closed robe',
+    labels: { est: { name: 'Siid mantel lahti', description: 'Penthouse, lahtine mantel, alasti keha' }, eng: { name: 'Open silk robe', description: 'Penthouse, open robe, nude body' } },
   },
   'red-dress': {
     category: 'glamour',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 832, height: 1216,
     promptTemplate:
-      '{SUBJECT}, red evening gown, standing on a grand staircase, ' +
+      '{SUBJECT}, beautiful adult woman, (extremely low cut red evening gown:1.2), ' +
+      '(deep cleavage:1.2), high thigh slit revealing legs, standing on grand staircase, ' +
       'dramatic lighting, luxury atmosphere, ultra realistic photography, ' +
       'highly detailed, award-winning fashion photo' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Punane õhtukleit', description: 'Grandtrepp, dramaatiline valgus' }, eng: { name: 'Red gown', description: 'Grand staircase, dramatic light' } },
+    negativePrompt: COMMON_NEGATIVE + ', conservative dress, high neck',
+    labels: { est: { name: 'Punane sügav-dekoltee', description: 'Madala dekolteega õhtukleit, dramaatiline valgus' }, eng: { name: 'Plunging red gown', description: 'Low cut red gown, dramatic light' } },
   },
   'leather-jacket': {
     category: 'glamour',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 832, height: 1216,
     promptTemplate:
-      '{SUBJECT}, wearing a leather jacket, urban night city background, ' +
-      'neon reflections, confident expression, cinematic mood, ' +
-      'photorealistic, sharp focus, high detail' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Nahktagi linnas', description: 'Öine linn, neoonpeegeldused' }, eng: { name: 'Leather jacket', description: 'Night city, neon reflections' } },
+      '{SUBJECT}, beautiful adult woman, (leather jacket open:1.2), (nothing underneath jacket:1.3), ' +
+      '(bare chest visible:1.1), urban night city background, neon reflections, ' +
+      'confident expression, cinematic mood, photorealistic, sharp focus' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', shirt, bra, top',
+    labels: { est: { name: 'Nahktagi ilma särgita', description: 'Avatud nahktagi paljas keha all, neoon' }, eng: { name: 'Bare under jacket', description: 'Open jacket, nothing under, neon' } },
   },
   'glamour-fashion': {
     category: 'glamour',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 832, height: 1216,
     promptTemplate:
-      '{SUBJECT}, adult model in luxury penthouse, silk robe, evening city lights, ' +
-      'cinematic mood, photorealistic, professional fashion photography, ' +
-      'high detail, magazine quality, Vogue style' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Vogue glamuur', description: 'Penthouse moefoto, õhtune linn' }, eng: { name: 'Vogue glamour', description: 'Penthouse fashion photo' } },
+      '{SUBJECT}, beautiful adult model, (topless editorial:1.2), (bare breasts artistic:1.1), ' +
+      'luxury penthouse, evening city lights, cinematic mood, photorealistic, ' +
+      'high-fashion magazine editorial, high detail, Vogue topless editorial style' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', covered chest, bra',
+    labels: { est: { name: 'Vogue topless editorial', description: 'Penthouse topless mood, kõrgmood' }, eng: { name: 'Vogue topless', description: 'Penthouse topless editorial, high fashion' } },
   },
 
-  // ============== ATMOSPHERE ==============
+  // ============== ATMOSPHERE (18+) ==============
   'rainy-city': {
     category: 'atmosphere',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 832, height: 1216,
     promptTemplate:
-      '{SUBJECT}, walking through rainy city streets, reflections on wet pavement, ' +
-      'cinematic night lighting, realistic hair and skin, ' +
-      'professional photography, ultra realistic, movie scene aesthetic' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Vihmane linn', description: 'Märjad tänavad, kino-valgus' }, eng: { name: 'Rainy city', description: 'Wet streets, cinematic lighting' } },
+      '{SUBJECT}, beautiful adult woman, (wet transparent clothing:1.3), ' +
+      '(see-through wet shirt:1.2), nipples visible through fabric, ' +
+      'walking through rainy city streets, reflections on wet pavement, ' +
+      'cinematic night lighting, realistic hair and skin, professional photography' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', dry clothing, opaque',
+    labels: { est: { name: 'Vihm: läbi paistev särk', description: 'Märg läbipaistev särk vihmases linnas' }, eng: { name: 'Wet see-through', description: 'Wet transparent shirt in rainy city' } },
   },
   'poolside': {
     category: 'atmosphere',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 1216, height: 832,
     promptTemplate:
-      '{SUBJECT}, relaxing beside an infinity pool, golden sunset, wet hair, ' +
-      'luxury resort, realistic skin texture, cinematic photography, ' +
-      'high detail, vacation glamour aesthetic' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Basseini ääres', description: 'Infinity pool, kuldne loojang' }, eng: { name: 'Poolside', description: 'Infinity pool, golden sunset' } },
+      '{SUBJECT}, beautiful adult woman, (topless:1.2), (bare breasts:1.1), bikini bottom only, ' +
+      'relaxing beside infinity pool, golden sunset, wet hair, water droplets on skin, ' +
+      'luxury resort, realistic skin texture, cinematic photography, vacation glamour' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', bikini top, swimsuit top',
+    labels: { est: { name: 'Topless basseini ääres', description: 'Topless päevitusraamatuga, infinity pool' }, eng: { name: 'Topless poolside', description: 'Topless sunbathing, infinity pool' } },
   },
   'wet-shirt-beach': {
     category: 'atmosphere',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 832, height: 1216,
     promptTemplate:
-      '{SUBJECT}, wearing a wet white shirt, standing near a beach at sunset, ' +
-      'soft ocean breeze, realistic skin details, cinematic lighting, ' +
-      'professional fashion photography, ultra realistic, highly detailed' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Märg särk rannas', description: 'Loojang, ookean, valge särk' }, eng: { name: 'Wet shirt beach', description: 'Sunset, ocean, white shirt' } },
+      '{SUBJECT}, beautiful adult woman, (wet white shirt completely transparent:1.4), ' +
+      '(see-through wet fabric:1.3), nipples and breasts visible through translucent shirt, ' +
+      'no bra, standing near beach at sunset, soft ocean breeze, ' +
+      'realistic skin details, cinematic lighting, professional photography' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', bra, opaque shirt, dry',
+    labels: { est: { name: 'Märg läbipaistev särk', description: 'Loojang, märg läbipaistev valge särk' }, eng: { name: 'Sheer wet shirt', description: 'Sunset, sheer wet white shirt' } },
   },
 
-  // ============== BEACH ==============
+  // ============== BEACH (18+) ==============
   'beach-fashion': {
     category: 'beach',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 832, height: 1216,
     promptTemplate:
-      '{SUBJECT}, on a tropical beach, flowing white fabric, sunset lighting, ' +
-      'wind in hair, cinematic composition, realistic anatomy, ' +
-      'professional fashion photography, high detail' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Rannafotosessioon', description: 'Troopiline rand, valge kangas, tuul' }, eng: { name: 'Beach fashion', description: 'Tropical beach, white fabric, wind' } },
+      '{SUBJECT}, beautiful adult woman, (topless:1.2), (nude:1.1), (bare breasts:1.1), ' +
+      'flowing transparent white fabric draped artistically, ' +
+      'on tropical beach, sunset lighting, wind in hair, cinematic composition, ' +
+      'realistic anatomy, professional fashion photography' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', bikini top, swimsuit, dressed',
+    labels: { est: { name: 'Topless rannas tuules', description: 'Troopiline rand, topless, lendlev valge kangas' }, eng: { name: 'Topless beach', description: 'Tropical beach topless, flowing fabric' } },
   },
   'couple-beach': {
     category: 'beach',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 1216, height: 832,
     promptTemplate:
-      '{SUBJECT}, adult couple walking barefoot along a tropical beach, holding hands, ' +
-      'golden sunset lighting, gentle ocean waves, natural smiles, wind blowing through hair, ' +
-      'cinematic photography, ultra realistic, 85mm lens, shallow depth of field, ' +
-      'high detail, luxury travel magazine quality' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Paar rannal', description: 'Käsi-käes, kuldne loojang' }, eng: { name: 'Couple on beach', description: 'Hand in hand, golden sunset' } },
+      '{SUBJECT}, adult couple (both nude:1.2), (topless woman:1.1), walking barefoot along tropical beach, ' +
+      'holding hands intimately, golden sunset lighting, gentle ocean waves, ' +
+      'cinematic photography, ultra realistic, 85mm lens, ' +
+      'shallow depth of field, sensual intimate moment, magazine quality' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', swimsuits, clothed',
+    labels: { est: { name: 'Alasti paar rannas', description: 'Alasti paar troopilises rannas, kuldne loojang' }, eng: { name: 'Nude couple beach', description: 'Nude couple tropical beach, sunset' } },
   },
   'couple-shoreline': {
     category: 'beach',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 1216, height: 832,
     promptTemplate:
-      '{SUBJECT}, adult couple embracing on the shoreline, warm sunset glow, ' +
-      'soft ocean breeze, romantic atmosphere, natural body language, ' +
-      'realistic skin texture, cinematic composition, professional photography, ultra detailed' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Kallistus rannas', description: 'Päikeseloojang, romantiline meeleolu' }, eng: { name: 'Shoreline hug', description: 'Sunset, romantic mood' } },
+      '{SUBJECT}, (nude adult couple embracing intimately:1.2) on shoreline, ' +
+      '(bare bodies pressed together:1.1), warm sunset glow, soft ocean breeze, ' +
+      'sensual romantic atmosphere, natural intimate body language, realistic skin texture, ' +
+      'cinematic composition, professional photography, ultra detailed' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', clothing',
+    labels: { est: { name: 'Alasti kallistus rannas', description: 'Alasti paar kallistab kaldal, loojang' }, eng: { name: 'Nude shore hug', description: 'Nude couple shoreline embrace, sunset' } },
   },
   'romantic-couple': {
     category: 'beach',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 1216, height: 832,
     promptTemplate:
-      '{SUBJECT}, adult couple embracing near a large window, soft sunset light, ' +
-      'emotional connection, natural body language, cinematic atmosphere, ' +
-      'realistic faces, ultra realistic photography, high detail' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Romantiline paar', description: 'Aknast loojangu valgus, emotsionaalne side' }, eng: { name: 'Romantic couple', description: 'Sunset window light, emotional bond' } },
+      '{SUBJECT}, (nude adult couple in intimate embrace:1.2) near large window, ' +
+      'soft sunset light, (bare skin against skin:1.1), emotional intense connection, ' +
+      'sensual body language, cinematic atmosphere, realistic faces, ' +
+      'ultra realistic photography, high detail' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', clothed',
+    labels: { est: { name: 'Alasti intiimne paar', description: 'Alasti paar akna ees, intiimne hetk' }, eng: { name: 'Nude intimate couple', description: 'Nude couple by window, intimate' } },
   },
 
-  // ============== GROUP ==============
+  // ============== GROUP (18+) ==============
   'friends-group': {
     category: 'group',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 1216, height: 832,
     promptTemplate:
-      '{SUBJECT}, group of adult friends enjoying a tropical beach, laughing together, ' +
-      'sunset lighting, luxury vacation atmosphere, natural poses, realistic faces, ' +
-      'cinematic photography, ultra realistic, high detail, travel lifestyle editorial' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Sõpruskond rannas', description: 'Grupp naerab koos, troopiline rand' }, eng: { name: 'Friends on beach', description: 'Group laughing, tropical beach' } },
+      '{SUBJECT}, group of (topless adult women:1.2), (bare breasts:1.1), skinny dipping in tropical ocean, ' +
+      'laughing together, sunset lighting, luxury vacation atmosphere, natural intimate poses, ' +
+      'realistic faces, cinematic photography, ultra realistic, lifestyle editorial' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', swimwear, bikini, clothed',
+    labels: { est: { name: 'Topless sõpruskond', description: 'Topless naised troopilises ookeanis, loojang' }, eng: { name: 'Topless friends', description: 'Topless friends in tropical ocean' } },
   },
   'beach-club': {
     category: 'group',
-    checkpoint: 'juggernautXI.safetensors',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 1216, height: 832,
     promptTemplate:
-      '{SUBJECT}, group of stylish adults at a luxury beach club, elegant summer clothing, ' +
-      'ocean backdrop, golden hour lighting, fashion photography, natural interactions, ' +
-      'photorealistic, high detail, premium lifestyle magazine' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE,
-    labels: { est: { name: 'Beach club', description: 'Stiilne grupp, kuldne tund, ookean' }, eng: { name: 'Beach club', description: 'Stylish group, golden hour, ocean' } },
+      '{SUBJECT}, group of (stylish topless adult women:1.2), (bare breasts artistic:1.1), ' +
+      'lounging at luxury beach club, tiny bikini bottoms only, ' +
+      'ocean backdrop, golden hour lighting, fashion editorial photography, ' +
+      'natural sensual interactions, photorealistic, premium magazine' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', bikini top, fully clothed',
+    labels: { est: { name: 'Topless beach club', description: 'Stiilne topless grupp luksusrannas' }, eng: { name: 'Topless beach club', description: 'Stylish topless group luxury beach' } },
+  },
+
+  // ============== EXPLICIT (CyberRealistic Pony — hardcore sex acts) ==============
+  'explicit-solo-spread': {
+    category: 'explicit',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    steps: 30, cfg: 7.0, width: 832, height: 1216,
+    promptTemplate:
+      PONY_QUALITY + 'source_photo, rating_explicit, ' +
+      '1girl, {SUBJECT}, (nude:1.2), (spread legs:1.3), (pussy:1.2), exposed body, ' +
+      'lying on luxury bed with white sheets, sensual pose, inviting expression, ' +
+      'soft warm lighting, photorealistic, 85mm lens, shallow depth of field, ' +
+      '(perfect anatomy:1.2), detailed skin texture, masterpiece',
+    negativePrompt: 'score_4, score_5, score_6, ' + COMMON_NEGATIVE + ', clothed, censored, anime, cartoon, drawing, deformed, (fused fingers:1.3), bad hands',
+    labels: { est: { name: 'Solo: laiali jalad', description: 'Üksinda voodis, laiali jalad, eksplitsiitne' }, eng: { name: 'Solo spread', description: 'Solo on bed, spread legs, explicit' } },
+  },
+  'explicit-couple-missionary': {
+    category: 'explicit',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    steps: 30, cfg: 7.0, width: 1216, height: 832,
+    promptTemplate:
+      PONY_QUALITY + 'source_photo, rating_explicit, ' +
+      '1boy, 1girl, {SUBJECT}, (sex:1.3), (vaginal:1.2), (missionary position:1.3), (penetration:1.2), ' +
+      'man on top of woman, woman legs around man, intimate moment, ' +
+      'luxury bedroom, soft warm lighting, photorealistic, 85mm lens, ' +
+      '(perfect anatomy:1.2), detailed skin, masterpiece',
+    negativePrompt: 'score_4, score_5, score_6, ' + COMMON_NEGATIVE + ', clothed, anime, cartoon, deformed, bad hands, (fused fingers:1.3)',
+    labels: { est: { name: 'Paar: missionaarse-asend', description: 'Heteropaar voodis, missionaarse-asend' }, eng: { name: 'Missionary', description: 'Couple in missionary position' } },
+  },
+  'explicit-couple-cowgirl': {
+    category: 'explicit',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    steps: 30, cfg: 7.0, width: 832, height: 1216,
+    promptTemplate:
+      PONY_QUALITY + 'source_photo, rating_explicit, ' +
+      '1boy, 1girl, {SUBJECT}, (cowgirl position:1.3), (sex:1.2), (vaginal:1.2), ' +
+      'woman on top straddling man, woman riding, hands on chest, ' +
+      'man lying on back, luxury bedroom, soft warm lighting, ' +
+      'photorealistic, 85mm lens, (perfect anatomy:1.2), masterpiece',
+    negativePrompt: 'score_4, score_5, score_6, ' + COMMON_NEGATIVE + ', clothed, anime, cartoon, deformed, bad hands',
+    labels: { est: { name: 'Paar: cowgirl-asend', description: 'Naine peal, mees all, cowgirl' }, eng: { name: 'Cowgirl', description: 'Woman on top, cowgirl position' } },
+  },
+  'explicit-couple-doggy': {
+    category: 'explicit',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    steps: 30, cfg: 7.0, width: 1216, height: 832,
+    promptTemplate:
+      PONY_QUALITY + 'source_photo, rating_explicit, ' +
+      '1boy, 1girl, {SUBJECT}, (doggystyle position:1.3), (sex:1.2), (vaginal from behind:1.2), ' +
+      'woman on hands and knees, man behind, intimate moment, ' +
+      'luxury bedroom or rustic setting, warm lighting, ' +
+      'photorealistic, 85mm lens, (perfect anatomy:1.2), masterpiece',
+    negativePrompt: 'score_4, score_5, score_6, ' + COMMON_NEGATIVE + ', clothed, anime, cartoon, deformed, bad hands',
+    labels: { est: { name: 'Paar: koeraasend', description: 'Naine põlvedel, mees taga' }, eng: { name: 'Doggystyle', description: 'Woman on knees, doggystyle' } },
+  },
+  'explicit-oral-female': {
+    category: 'explicit',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    steps: 30, cfg: 7.0, width: 832, height: 1216,
+    promptTemplate:
+      PONY_QUALITY + 'source_photo, rating_explicit, ' +
+      '1boy, 1girl, {SUBJECT}, (oral sex on female:1.3), (cunnilingus:1.2), ' +
+      'woman lying on bed, head back, man between her legs, ' +
+      'intimate moment, luxury bedroom, soft warm lighting, ' +
+      'photorealistic, 85mm lens, (perfect anatomy:1.2), masterpiece',
+    negativePrompt: 'score_4, score_5, score_6, ' + COMMON_NEGATIVE + ', clothed, anime, cartoon, deformed, bad hands',
+    labels: { est: { name: 'Oraal naisele', description: 'Oraalseks naisele, intiimne' }, eng: { name: 'Female oral', description: 'Oral on female, intimate' } },
+  },
+  'explicit-lesbian-couple': {
+    category: 'explicit',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    steps: 30, cfg: 7.0, width: 1216, height: 832,
+    promptTemplate:
+      PONY_QUALITY + 'source_photo, rating_explicit, ' +
+      '2girls, {SUBJECT}, (lesbian couple:1.3), (yuri:1.2), intimate, ' +
+      '(both nude:1.2), kissing, embracing, bare breasts touching, ' +
+      'luxury bedroom, soft warm lighting, sensual romantic atmosphere, ' +
+      'photorealistic, 85mm lens, (perfect anatomy:1.2), masterpiece',
+    negativePrompt: 'score_4, score_5, score_6, ' + COMMON_NEGATIVE + ', clothed, anime, cartoon, deformed, bad hands',
+    labels: { est: { name: '2 naist intiimne', description: 'Naiste paar, kallistus, suudlemine' }, eng: { name: 'Lesbian couple', description: 'Two women intimate, kissing' } },
+  },
+  'explicit-shower-couple': {
+    category: 'explicit',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    steps: 30, cfg: 7.0, width: 832, height: 1216,
+    promptTemplate:
+      PONY_QUALITY + 'source_photo, rating_explicit, ' +
+      '1boy, 1girl, {SUBJECT}, (sex in shower:1.2), (standing sex:1.2), (penetration:1.1), ' +
+      'wet bodies, water streams, steam, glass shower, ' +
+      'modern luxury bathroom, soft lighting, ' +
+      'photorealistic, 85mm lens, (perfect anatomy:1.2), masterpiece',
+    negativePrompt: 'score_4, score_5, score_6, ' + COMMON_NEGATIVE + ', clothed, anime, cartoon, deformed, bad hands',
+    labels: { est: { name: 'Duši all paar', description: 'Paar duši all, märjad kehad' }, eng: { name: 'Shower couple', description: 'Couple in shower, wet' } },
+  },
+  'explicit-cumshot-finish': {
+    category: 'explicit',
+    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    steps: 30, cfg: 7.0, width: 832, height: 1216,
+    promptTemplate:
+      PONY_QUALITY + 'source_photo, rating_explicit, ' +
+      '1boy, 1girl, {SUBJECT}, (cumshot:1.3), (facial:1.2), (cum on body:1.2), ' +
+      'satisfied expression, climax moment, sensual aftermath, ' +
+      'luxury bedroom, soft warm lighting, ' +
+      'photorealistic, 85mm lens, (perfect anatomy:1.2), masterpiece',
+    negativePrompt: 'score_4, score_5, score_6, ' + COMMON_NEGATIVE + ', clothed, anime, cartoon, deformed, bad hands',
+    labels: { est: { name: 'Lõpetus / cumshot', description: 'Climax moment, valgusepritsemed' }, eng: { name: 'Cumshot finish', description: 'Climax moment with finish' } },
   },
 
   // ============== TATTOO ==============
@@ -319,15 +458,17 @@ export const CATEGORY_DEFAULT_VARIANT: Record<AdultCategory, AdultVariant> = {
   beach: 'beach-fashion',
   group: 'friends-group',
   tattoo: 'tattoo-reference',
+  explicit: 'explicit-couple-missionary',
 }
 
 export const ADULT_CATEGORY_LABELS: Record<AdultCategory, ActionLabels> = {
-  portrait:   { est: { name: 'Portree',    description: 'Boudoir, akt, studio'           }, eng: { name: 'Portrait',   description: 'Boudoir, nude, studio'     } },
-  glamour:    { est: { name: 'Glamuur',    description: 'Hotellid, kleidid, mood'        }, eng: { name: 'Glamour',    description: 'Hotels, gowns, fashion'    } },
-  atmosphere: { est: { name: 'Atmosfäär',  description: 'Linn, basseinid, vihm'          }, eng: { name: 'Atmosphere', description: 'City, pools, rain'         } },
-  beach:      { est: { name: 'Rand',       description: 'Üksi või paar, loojang'         }, eng: { name: 'Beach',      description: 'Solo or couple, sunset'    } },
-  group:      { est: { name: 'Grupp',      description: 'Sõbrad, beach club'             }, eng: { name: 'Group',      description: 'Friends, beach club'       } },
-  tattoo:     { est: { name: 'Tattoo',     description: 'Realism eskiis, valge taust'    }, eng: { name: 'Tattoo',     description: 'Realism sketch, white bg'  } },
+  portrait:   { est: { name: 'Portree',     description: 'Boudoir, akt, studio'           }, eng: { name: 'Portrait',   description: 'Boudoir, nude, studio'     } },
+  glamour:    { est: { name: 'Glamuur',     description: 'Hotellid, kleidid, mood'        }, eng: { name: 'Glamour',    description: 'Hotels, gowns, fashion'    } },
+  atmosphere: { est: { name: 'Atmosfäär',   description: 'Linn, basseinid, vihm'          }, eng: { name: 'Atmosphere', description: 'City, pools, rain'         } },
+  beach:      { est: { name: 'Rand',        description: 'Üksi või paar, loojang'         }, eng: { name: 'Beach',      description: 'Solo or couple, sunset'    } },
+  group:      { est: { name: 'Grupp',       description: 'Sõbrad, beach club'             }, eng: { name: 'Group',      description: 'Friends, beach club'       } },
+  tattoo:     { est: { name: 'Tattoo',      description: 'Realism eskiis, valge taust'    }, eng: { name: 'Tattoo',     description: 'Realism sketch, white bg'  } },
+  explicit:   { est: { name: 'Eksplitsiitne', description: 'Sex aktid, hardcore (CyberRealistic Pony)' }, eng: { name: 'Explicit',   description: 'Sex acts, hardcore (CyberRealistic Pony)' } },
 }
 
 export const ADULT_TOP_LEVEL_LABELS: ActionLabels = {
@@ -347,10 +488,21 @@ export function buildAdultPrompt(
 ): { prompt: string; negativePrompt: string } {
   const cfg = ADULT_VARIANTS[variant]
   const cleanSubject = subject.trim() || 'beautiful adult'
-  return {
-    prompt: cfg.promptTemplate.replace('{SUBJECT}', cleanSubject),
-    negativePrompt: cfg.negativePrompt,
-  }
+  // FULL_BODY_TAG kohustuslik: kogu keha nähtav, mitte kärbitud.
+  // Pony-baasi mudelid (sh CyberRealistic Pony) vajavad score_* tag'e — lisame automaatselt.
+  const usesPony =
+    cfg.checkpoint === 'ponyDiffusionV6XL.safetensors' ||
+    cfg.checkpoint === 'cyberrealisticPony_v18.safetensors'
+  const ponyTags = usesPony && !cfg.promptTemplate.startsWith('score_')
+    ? 'score_9, score_8_up, score_7_up, source_photo, '
+    : ''
+  // Pony-baasi mudelid blokeerime ka score_4/5 negative'is (kui veel pole)
+  const negExtra = usesPony && !cfg.negativePrompt.includes('score_4')
+    ? 'score_4, score_5, score_6, '
+    : ''
+  const prompt = ponyTags + FULL_BODY_TAG + cfg.promptTemplate.replace('{SUBJECT}', cleanSubject)
+  const negativePrompt = negExtra + cfg.negativePrompt
+  return { prompt, negativePrompt }
 }
 
 export function getAdultLabel(variant: AdultVariant, lang: Language) {

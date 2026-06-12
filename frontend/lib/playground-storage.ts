@@ -4,6 +4,7 @@
 
 export type PlaygroundCheckpoint =
   | 'juggernautXI.safetensors'
+  | 'cyberrealisticPony_v18.safetensors'
   | 'ponyDiffusionV6XL.safetensors'
   | 'sd_xl_base_1.0.safetensors'
 
@@ -24,7 +25,8 @@ export const DEFAULT_PLAYGROUND: PlaygroundSettings = {
 }
 
 export const CHECKPOINT_LABELS: Record<PlaygroundCheckpoint, string> = {
-  'juggernautXI.safetensors': 'Juggernaut XI — fotorealism',
+  'juggernautXI.safetensors': 'Juggernaut XI — fotorealism (soft)',
+  'cyberrealisticPony_v18.safetensors': 'CyberRealistic Pony v18 — fotorealism + eksplitsiitne',
   'ponyDiffusionV6XL.safetensors': 'Pony Diffusion V6 — illustratsioon / tattoo',
   'sd_xl_base_1.0.safetensors': 'SDXL Base — neutraalne',
 }

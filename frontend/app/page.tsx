@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode }
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type FileUIPart, type UIMessage } from 'ai'
 import Image from 'next/image'
-import { Box, Brush, Download, Pen, Plus, Settings2, SlidersHorizontal, Sparkles, Stars, Type, User as UserIcon, X } from 'lucide-react'
+import { Box, Brush, Download, Pen, Plus, Settings2, SlidersHorizontal, Sparkles, Type, User as UserIcon, X } from 'lucide-react'
 import { ChatHeader } from '@/components/chat-header'
 import { ChatInput } from '@/components/chat-input'
 import { ChatMessage } from '@/components/chat-message'
@@ -12,8 +12,9 @@ import { KnowledgePanel } from '@/components/knowledge-panel'
 import { LaserSettingsPanel } from '@/components/laser-settings-panel'
 import { BirthCardModal } from '@/components/birth-card-modal'
 import { AdultModal } from '@/components/adult-modal'
+import { PlaygroundModal } from '@/components/playground-modal'
 import { ADULT_TOP_LEVEL_LABELS, type AdultVariant } from '@/lib/adult-prompts'
-import { loadPlayground } from '@/lib/playground-storage'
+import type { PlaygroundSettings } from '@/lib/playground-storage'
 import { readSavedLaserSettings, type StoredLaserSettings } from '@/lib/engraving/saved-settings-storage'
 import { useAuth } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
@@ -385,6 +386,7 @@ export default function LaserGraveerimiseApp() {
   const [birthCardOpen, setBirthCardOpen] = useState(false)
   const [adultModalOpen, setAdultModalOpen] = useState(false)
   const [isGeneratingAdult, setIsGeneratingAdult] = useState(false)
+  const [playgroundModalOpen, setPlaygroundModalOpen] = useState(false)
   const [isGeneratingPlayground, setIsGeneratingPlayground] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([
@@ -453,17 +455,36 @@ export default function LaserGraveerimiseApp() {
   }, [activeImageUrl])
 
   const handleShowSettings = () => {
-    if (!savedSettingsSummary) {
+    const hasImage = Boolean(pendingImage) || messages.some(messageHasImage)
+    const context = input.trim()
+
+    // Kui pole salvestatud seadeid, anname siiski võimaluse pildi-analüüsiks
+    if (!savedSettingsSummary && !hasImage) {
       setMessages((prev) => [
         ...prev,
-        { id: crypto.randomUUID(), role: 'assistant' as const, parts: [{ type: 'text', text: effectiveLanguage === 'eng' ? 'No settings have been saved yet. Open the settings module (gear icon) and save your settings first.' : 'Seadistusmoodulisse pole veel seadeid salvestatud. Ava seadistusmoodul (hammasratta ikoon) ja salvesta esmalt seadistused.' }], content: '', createdAt: new Date() } as UIMessage,
+        { id: crypto.randomUUID(), role: 'assistant' as const, parts: [{ type: 'text', text: effectiveLanguage === 'eng' ? 'No settings saved and no image attached. Either: (1) Open the settings panel and save your laser settings, or (2) Attach an image so I can analyze it.' : 'Seadistusi pole salvestatud ja pilt pole lisatud. Kas: (1) Ava seadistuste paneel ja salvesta laser-seadistused, või (2) Lisa pilt et saaksin selle analüüsida.' }], content: '', createdAt: new Date() } as UIMessage,
       ])
       return
     }
-    const context = input.trim()
-    const prompt = effectiveLanguage === 'eng'
-      ? (context ? `Based on my saved settings, recommend the best speed, power, passes, line interval and air assist setting for the following job: ${context}` : 'Based on my saved settings, recommend the best speed, power, passes, line interval and air assist setting.')
-      : (context ? `Minu salvestatud seadistuste põhjal soovita parim kiirus, võimsus, passid, joonevahe ja air assist seadistus järgmise töö jaoks: ${context}` : 'Minu salvestatud seadistuste põhjal soovita parim kiirus, võimsus, passid, joonevahe ja air assist seadistus.')
+
+    let prompt: string
+    if (effectiveLanguage === 'eng') {
+      if (hasImage && savedSettingsSummary) {
+        prompt = `Analyze the attached image for laser engraving and, based on my saved laser settings, recommend specific speed, power, passes, line interval and air assist settings for THIS image. Also note any image prep needed (contrast, threshold, DPI, scale).${context ? `\n\nExtra context: ${context}` : ''}`
+      } else if (hasImage) {
+        prompt = `Analyze the attached image for laser engraving. Recommend ideal speed, power, passes, line interval and air assist as general guidance. Also note image prep needed (contrast, threshold, DPI, scale).${context ? `\n\nExtra context: ${context}` : ''}`
+      } else {
+        prompt = context ? `Based on my saved settings, recommend the best speed, power, passes, line interval and air assist setting for: ${context}` : 'Based on my saved settings, recommend the best speed, power, passes, line interval and air assist setting.'
+      }
+    } else {
+      if (hasImage && savedSettingsSummary) {
+        prompt = `Analüüsi lisatud pilti lasergraveerimise jaoks ja minu salvestatud seadistuste põhjal soovita SELLELE konkreetsele pildile parimad kiirus, võimsus, passid, joonevahe ja air assist seadistused. Märgi ära ka kui pilt vajab ettevalmistust (kontrast, threshold, DPI, mõõtkava).${context ? `\n\nLisakontekst: ${context}` : ''}`
+      } else if (hasImage) {
+        prompt = `Analüüsi lisatud pilti lasergraveerimise jaoks. Soovita üldjuhul sobivad kiirus, võimsus, passid, joonevahe ja air assist seadistused. Märgi ära ka pildi ettevalmistuse vajadus (kontrast, threshold, DPI, mõõtkava).${context ? `\n\nLisakontekst: ${context}` : ''}`
+      } else {
+        prompt = context ? `Minu salvestatud seadistuste põhjal soovita parim kiirus, võimsus, passid, joonevahe ja air assist seadistus: ${context}` : 'Minu salvestatud seadistuste põhjal soovita parim kiirus, võimsus, passid, joonevahe ja air assist seadistus.'
+      }
+    }
     void sendChatRequest(prompt)
   }
 
@@ -577,15 +598,9 @@ export default function LaserGraveerimiseApp() {
     }
   }
 
-  const handlePlaygroundGenerate = async () => {
+  const handlePlaygroundGenerate = async (settings: PlaygroundSettings) => {
     if (isGeneratingPlayground) return
-    const settings = loadPlayground()
-    if (!settings.prompt.trim()) {
-      setChatInputError(effectiveLanguage === 'eng'
-        ? 'Save a prompt first: open Knowledge → "Loo ise" → write prompt → Save.'
-        : 'Salvesta esmalt prompt: ava Teadmised → "Loo ise" → kirjuta prompt → Salvesta.')
-      return
-    }
+    if (!settings.prompt.trim()) return
     setIsGeneratingPlayground(true)
     setChatInputError('')
 
@@ -1010,7 +1025,7 @@ export default function LaserGraveerimiseApp() {
     {
       label: effectiveLanguage === 'eng' ? 'Create your own' : 'Loo ise',
       icon: <Pen className="h-5 w-5" />,
-      onCustomAction: () => void handlePlaygroundGenerate(),
+      onCustomAction: () => setPlaygroundModalOpen(true),
       isCustomActionRunning: isGeneratingPlayground,
       prompt: '',
     },
@@ -1360,6 +1375,13 @@ export default function LaserGraveerimiseApp() {
         open={adultModalOpen}
         onOpenChange={setAdultModalOpen}
         onSubmit={handleAdultSubmit}
+        language={effectiveLanguage}
+      />
+
+      <PlaygroundModal
+        open={playgroundModalOpen}
+        onOpenChange={setPlaygroundModalOpen}
+        onSubmit={handlePlaygroundGenerate}
         language={effectiveLanguage}
       />
 

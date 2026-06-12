@@ -128,13 +128,14 @@ export interface FaceDetailerOptions {
 export function appendFaceDetailer(
   wf: Record<string, unknown>,
   options: FaceDetailerOptions,
+  nodePrefix: string = 'fd',
 ): [string, number] {
   // Returns the output ImageRef of the Face Detailer node, so caller can wire SaveImage to it.
-  wf['fd_bbox_loader'] = {
+  wf[`${nodePrefix}_bbox_loader`] = {
     class_type: 'UltralyticsDetectorProvider',
     inputs: { model_name: options.bboxModel ?? 'bbox/face_yolov8m.pt' },
   }
-  wf['fd_detailer'] = {
+  wf[`${nodePrefix}_detailer`] = {
     class_type: 'FaceDetailer',
     inputs: {
       image: options.imageNode,
@@ -143,7 +144,7 @@ export function appendFaceDetailer(
       vae: options.vaeNode,
       positive: options.positiveNode,
       negative: options.negativeNode,
-      bbox_detector: ['fd_bbox_loader', 0],
+      bbox_detector: [`${nodePrefix}_bbox_loader`, 0],
       // Defaults tuned for SDXL face fix
       guide_size: options.guideSize ?? 512,
       guide_size_for: true,
@@ -173,7 +174,7 @@ export function appendFaceDetailer(
       noise_mask_feather: 20,
     },
   }
-  return ['fd_detailer', 0]
+  return [`${nodePrefix}_detailer`, 0]
 }
 
 // -----------------------------------------------------------------------------
@@ -181,22 +182,33 @@ export function appendFaceDetailer(
 // -----------------------------------------------------------------------------
 export function buildTxt2ImgWithFaceFixWorkflow(params: Txt2ImgWorkflowParams): Record<string, unknown> {
   const wf = buildTxt2ImgWorkflow(params)
-  // Rewire SaveImage to receive Face Detailer output instead of raw VAEDecode.
-  // First, locate the final model + clip refs (could be lora chain or '1' directly).
+  // Käivitame 2 detektorit järjest: 1) face_yolov8m -> näo+silmade fix, 2) hand_yolov8s -> käte fix.
   const loras = params.loras ?? []
   const lastLoraId = loras.length > 0 ? `lora_${loras.length - 1}` : null
   const modelRef: [string, number] = lastLoraId ? [lastLoraId, 0] : ['1', 0]
   const clipRef: [string, number] = lastLoraId ? [lastLoraId, 1] : ['1', 1]
-  const fdOut = appendFaceDetailer(wf, {
-    imageNode: ['6', 0], // VAEDecode output in txt2img
+  const faceOut = appendFaceDetailer(wf, {
+    imageNode: ['6', 0], // VAEDecode output
     modelNode: modelRef,
     clipNode: clipRef,
     vaeNode: ['1', 2],
     positiveNode: ['2', 0],
     negativeNode: ['3', 0],
-  })
-  // Replace SaveImage input
-  ;(wf['7'] as { inputs: { images: [string, number] } }).inputs.images = fdOut
+    bboxModel: 'bbox/face_yolov8m.pt',
+  }, 'face')
+  // Käte fix jätkab näo-fix väljundi peal
+  const handsOut = appendFaceDetailer(wf, {
+    imageNode: faceOut,
+    modelNode: modelRef,
+    clipNode: clipRef,
+    vaeNode: ['1', 2],
+    positiveNode: ['2', 0],
+    negativeNode: ['3', 0],
+    guideSize: 384, // käed väiksemad kui nägu
+    denoise: 0.4, // veidi õrnem, kuna käed on tundlikud
+    bboxModel: 'bbox/hand_yolov8s.pt',
+  }, 'hand')
+  ;(wf['7'] as { inputs: { images: [string, number] } }).inputs.images = handsOut
   return wf
 }
 
