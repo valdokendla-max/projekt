@@ -155,7 +155,7 @@ function resolveProvider(usesVision: boolean): ProviderConfig | null {
 }
 
 export async function POST(req: Request) {
-  const { messages, savedSettingsSummary, language: rawLanguage }: { messages: UIMessage[]; savedSettingsSummary?: string; language?: string } = await req.json()
+  const { id: messageId, messages, savedSettingsSummary, language: rawLanguage }: { id?: string; messages: UIMessage[]; savedSettingsSummary?: string; language?: string } = await req.json()
   const language: 'est' | 'eng' = rawLanguage === 'eng' ? 'eng' : 'est'
 
   const usesVision = messages.some((message) => message.parts?.some(isImagePart))
@@ -215,11 +215,17 @@ export async function POST(req: Request) {
 
   const encoder = new TextEncoder()
 
+  const msgId = messageId || crypto.randomUUID()
+  const finish = JSON.stringify({ finishReason: 'stop', usage: { promptTokens: 0, completionTokens: 0 }, isContinued: false })
+  const msgFinish = JSON.stringify({ finishReason: 'stop', usage: { promptTokens: 0, completionTokens: 0 } })
+
   const stream = new ReadableStream({
     async start(controller) {
       const reader = response.body!.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+
+      controller.enqueue(encoder.encode(`f:${JSON.stringify({ messageId: msgId })}\n`))
 
       try {
         while (true) {
@@ -236,8 +242,8 @@ export async function POST(req: Request) {
             const data = trimmed.slice(5).trim()
 
             if (data === '[DONE]') {
-              controller.enqueue(encoder.encode('0:""\n'))
-              controller.enqueue(encoder.encode('d:{"finishReason":"stop"}\n'))
+              controller.enqueue(encoder.encode(`e:${finish}\n`))
+              controller.enqueue(encoder.encode(`d:${msgFinish}\n`))
               controller.close()
               return
             }
@@ -246,8 +252,7 @@ export async function POST(req: Request) {
               const parsed = JSON.parse(data)
               const delta = parsed.choices?.[0]?.delta?.content
               if (delta) {
-                const escaped = JSON.stringify(delta)
-                controller.enqueue(encoder.encode(`0:${escaped}\n`))
+                controller.enqueue(encoder.encode(`0:${JSON.stringify(delta)}\n`))
               }
             } catch {
               // skip broken chunks
@@ -255,7 +260,8 @@ export async function POST(req: Request) {
           }
         }
 
-        controller.enqueue(encoder.encode('d:{"finishReason":"stop"}\n'))
+        controller.enqueue(encoder.encode(`e:${finish}\n`))
+        controller.enqueue(encoder.encode(`d:${msgFinish}\n`))
         controller.close()
       } catch (err) {
         controller.error(err)
