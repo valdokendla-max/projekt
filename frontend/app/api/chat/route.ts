@@ -51,7 +51,6 @@ interface UIMessage {
 }
 
 interface ProviderConfig {
-  providerName: 'groq' | 'openai'
   apiKey: string
   endpoint: string
   model: string
@@ -117,20 +116,6 @@ function toModelContent(msg: UIMessage) {
   return content
 }
 
-function getOpenAiBaseUrl() {
-  return (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')
-}
-
-function normalizeProviderPreference(value: string | undefined) {
-  const normalized = String(value || '').trim().toLowerCase()
-
-  if (normalized === 'groq' || normalized === 'openai') {
-    return normalized
-  }
-
-  return null
-}
-
 function extractProviderMessage(rawError: string) {
   let current = rawError.trim()
 
@@ -151,57 +136,22 @@ function extractProviderMessage(rawError: string) {
   return current || 'Päring ebaõnnestus.'
 }
 
-function formatProviderError(message: string, provider: ProviderConfig) {
+function formatProviderError(message: string) {
   const normalized = message.toLowerCase()
-
-  if (provider.providerName === 'openai' && normalized.includes('safety system')) {
-    return `OpenAI turvasüsteem blokeeris selle pildipäringu. Kui see on tavaline graveerimispilt, kasuta vaikimisi Groq visionit või proovi pilti kärpida ja uuesti saata. Provider teade: ${message}`
+  if (normalized.includes('image') && normalized.includes('invalid')) {
+    return `Groq ei suutnud pilti korrektselt lugeda. Proovi salvestatud PNG/JPG faili või tavalist screenshot-faili. Teade: ${message}`
   }
-
-  if ((provider.providerName === 'openai' || provider.providerName === 'groq') && normalized.includes('image') && normalized.includes('invalid')) {
-    return `Provider ei suutnud pilti korrektselt lugeda. Proovi salvestatud PNG/JPG faili või tavalist screenshot-faili. Provider teade: ${message}`
-  }
-
   return message
 }
 
 function resolveProvider(usesVision: boolean): ProviderConfig | null {
   const groqApiKey = String(process.env.GROQ_API_KEY || '').trim()
-  const openAiApiKey = String(process.env.OPENAI_API_KEY || '').trim()
-  const preferredProvider = normalizeProviderPreference(
-    usesVision ? process.env.CHAT_VISION_PROVIDER : process.env.CHAT_TEXT_PROVIDER,
-  )
-
-  const providers: Record<'groq' | 'openai', ProviderConfig | null> = {
-    groq: groqApiKey
-      ? {
-          providerName: 'groq',
-          apiKey: groqApiKey,
-          endpoint: 'https://api.groq.com/openai/v1/chat/completions',
-          model: usesVision ? 'meta-llama/llama-4-scout-17b-16e-instruct' : 'llama-3.3-70b-versatile',
-        }
-      : null,
-    openai: openAiApiKey
-      ? {
-          providerName: 'openai',
-          apiKey: openAiApiKey,
-          endpoint: `${getOpenAiBaseUrl()}/chat/completions`,
-          model: usesVision
-            ? process.env.OPENAI_VISION_MODEL || 'gpt-4o-mini'
-            : process.env.OPENAI_TEXT_MODEL || 'gpt-4o-mini',
-        }
-      : null,
+  if (!groqApiKey) return null
+  return {
+    apiKey: groqApiKey,
+    endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+    model: usesVision ? 'meta-llama/llama-4-scout-17b-16e-instruct' : 'llama-3.3-70b-versatile',
   }
-
-  if (preferredProvider && providers[preferredProvider]) {
-    return providers[preferredProvider]
-  }
-
-  if (usesVision) {
-    return providers.groq || providers.openai
-  }
-
-  return providers.groq || providers.openai
 }
 
 export async function POST(req: Request) {
@@ -246,8 +196,8 @@ export async function POST(req: Request) {
   if (!response.ok) {
     const providerError = await response.text()
     const providerMessage = extractProviderMessage(providerError)
-    let formatted = formatProviderError(providerMessage, provider)
-    // Kui Groq/OpenAI blokeerib sisu või tagastab 5xx, suuna kasutaja pildi-ikoonidele.
+    let formatted = formatProviderError(providerMessage)
+    // Kui Groq blokeerib sisu või tagastab 5xx, suuna kasutaja pildi-ikoonidele.
     const looksLikeContentBlock =
       response.status === 400 ||
       response.status === 403 ||

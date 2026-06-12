@@ -86,17 +86,13 @@ async function checkKnowledgeBase(checkedAt: string): Promise<ServiceStatus> {
 }
 
 async function checkGroq(checkedAt: string): Promise<ServiceStatus> {
-  const imageGenerationConfigured = Boolean(process.env.OPENAI_API_KEY)
-
   if (!process.env.GROQ_API_KEY) {
     return buildServiceStatus(
       {
         label: 'Groq AI',
         ok: false,
         configured: false,
-        detail: imageGenerationConfigured
-          ? 'GROQ_API_KEY puudub. Chat-funktsioon ei ole veel kasutusvalmis, kuid pildigeneraatori võti on olemas.'
-          : 'GROQ_API_KEY puudub. Chat-funktsioon ja pildigeneraator ei ole veel kasutusvalmis.',
+        detail: 'GROQ_API_KEY puudub. Chat-funktsioon ei ole kasutusvalmis.',
       },
       checkedAt,
     )
@@ -129,9 +125,7 @@ async function checkGroq(checkedAt: string): Promise<ServiceStatus> {
         label: 'Groq AI',
         ok: true,
         configured: true,
-        detail: imageGenerationConfigured
-          ? 'Groq chat töötab ja OpenAI-kompatible pildigeneraatori võti on seadistatud.'
-          : 'Groq API võti on seadistatud ja ühendus toimib. Pildigeneraatori võti puudub.',
+        detail: 'Groq API võti on seadistatud ja ühendus toimib.',
       },
       checkedAt,
     )
