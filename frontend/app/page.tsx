@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode }
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type FileUIPart, type UIMessage } from 'ai'
 import Image from 'next/image'
-import { Box, Brush, Download, Pen, Plus, Settings2, SlidersHorizontal, Sparkles, Type, User as UserIcon, X } from 'lucide-react'
+import { Box, Brush, Download, Pen, Plus, Settings2, SlidersHorizontal, Sparkles, Type, User as UserIcon, Wand2, X } from 'lucide-react'
 import { ChatHeader } from '@/components/chat-header'
 import { ChatInput } from '@/components/chat-input'
 import { ChatMessage } from '@/components/chat-message'
@@ -1040,6 +1040,12 @@ export default function LaserGraveerimiseApp() {
       icon: <Download className="h-5 w-5" />,
       onCustomAction: handleLightBurnExport,
       isCustomActionRunning: isExporting,
+      prompt: '',
+    },
+    {
+      label: 'ComfyUI',
+      icon: <Wand2 className="h-5 w-5" />,
+      onCustomAction: () => window.open('http://localhost:8188', '_blank'),
       prompt: '',
     },
   ]
