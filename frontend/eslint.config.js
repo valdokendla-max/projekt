@@ -1,4 +1,7 @@
-const nextConfig = require("eslint-config-next")
+const { FlatCompat } = require("@eslint/eslintrc")
+const path = require("path")
+
+const compat = new FlatCompat({ baseDirectory: __dirname })
 
 const config = [
   {
@@ -9,12 +12,7 @@ const config = [
       "tsconfig.tsbuildinfo",
     ],
   },
-  ...nextConfig,
-  {
-    rules: {
-      // Lisa vajadusel reegleid
-    },
-  },
+  ...compat.extends("next/core-web-vitals"),
 ]
 
 module.exports = config

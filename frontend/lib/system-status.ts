@@ -14,4 +14,5 @@ export interface SystemStatusResponse {
   backend: ServiceStatus
   knowledgeBase: ServiceStatus
   ai: ServiceStatus
+  comfyui: ServiceStatus
 }

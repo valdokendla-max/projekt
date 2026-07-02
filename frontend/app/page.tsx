@@ -27,7 +27,6 @@ import {
   type ZodiacSign,
   type ChineseZodiacAnimal,
 } from '@/lib/image-prompts'
-
 const MAX_CHAT_IMAGE_BYTES = 3 * 1024 * 1024
 const SUPPORTED_CHAT_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const MAX_CONVERSATIONS = 5
@@ -543,32 +542,74 @@ export default function LaserGraveerimiseApp() {
         if (!data.promptId) throw new Error('No promptId returned.')
         const promptId = data.promptId
         const deadline = Date.now() + 10 * 60 * 1000
-        while (Date.now() < deadline) {
-          await new Promise((r) => setTimeout(r, 4000))
-          const pollRes = await fetch(`/api/image-transform?id=${encodeURIComponent(promptId)}`)
-          const pollData = (await pollRes.json().catch(() => null)) as
-            | { ok: boolean; status?: 'ready' | 'pending' | 'error'; imageDataUrl?: string; error?: string }
-            | null
-          if (!pollData) continue
-          if (!pollData.ok) throw new Error(pollData.error || 'Polling failed.')
-          if (pollData.status === 'ready' && pollData.imageDataUrl) {
-            imageDataUrl = pollData.imageDataUrl
-            break
+        const startedAt = Date.now()
+        const updateTimer = () => {
+          const secs = Math.floor((Date.now() - startedAt) / 1000)
+          const label = effectiveLanguage === 'eng'
+            ? `ComfyUI generating… ${secs}s`
+            : `ComfyUI genereerib… ${secs}s`
+          setMessages((prev) => prev.map((msg) =>
+            msg.id === placeholderId
+              ? { ...msg, parts: [{ type: 'text', text: label }] }
+              : msg
+          ))
+        }
+        const timerHandle = setInterval(updateTimer, 1000)
+        try {
+          while (Date.now() < deadline) {
+            await new Promise((r) => setTimeout(r, 4000))
+            const pollRes = await fetch(`/api/image-transform?id=${encodeURIComponent(promptId)}`)
+            const pollData = (await pollRes.json().catch(() => null)) as
+              | { ok: boolean; status?: 'ready' | 'pending' | 'error'; imageDataUrl?: string; error?: string }
+              | null
+            if (!pollData) continue
+            if (!pollData.ok) throw new Error(pollData.error || 'Polling failed.')
+            if (pollData.status === 'ready' && pollData.imageDataUrl) {
+              imageDataUrl = pollData.imageDataUrl
+              break
+            }
           }
+        } finally {
+          clearInterval(timerHandle)
         }
         if (!imageDataUrl) {
           throw new Error(effectiveLanguage === 'eng' ? 'Image transform timed out.' : 'Pildi muundamine aegus.')
         }
       }
 
-      const finalImageUrl = imageDataUrl
+      let finalImageUrl = imageDataUrl
+      let finalMediaType = 'image/png'
+      let finalFilename = outputFilename
+      if (variant === 'line-art') {
+        try {
+          setMessages((prev) => prev.map((msg) =>
+            msg.id === placeholderId
+              ? { ...msg, parts: [{ type: 'text', text: effectiveLanguage === 'eng' ? 'Vectorizing…' : 'Vektorizeerib…' }] }
+              : msg
+          ))
+          const vecRes = await fetch('/api/vectorize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageDataUrl }),
+          })
+          const vecData = await vecRes.json() as { ok: boolean; svgDataUrl?: string }
+          if (vecData.ok && vecData.svgDataUrl) {
+            finalImageUrl = vecData.svgDataUrl
+            finalMediaType = 'image/svg+xml'
+            finalFilename = outputFilename.replace(/\.png$/, '.svg')
+          }
+        } catch {
+          // fall back to PNG
+        }
+      }
+
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === placeholderId
             ? ({
                 ...msg,
                 parts: [
-                  { type: 'file', url: finalImageUrl, mediaType: 'image/png', filename: outputFilename } as UIMessage['parts'][number],
+                  { type: 'file', url: finalImageUrl, mediaType: finalMediaType, filename: finalFilename } as UIMessage['parts'][number],
                   { type: 'text', text: doneText },
                 ],
               } as UIMessage)

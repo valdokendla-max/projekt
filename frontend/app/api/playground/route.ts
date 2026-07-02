@@ -11,6 +11,7 @@ const COMFYUI_BASE_URL = (process.env.COMFYUI_BASE_URL || '').trim()
 
 const VALID_CHECKPOINTS: PlaygroundCheckpoint[] = [
   'juggernautXI.safetensors',
+  'cyberrealisticPony_v18.safetensors',
   'ponyDiffusionV6XL.safetensors',
   'sd_xl_base_1.0.safetensors',
 ]

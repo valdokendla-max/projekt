@@ -4,7 +4,7 @@
 import { IMAGE_TRANSFORM_PROMPTS, type ImageTransformVariant } from '@/lib/image-prompts'
 import { VARIANT_CONFIG } from '@/lib/image-transform-config'
 import { ComfyClient, ComfyError, bytesToDataUrl, type ComfyImageRef, type ComfyHistoryEntry } from '@/lib/comfyui-client'
-import { buildImg2ImgWorkflow } from '@/lib/comfyui-workflows'
+import { buildImg2ImgWorkflow, buildLineArtWorkflow } from '@/lib/comfyui-workflows'
 
 export const runtime = 'edge'
 
@@ -64,21 +64,25 @@ export async function POST(req: Request) {
     const bytes = dataUrlToBytes(sourceImageDataUrl)
     const client = new ComfyClient({ baseUrl: COMFYUI_BASE_URL })
     const uploaded = await client.uploadImage(bytes, `src_${variant}_${Date.now()}.png`, req.signal)
-    const workflow = buildImg2ImgWorkflow({
-      prompt,
-      sourceImageName: uploaded.name,
-      denoise: cfg.denoise,
-      steps: cfg.steps,
-      cfg: cfg.cfg,
-      checkpoint: cfg.checkpoint,
-      filenamePrefix: `tx_${variant}`,
-    })
+
+    const workflow = variant === 'line-art'
+      ? buildLineArtWorkflow({ sourceImageName: uploaded.name, filenamePrefix: 'tx_line-art' })
+      : buildImg2ImgWorkflow({
+          prompt,
+          sourceImageName: uploaded.name,
+          denoise: cfg.denoise,
+          steps: cfg.steps,
+          cfg: cfg.cfg,
+          checkpoint: cfg.checkpoint,
+          filenamePrefix: `tx_${variant}`,
+        })
+
     const promptId = await client.submit(workflow, req.signal)
     return Response.json({
       ok: true,
       status: 'pending',
       promptId,
-      provider: `comfyui-${cfg.checkpoint.replace(/\.safetensors$/, '')}`,
+      provider: variant === 'line-art' ? 'comfyui-canny' : `comfyui-${cfg.checkpoint.replace(/\.safetensors$/, '')}`,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Pildi muundamine ebaõnnestus.'

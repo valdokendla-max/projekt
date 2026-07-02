@@ -1,6 +1,8 @@
 import type { MetadataRoute } from 'next'
 import { SEO_GUIDE_SUMMARIES } from './seo-content'
 
+export const runtime = 'edge'
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date()
 

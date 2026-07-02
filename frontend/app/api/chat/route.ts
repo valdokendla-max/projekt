@@ -155,7 +155,9 @@ function resolveProvider(usesVision: boolean): ProviderConfig | null {
 }
 
 export async function POST(req: Request) {
-  const { id: messageId, messages, savedSettingsSummary, language: rawLanguage }: { id?: string; messages: UIMessage[]; savedSettingsSummary?: string; language?: string } = await req.json()
+  try {
+  const rawText = await req.text()
+  const { id: messageId, messages, savedSettingsSummary, language: rawLanguage }: { id?: string; messages: UIMessage[]; savedSettingsSummary?: string; language?: string } = JSON.parse(rawText)
   const language: 'est' | 'eng' = rawLanguage === 'eng' ? 'eng' : 'est'
 
   const usesVision = messages.some((message) => message.parts?.some(isImagePart))
@@ -190,7 +192,6 @@ export async function POST(req: Request) {
       messages: providerMessages,
       stream: true,
     }),
-    signal: req.signal,
   })
 
   if (!response.ok) {
@@ -204,7 +205,12 @@ export async function POST(req: Request) {
       response.status === 422 ||
       response.status >= 500 ||
       /content|policy|filter|moderation|safety|blocked|nsfw|adult/i.test(providerMessage)
-    if (looksLikeContentBlock) {
+    if (response.status === 429) {
+      formatted =
+        language === 'eng'
+          ? 'Groq free daily limit reached. Chat will automatically reopen tomorrow (resets every 24 h). No action needed.'
+          : 'Groq tasuta päevalimiit on täis. Chat avaneb automaatselt homme uuesti (resetib iga 24 h). Midagi tegema ei pea.'
+    } else if (looksLikeContentBlock) {
       formatted =
         (language === 'eng'
           ? 'Your message was blocked by the chat content filter. The chat is for laser engraving tech questions. To generate an image, use the icons "Loo ise" (your own prompt, saved in Knowledge) or "Täiskasvanutele" (21 styles).'
@@ -275,4 +281,8 @@ export async function POST(req: Request) {
       'X-Vercel-AI-Data-Stream': 'v1',
     },
   })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+    return Response.json({ error: msg }, { status: 500 })
+  }
 }

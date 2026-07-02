@@ -212,6 +212,23 @@ export function buildTxt2ImgWithFaceFixWorkflow(params: Txt2ImgWorkflowParams): 
   return wf
 }
 
+export interface LineArtWorkflowParams {
+  sourceImageName: string
+  filenamePrefix?: string
+  resolution?: number
+  lowThreshold?: number
+  highThreshold?: number
+}
+
+export function buildLineArtWorkflow(params: LineArtWorkflowParams): Record<string, unknown> {
+  return {
+    '1': { class_type: 'LoadImage', inputs: { image: params.sourceImageName } },
+    '2': { class_type: 'CannyEdgePreprocessor', inputs: { image: ['1', 0], low_threshold: params.lowThreshold ?? 120, high_threshold: params.highThreshold ?? 240, resolution: params.resolution ?? 512 } },
+    '3': { class_type: 'ImageInvert', inputs: { image: ['2', 0] } },
+    '4': { class_type: 'SaveImage', inputs: { images: ['3', 0], filename_prefix: params.filenamePrefix ?? 'line-art' } },
+  }
+}
+
 export interface Img2ImgWorkflowParams {
   prompt: string
   negativePrompt?: string

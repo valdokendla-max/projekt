@@ -189,8 +189,8 @@ export const IMAGE_TRANSFORM_LABELS: Record<ImageTransformVariant, ActionLabels>
     eng: { name: 'Image cleanup', description: 'Make the image sharper, cleaner, more detailed' },
   },
   'line-art': {
-    est: { name: 'Lihtne joon', description: 'Foto → puhas line art (LightBurn vector jaoks)' },
-    eng: { name: 'Simple line art', description: 'Photo → clean line art (for LightBurn vectors)' },
+    est: { name: 'Vector fail', description: 'Foto → puhas vektor SVG (lõikefail LightBurni jaoks)' },
+    eng: { name: 'Vector file', description: 'Photo → clean vector SVG (cut file for LightBurn)' },
   },
   'text-logo': {
     est: { name: 'Tekst / Logo', description: 'Tekst või logo → graveeritav versioon' },
@@ -217,8 +217,8 @@ export const IMAGE_TRANSFORM_DONE_MESSAGES: Record<ImageTransformVariant, Action
     eng: { name: 'Image cleaned up.', description: '' },
   },
   'line-art': {
-    est: { name: 'Line art on loodud.', description: '' },
-    eng: { name: 'Line art created.', description: '' },
+    est: { name: 'Vector fail on loodud.', description: '' },
+    eng: { name: 'Vector file created.', description: '' },
   },
   'text-logo': {
     est: { name: 'Tekst / logo on graveerimisvalmis.', description: '' },
@@ -235,7 +235,7 @@ export const IMAGE_TRANSFORM_FILENAMES: Record<ImageTransformVariant, string> = 
   'tattoo-realistic': 'tattoo-realistlik.png',
   'tattoo-portrait': 'tattoo-portree.png',
   enhance: 'puhastatud.png',
-  'line-art': 'line-art.png',
+  'line-art': 'vector-fail.svg',
   'text-logo': 'tekst-logo.png',
   'relief-3d': '3d-reljeef.png',
 }

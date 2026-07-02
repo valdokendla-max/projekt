@@ -110,14 +110,24 @@ export function ChatMessage({ message }: { message: UIMessage }) {
                     onClick={() => { setLightboxUrl(image.url); setLightboxFilename(image.filename) }}
                     title="Kliki suuremaks"
                   >
-                    <Image
-                      src={image.url}
-                      alt={image.filename || 'Laaditud pilt'}
-                      width={180}
-                      height={180}
-                      unoptimized
-                      className="w-full object-contain"
-                    />
+                    {image.mediaType === 'image/svg+xml' ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={image.url}
+                        alt={image.filename || 'Laaditud pilt'}
+                        style={{ width: '180px', height: '180px' }}
+                        className="w-full object-contain"
+                      />
+                    ) : (
+                      <Image
+                        src={image.url}
+                        alt={image.filename || 'Laaditud pilt'}
+                        width={180}
+                        height={180}
+                        unoptimized
+                        className="w-full object-contain"
+                      />
+                    )}
                     {image.filename && <figcaption className="px-3 py-2 text-xs text-cyan-100/52">{image.filename}</figcaption>}
                   </figure>
                 ))}
