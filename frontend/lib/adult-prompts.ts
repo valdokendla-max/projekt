@@ -266,28 +266,33 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
     labels: { est: { name: 'Topless rannas tuules', description: 'Troopiline rand, topless, lendlev valge kangas' }, eng: { name: 'Topless beach', description: 'Tropical beach topless, flowing fabric' } },
   },
   'couple-beach': {
-    category: 'beach',
+    category: 'explicit',
     checkpoint: 'cyberrealisticPony_v18.safetensors',
-    steps: 30, cfg: 6.5, width: 1216, height: 832,
+    steps: 35, cfg: 7.5, width: 1216, height: 832,
     promptTemplate:
-      '{SUBJECT}, adult couple (both nude:1.2), (topless woman:1.1), walking barefoot along tropical beach, ' +
-      'holding hands intimately, golden sunset lighting, gentle ocean waves, ' +
-      'cinematic photography, ultra realistic, 85mm lens, ' +
-      'shallow depth of field, sensual intimate moment, magazine quality' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE + ', swimsuits, clothed',
-    labels: { est: { name: 'Alasti paar rannas', description: 'Alasti paar troopilises rannas, kuldne loojang' }, eng: { name: 'Nude couple beach', description: 'Nude couple tropical beach, sunset' } },
+      PONY_QUALITY + 'source_photo, rating_explicit, ' +
+      '1boy, 1girl, {SUBJECT}, ' +
+      '(sex on beach:1.4), (outdoor sex:1.4), (doggystyle:1.3), ' +
+      '(man fucking woman from behind:1.4), (vaginal penetration:1.3), ' +
+      '(nude couple:1.3), (bare breasts:1.2), (erect penis:1.2), ' +
+      'tropical beach, golden sunset, ocean waves, sand, warm light, ' +
+      'photorealistic, medium shot, (perfect anatomy:1.2), masterpiece',
+    negativePrompt: 'score_4, score_5, score_6, ' + COMMON_NEGATIVE + ', clothed, solo, anime, cartoon, deformed, bad hands, (fused fingers:1.3)',
+    labels: { est: { name: 'Seks rannas', description: 'Paar seksib rannas loojangul' }, eng: { name: 'Sex on beach', description: 'Couple sex on beach at sunset' } },
   },
   'couple-shoreline': {
-    category: 'beach',
+    category: 'explicit',
     checkpoint: 'cyberrealisticPony_v18.safetensors',
-    steps: 30, cfg: 6.5, width: 1216, height: 832,
+    steps: 35, cfg: 7.5, width: 1216, height: 832,
     promptTemplate:
-      '{SUBJECT}, (nude adult couple embracing intimately:1.2) on shoreline, ' +
-      '(bare bodies pressed together:1.1), warm sunset glow, soft ocean breeze, ' +
-      'sensual romantic atmosphere, natural intimate body language, realistic skin texture, ' +
-      'cinematic composition, professional photography, ultra detailed' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE + ', clothing',
-    labels: { est: { name: 'Alasti kallistus rannas', description: 'Alasti paar kallistab kaldal, loojang' }, eng: { name: 'Nude shore hug', description: 'Nude couple shoreline embrace, sunset' } },
+      PONY_QUALITY + 'source_photo, rating_explicit, ' +
+      '1boy, 1girl, {SUBJECT}, ' +
+      '(standing sex on shoreline:1.4), (sex from behind:1.3), (vaginal penetration:1.3), ' +
+      '(man behind woman:1.3), (nude couple:1.2), (bare breasts:1.2), (erect penis:1.2), ' +
+      'ocean shoreline, waves touching feet, golden hour sunset, wet sand, ' +
+      'photorealistic, medium shot, (perfect anatomy:1.2), masterpiece',
+    negativePrompt: 'score_4, score_5, score_6, ' + COMMON_NEGATIVE + ', clothed, solo, anime, cartoon, deformed, bad hands',
+    labels: { est: { name: 'Seks kaldal', description: 'Seistes seks lainerannas, loojang' }, eng: { name: 'Shoreline sex', description: 'Standing sex on shoreline, sunset' } },
   },
   'romantic-couple': {
     category: 'beach',
