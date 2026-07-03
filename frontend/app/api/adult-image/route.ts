@@ -7,7 +7,7 @@ import {
   type AdultVariant,
 } from '@/lib/adult-prompts'
 import { ComfyClient, ComfyError, bytesToDataUrl, type ComfyImageRef, type ComfyHistoryEntry } from '@/lib/comfyui-client'
-import { buildTxt2ImgWithFaceFixWorkflow } from '@/lib/comfyui-workflows'
+import { buildTxt2ImgWorkflow, buildTxt2ImgWithFaceFixWorkflow } from '@/lib/comfyui-workflows'
 
 export const runtime = 'edge'
 
@@ -45,18 +45,30 @@ export async function POST(req: Request) {
 
   try {
     const client = new ComfyClient({ baseUrl: COMFYUI_BASE_URL })
-    // buildTxt2ImgWithFaceFixWorkflow ajab pildi läbi Face Detailer'i, mis tuvastab
-    // näo ja re-sample'ib selle kõrgemal eraldusvõimel — silmad/nahk tulevad teravad.
-    const workflow = buildTxt2ImgWithFaceFixWorkflow({
-      prompt,
-      negativePrompt,
-      width: cfg.width,
-      height: cfg.height,
-      steps: cfg.steps,
-      cfg: cfg.cfg,
-      checkpoint: cfg.checkpoint,
-      filenamePrefix: `adult_${variant}`,
-    })
+    // Portrait-kategooria saab FaceDetailer'i (näo teravus).
+    // Explicit/group/beach kategooriad kasutavad lihtsat txt2img-i — kiirem ja stabiilsem.
+    const useFaceDetailer = cfg.category === 'portrait' || cfg.category === 'glamour'
+    const workflow = useFaceDetailer
+      ? buildTxt2ImgWithFaceFixWorkflow({
+          prompt,
+          negativePrompt,
+          width: cfg.width,
+          height: cfg.height,
+          steps: cfg.steps,
+          cfg: cfg.cfg,
+          checkpoint: cfg.checkpoint,
+          filenamePrefix: `adult_${variant}`,
+        })
+      : buildTxt2ImgWorkflow({
+          prompt,
+          negativePrompt,
+          width: cfg.width,
+          height: cfg.height,
+          steps: cfg.steps,
+          cfg: cfg.cfg,
+          checkpoint: cfg.checkpoint,
+          filenamePrefix: `adult_${variant}`,
+        })
     const promptId = await client.submit(workflow, req.signal)
     return Response.json({
       ok: true,

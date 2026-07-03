@@ -32,6 +32,7 @@ export type AdultVariant =
   // group
   | 'friends-group'
   | 'beach-club'
+  | 'beach-club-mixed'
   // tattoo
   | 'tattoo-reference'
   // explicit — hardcore sex acts (CyberRealistic Pony)
@@ -326,6 +327,23 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
     labels: { est: { name: 'Topless beach club', description: 'Stiilne topless grupp luksusrannas' }, eng: { name: 'Topless beach club', description: 'Stylish topless group luxury beach' } },
   },
 
+  'beach-club-mixed': {
+    category: 'explicit',
+    checkpoint: 'ponyDiffusionV6XL.safetensors',
+    steps: 35, cfg: 7.5, width: 1216, height: 832,
+    promptTemplate:
+      PONY_QUALITY + 'source_photo, rating_explicit, ' +
+      '2boys, 3girls, {SUBJECT}, ' +
+      '(group sex:1.4), (orgy:1.4), (outdoor sex:1.3), ' +
+      '(male penetrating female:1.4), (vaginal sex:1.3), (sex from behind:1.3), ' +
+      '(erect penis visible:1.3), (bare breasts:1.3), (nude bodies:1.3), ' +
+      '(multiple sex acts simultaneously:1.3), ' +
+      'tropical beach background, warm golden light, sand, ocean, ' +
+      'photorealistic, medium shot, (perfect anatomy:1.2), masterpiece',
+    negativePrompt: 'score_4, score_5, score_6, ' + COMMON_NEGATIVE + ', (all female:1.5), (no males:1.5), (women only:1.5), clothed, swimwear, anime, cartoon, deformed, bad hands, (fused fingers:1.3)',
+    labels: { est: { name: 'Beach orgia', description: 'Grupiseks rannas loojangul, eksplitsiitne' }, eng: { name: 'Beach orgy', description: 'Group sex on beach, sunset, explicit' } },
+  },
+
   // ============== EXPLICIT (CyberRealistic Pony — hardcore sex acts) ==============
   'explicit-solo-spread': {
     category: 'explicit',
@@ -488,8 +506,7 @@ export function buildAdultPrompt(
 ): { prompt: string; negativePrompt: string } {
   const cfg = ADULT_VARIANTS[variant]
   const cleanSubject = subject.trim() || 'beautiful adult'
-  // FULL_BODY_TAG kohustuslik: kogu keha nähtav, mitte kärbitud.
-  // Pony-baasi mudelid (sh CyberRealistic Pony) vajavad score_* tag'e — lisame automaatselt.
+  // Pony-baasi mudelid vajavad score_* tag'e — lisame automaatselt.
   const usesPony =
     cfg.checkpoint === 'ponyDiffusionV6XL.safetensors' ||
     cfg.checkpoint === 'cyberrealisticPony_v18.safetensors'
@@ -500,7 +517,9 @@ export function buildAdultPrompt(
   const negExtra = usesPony && !cfg.negativePrompt.includes('score_4')
     ? 'score_4, score_5, score_6, '
     : ''
-  const prompt = ponyTags + FULL_BODY_TAG + cfg.promptTemplate.replace('{SUBJECT}', cleanSubject)
+  // Eksplitsiitsele sisule EI lisa FULL_BODY_TAG — kaamera liiga kaugel, seks ei paista
+  const bodyTag = cfg.category === 'explicit' ? '' : FULL_BODY_TAG
+  const prompt = ponyTags + bodyTag + cfg.promptTemplate.replace('{SUBJECT}', cleanSubject)
   const negativePrompt = negExtra + cfg.negativePrompt
   return { prompt, negativePrompt }
 }
