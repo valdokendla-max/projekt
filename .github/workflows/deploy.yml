@@ -26,8 +26,7 @@ jobs:
 
       - name: Build with @cloudflare/next-on-pages
         env:
-          NEXT_PUBLIC_BACKEND_URL: https://backend-production-24e5a.up.railway.app
-          BACKEND_PROXY_TARGET: https://backend-production-24e5a.up.railway.app
+          NEXT_PUBLIC_BACKEND_URL: https://vkengraveai-api.valdokendla.workers.dev
         run: npm run build:cf
         working-directory: frontend
 

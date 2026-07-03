@@ -1,6 +1,6 @@
 import Potrace from 'potrace'
 
-export const runtime = 'nodejs'
+export const runtime = 'edge'
 
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as { imageDataUrl?: string }
