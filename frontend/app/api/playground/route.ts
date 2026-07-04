@@ -3,6 +3,7 @@
 // (kui ka referents-pilt antud). ComfyUI-only, no paid fallback.
 import { ComfyClient, ComfyError, bytesToDataUrl, type ComfyImageRef, type ComfyHistoryEntry } from '@/lib/comfyui-client'
 import { buildTxt2ImgWithFaceFixWorkflow, buildImg2ImgWorkflow } from '@/lib/comfyui-workflows'
+import { planPlaygroundGeneration } from '@/lib/playground-ai'
 import type { PlaygroundCheckpoint } from '@/lib/playground-storage'
 
 export const runtime = 'edge'
@@ -22,6 +23,7 @@ interface SubmitBody {
   checkpoint?: PlaygroundCheckpoint
   sourceImageDataUrl?: string
   denoise?: number
+  aiMode?: boolean
 }
 
 function dataUrlToBytes(dataUrl: string): Uint8Array {
@@ -34,17 +36,41 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
 
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as SubmitBody
-  const prompt = String(body.prompt || '').trim()
-  const negativePrompt = String(body.negativePrompt || '').trim()
-  const checkpoint = body.checkpoint && VALID_CHECKPOINTS.includes(body.checkpoint)
+  let prompt = String(body.prompt || '').trim()
+  let negativePrompt = String(body.negativePrompt || '').trim()
+  let checkpoint = body.checkpoint && VALID_CHECKPOINTS.includes(body.checkpoint)
     ? body.checkpoint
     : 'juggernautXI.safetensors'
+  let width = 832
+  let height = 1216
+  let steps: number | undefined
+  let cfg: number | undefined
+
+  if (body.aiMode && body.sourceImageDataUrl) {
+    return Response.json({ ok: false, error: 'AI-režiim ei toeta hetkel viitepilti. Lülitu käsitsi vormile.' }, { status: 400 })
+  }
 
   if (prompt.length < 3) {
-    return Response.json({ ok: false, error: 'Prompt peab olema vähemalt 3 tähemärki. Salvesta esmalt teadmistes.' }, { status: 400 })
+    return Response.json({ ok: false, error: body.aiMode ? 'Kirjelda ideed vähemalt 3 tähemärgiga.' : 'Prompt peab olema vähemalt 3 tähemärki. Salvesta esmalt teadmistes.' }, { status: 400 })
   }
   if (!COMFYUI_BASE_URL) {
     return Response.json({ ok: false, error: 'ComfyUI server pole hetkel saadaval.' }, { status: 503 })
+  }
+
+  if (body.aiMode) {
+    try {
+      const plan = await planPlaygroundGeneration(prompt)
+      prompt = plan.prompt
+      negativePrompt = plan.negativePrompt
+      checkpoint = plan.checkpoint
+      width = plan.width
+      height = plan.height
+      steps = plan.steps
+      cfg = plan.cfg
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'AI planeerimine ebaõnnestus.'
+      return Response.json({ ok: false, error: message }, { status: 502 })
+    }
   }
 
   try {
@@ -68,8 +94,10 @@ export async function POST(req: Request) {
       workflow = buildTxt2ImgWithFaceFixWorkflow({
         prompt,
         negativePrompt,
-        width: 832,
-        height: 1216,
+        width,
+        height,
+        steps,
+        cfg,
         checkpoint,
         filenamePrefix: 'playground',
       })

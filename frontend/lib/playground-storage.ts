@@ -13,6 +13,7 @@ export interface PlaygroundSettings {
   negativePrompt: string
   checkpoint: PlaygroundCheckpoint
   savedAt: string
+  aiMode: boolean
 }
 
 const KEY = 'vk_playground_settings'
@@ -22,6 +23,7 @@ export const DEFAULT_PLAYGROUND: PlaygroundSettings = {
   negativePrompt: 'low quality, blurry, bad anatomy, watermark, text, logo',
   checkpoint: 'juggernautXI.safetensors',
   savedAt: '',
+  aiMode: false,
 }
 
 export const CHECKPOINT_LABELS: Record<PlaygroundCheckpoint, string> = {
@@ -42,6 +44,7 @@ export function loadPlayground(): PlaygroundSettings {
       negativePrompt: parsed.negativePrompt ?? DEFAULT_PLAYGROUND.negativePrompt,
       checkpoint: parsed.checkpoint ?? DEFAULT_PLAYGROUND.checkpoint,
       savedAt: parsed.savedAt ?? '',
+      aiMode: parsed.aiMode ?? false,
     }
   } catch {
     return DEFAULT_PLAYGROUND

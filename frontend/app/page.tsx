@@ -685,6 +685,7 @@ export default function LaserGraveerimiseApp() {
           negativePrompt: settings.negativePrompt,
           checkpoint: settings.checkpoint,
           sourceImageDataUrl,
+          aiMode: settings.aiMode,
         }),
       })
       const submitData = (await submitRes.json().catch(() => {
