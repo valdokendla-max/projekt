@@ -12,3 +12,6 @@ node_modules/
 # D1 data dumps (contain hashes/tokens — never commit)
 backend/d1-data.sql
 
+# Local dev helper script
+open_claude_here.bat
+

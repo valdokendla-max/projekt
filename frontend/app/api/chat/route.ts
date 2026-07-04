@@ -165,7 +165,7 @@ export async function POST(req: Request) {
 
   if (!provider) {
     return new Response(
-      JSON.stringify({ error: 'Puudub sobiv AI provideri võti. Lisa GROQ_API_KEY või OPENAI_API_KEY.' }),
+      JSON.stringify({ error: 'Puudub GROQ_API_KEY serveri seadistuses.' }),
       { status: 500 }
     )
   }
