@@ -45,9 +45,14 @@ export async function POST(req: Request) {
 
   try {
     const client = new ComfyClient({ baseUrl: COMFYUI_BASE_URL })
-    // Portrait-kategooria saab FaceDetailer'i (näo teravus).
-    // Explicit/group/beach kategooriad kasutavad lihtsat txt2img-i — kiirem ja stabiilsem.
-    const useFaceDetailer = cfg.category === 'portrait' || cfg.category === 'glamour'
+    // Nägu lähedalt näitavad kategooriad saavad FaceDetailer'i (näo teravus).
+    // Explicit ja tattoo kasutavad lihtsat txt2img-i — kiirem/stabiilsem, nägu pole seal fookuses.
+    const useFaceDetailer =
+      cfg.category === 'portrait' ||
+      cfg.category === 'glamour' ||
+      cfg.category === 'atmosphere' ||
+      cfg.category === 'beach' ||
+      cfg.category === 'group'
     const workflow = useFaceDetailer
       ? buildTxt2ImgWithFaceFixWorkflow({
           prompt,

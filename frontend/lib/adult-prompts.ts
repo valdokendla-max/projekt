@@ -60,15 +60,21 @@ export interface AdultVariantConfig {
   labels: ActionLabels
 }
 
-const COMMON_NEGATIVE =
+// Kvaliteet + vanuseturve — kehtib kõigile variantidele, sh tattoo (lähivõtted lubatud).
+const SAFETY_QUALITY_NEGATIVE =
   'low quality, blurry, bad anatomy, extra fingers, extra limbs, deformed hands, ' +
   'crossed eyes, duplicate body parts, watermark, text, logo, out of frame, ' +
-  'child, teen, underage, young, kid, minor, ' +
-  // Käsk: kogu keha peab nähtav olema. Tugevdame kärpimise blokki.
+  'child, teen, underage, young, kid, minor, hands out of frame, partial body'
+
+// Anti-crop blokk: sunnib kogu keha nähtavaks. EI sobi tattoo-referentsile,
+// mis vajab just lähivõtet (nahk/motiiv), mitte kaugvõtet täiskehast.
+const FULL_BODY_NEGATIVE =
   '((cropped:1.5)), ((close-up:1.4)), ((head shot:1.4)), ((portrait crop:1.4)), ' +
   '((bust shot:1.4)), ((upper body only:1.5)), ((waist crop:1.4)), ' +
   '(cut off legs:1.4), (feet out of frame:1.4), (legs not shown:1.4), ' +
-  'hands out of frame, partial body, torso only, 85mm lens, telephoto'
+  'torso only, 85mm lens, telephoto'
+
+const COMMON_NEGATIVE = SAFETY_QUALITY_NEGATIVE + ', ' + FULL_BODY_NEGATIVE
 
 const FULL_BODY_TAG =
   // Tugev rõhk kogu kehale: kaalud 1.4-1.5, wide-angle lens, zoom out, kaugem kaamera.
@@ -265,6 +271,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
     negativePrompt: COMMON_NEGATIVE + ', bikini top, swimsuit, dressed',
     labels: { est: { name: 'Topless rannas tuules', description: 'Troopiline rand, topless, lendlev valge kangas' }, eng: { name: 'Topless beach', description: 'Tropical beach topless, flowing fabric' } },
   },
+  // NB: rannateemaline, aga category on 'explicit' (hardcore), mitte 'beach' — vt EXPLICIT sektsiooni allpool.
   'couple-beach': {
     category: 'explicit',
     checkpoint: 'cyberrealisticPony_v18.safetensors',
@@ -280,6 +287,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
     negativePrompt: 'score_4, score_5, score_6, ' + COMMON_NEGATIVE + ', clothed, solo, anime, cartoon, deformed, bad hands, (fused fingers:1.3)',
     labels: { est: { name: 'Seks rannas', description: 'Paar seksib rannas loojangul' }, eng: { name: 'Sex on beach', description: 'Couple sex on beach at sunset' } },
   },
+  // NB: rannateemaline, aga category on 'explicit' (hardcore), mitte 'beach' — vt EXPLICIT sektsiooni allpool.
   'couple-shoreline': {
     category: 'explicit',
     checkpoint: 'cyberrealisticPony_v18.safetensors',
@@ -332,6 +340,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
     labels: { est: { name: 'Topless beach club', description: 'Stiilne topless grupp luksusrannas' }, eng: { name: 'Topless beach club', description: 'Stylish topless group luxury beach' } },
   },
 
+  // NB: grupiteemaline, aga category on 'explicit' (hardcore), mitte 'group' — vt EXPLICIT sektsiooni allpool.
   'beach-club-mixed': {
     category: 'explicit',
     checkpoint: 'ponyDiffusionV6XL.safetensors',
@@ -468,7 +477,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
       'pencil shading aesthetic, sharp linework',
     negativePrompt:
       'color, watercolor, cartoon, anime, flat shading, low detail, ' +
-      'frame, border, scenery, environment, ' + COMMON_NEGATIVE,
+      'frame, border, scenery, environment, ' + SAFETY_QUALITY_NEGATIVE,
     labels: { est: { name: 'Tattoo referents', description: 'Must-hall realism eskiis, valge taust' }, eng: { name: 'Tattoo reference', description: 'Black & grey realism, white background' } },
   },
 }
@@ -522,8 +531,9 @@ export function buildAdultPrompt(
   const negExtra = usesPony && !cfg.negativePrompt.includes('score_4')
     ? 'score_4, score_5, score_6, '
     : ''
-  // Eksplitsiitsele sisule EI lisa FULL_BODY_TAG — kaamera liiga kaugel, seks ei paista
-  const bodyTag = cfg.category === 'explicit' ? '' : FULL_BODY_TAG
+  // Eksplitsiitsele sisule EI lisa FULL_BODY_TAG — kaamera liiga kaugel, seks ei paista.
+  // Tattoo-referentsile samuti mitte — see vajab lähivõtet motiivist, mitte täiskeha kaugvõtet.
+  const bodyTag = cfg.category === 'explicit' || cfg.category === 'tattoo' ? '' : FULL_BODY_TAG
   const prompt = ponyTags + bodyTag + cfg.promptTemplate.replace('{SUBJECT}', cleanSubject)
   const negativePrompt = negExtra + cfg.negativePrompt
   return { prompt, negativePrompt }

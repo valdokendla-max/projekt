@@ -20,7 +20,7 @@ interface AdultModalProps {
 }
 
 const AGE_FLAG_KEY = 'vk_adult_18_confirmed_at'
-const CATEGORY_ORDER: AdultCategory[] = ['portrait', 'glamour', 'atmosphere', 'beach', 'group', 'tattoo']
+const CATEGORY_ORDER: AdultCategory[] = ['portrait', 'glamour', 'atmosphere', 'beach', 'group', 'tattoo', 'explicit']
 
 const COPY = {
   est: {
@@ -123,7 +123,7 @@ export function AdultModal({ open, onOpenChange, onSubmit, language }: AdultModa
     )
   }
 
-  // ---- Variant picker (all 21 variants grouped by category) ----
+  // ---- Variant picker (all variants grouped by category) ----
   if (!variant) {
     return (
       <Dialog open={open} onOpenChange={handleClose}>
