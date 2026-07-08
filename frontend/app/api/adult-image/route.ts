@@ -1,88 +1,65 @@
 // Adult/18+ image generation — ComfyUI txt2img on local GPU.
-// POST /api/adult-image      -> {variant, subject} -> {ok, status:"pending", promptId}
+// Üks konsolideeritud vaba-tekst variant: kasutaja kirjeldab stseeni ise.
+// POST /api/adult-image      -> {subject, ageConfirmed} -> {ok, status:"pending", promptId}
 // GET  /api/adult-image?id=  -> poll for ready/pending/error
 import {
-  ADULT_VARIANTS,
-  buildAdultPrompt,
-  type AdultVariant,
+  buildFreeformAdultPrompt,
+  checkFreeformSafety,
+  FREEFORM_ADULT_CONFIG,
 } from '@/lib/adult-prompts'
 import { ComfyClient, ComfyError, bytesToDataUrl, type ComfyImageRef, type ComfyHistoryEntry } from '@/lib/comfyui-client'
-import { buildTxt2ImgWorkflow, buildTxt2ImgWithFaceFixWorkflow } from '@/lib/comfyui-workflows'
+import { buildTxt2ImgWorkflow } from '@/lib/comfyui-workflows'
 
 export const runtime = 'edge'
 
 const COMFYUI_BASE_URL = (process.env.COMFYUI_BASE_URL || '').trim()
 
 interface SubmitBody {
-  variant?: AdultVariant
   subject?: string
   ageConfirmed?: boolean
 }
 
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as SubmitBody
-  const variant = body.variant
   const subject = String(body.subject || '').trim()
 
   if (!body.ageConfirmed) {
     return Response.json({ ok: false, error: 'Vanus 18+ peab olema kinnitatud.' }, { status: 403 })
   }
-  if (!variant || !(variant in ADULT_VARIANTS)) {
-    return Response.json({ ok: false, error: 'Vigane variant.' }, { status: 400 })
-  }
   if (subject.length < 3) {
-    return Response.json({ ok: false, error: 'Kirjelda subjekti vähemalt 3 tähemärgiga.' }, { status: 400 })
+    return Response.json({ ok: false, error: 'Kirjelda stseeni vähemalt 3 tähemärgiga.' }, { status: 400 })
   }
-  if (subject.length > 300) {
-    return Response.json({ ok: false, error: 'Subjekti kirjeldus kuni 300 tähemärki.' }, { status: 400 })
+  if (subject.length > 400) {
+    return Response.json({ ok: false, error: 'Kirjeldus kuni 400 tähemärki.' }, { status: 400 })
+  }
+  const safetyError = checkFreeformSafety(subject)
+  if (safetyError) {
+    return Response.json({ ok: false, error: safetyError }, { status: 400 })
   }
   if (!COMFYUI_BASE_URL) {
     return Response.json({ ok: false, error: 'ComfyUI server pole hetkel saadaval.' }, { status: 503 })
   }
 
-  const cfg = ADULT_VARIANTS[variant]
-  const { prompt, negativePrompt } = buildAdultPrompt(variant, subject)
+  const cfg = FREEFORM_ADULT_CONFIG
+  const { prompt, negativePrompt } = buildFreeformAdultPrompt(subject)
 
   try {
     const client = new ComfyClient({ baseUrl: COMFYUI_BASE_URL })
-    // Nägu lähedalt näitavad kategooriad saavad FaceDetailer'i (näo teravus).
-    // Explicit ja tattoo kasutavad lihtsat txt2img-i — kiirem/stabiilsem, nägu pole seal fookuses.
-    const useFaceDetailer =
-      cfg.category === 'portrait' ||
-      cfg.category === 'glamour' ||
-      cfg.category === 'atmosphere' ||
-      cfg.category === 'beach' ||
-      cfg.category === 'group'
-    const loras = cfg.loras?.map((l) => ({ name: l.name, strengthModel: l.strengthModel, strengthClip: l.strengthClip }))
-    const workflow = useFaceDetailer
-      ? buildTxt2ImgWithFaceFixWorkflow({
-          prompt,
-          negativePrompt,
-          width: cfg.width,
-          height: cfg.height,
-          steps: cfg.steps,
-          cfg: cfg.cfg,
-          checkpoint: cfg.checkpoint,
-          loras,
-          clipSkip: cfg.clipSkip,
-          samplerName: cfg.samplerName,
-          scheduler: cfg.scheduler,
-          filenamePrefix: `adult_${variant}`,
-        })
-      : buildTxt2ImgWorkflow({
-          prompt,
-          negativePrompt,
-          width: cfg.width,
-          height: cfg.height,
-          steps: cfg.steps,
-          cfg: cfg.cfg,
-          checkpoint: cfg.checkpoint,
-          loras,
-          clipSkip: cfg.clipSkip,
-          samplerName: cfg.samplerName,
-          scheduler: cfg.scheduler,
-          filenamePrefix: `adult_${variant}`,
-        })
+    const loras = cfg.loras.map((l) => ({ name: l.name, strengthModel: l.strengthModel, strengthClip: l.strengthClip }))
+    const workflow = buildTxt2ImgWorkflow({
+      prompt,
+      negativePrompt,
+      width: cfg.width,
+      height: cfg.height,
+      steps: cfg.steps,
+      cfg: cfg.cfg,
+      checkpoint: cfg.checkpoint,
+      loras,
+      clipSkip: cfg.clipSkip,
+      samplerName: cfg.samplerName,
+      scheduler: cfg.scheduler,
+      filenamePrefix: 'adult_custom',
+    })
     const promptId = await client.submit(workflow, req.signal)
     return Response.json({
       ok: true,

@@ -13,7 +13,7 @@ import { LaserSettingsPanel } from '@/components/laser-settings-panel'
 import { BirthCardModal } from '@/components/birth-card-modal'
 import { AdultModal } from '@/components/adult-modal'
 import { PlaygroundModal } from '@/components/playground-modal'
-import { ADULT_TOP_LEVEL_LABELS, type AdultVariant } from '@/lib/adult-prompts'
+import { ADULT_TOP_LEVEL_LABELS } from '@/lib/adult-prompts'
 import type { PlaygroundSettings } from '@/lib/playground-storage'
 import { readSavedLaserSettings, type StoredLaserSettings } from '@/lib/engraving/saved-settings-storage'
 import { useAuth } from '@/hooks/use-auth'
@@ -743,7 +743,7 @@ export default function LaserGraveerimiseApp() {
     }
   }
 
-  const handleAdultSubmit = async (variant: AdultVariant, subject: string) => {
+  const handleAdultSubmit = async (subject: string) => {
     if (isGeneratingAdult) return
     setIsGeneratingAdult(true)
     setChatInputError('')
@@ -753,8 +753,8 @@ export default function LaserGraveerimiseApp() {
       {
         id: crypto.randomUUID(),
         role: 'user' as const,
-        parts: [{ type: 'text', text: `${variant}: ${subject}` }],
-        content: `${variant}: ${subject}`,
+        parts: [{ type: 'text', text: subject }],
+        content: subject,
         createdAt: new Date(),
       } as UIMessage,
       {
@@ -770,7 +770,7 @@ export default function LaserGraveerimiseApp() {
       const submitRes = await fetch('/api/adult-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ variant, subject, ageConfirmed: true }),
+        body: JSON.stringify({ subject, ageConfirmed: true }),
       })
       const submitData = (await submitRes.json().catch(() => {
         throw new Error(`HTTP ${submitRes.status}`)
@@ -809,7 +809,7 @@ export default function LaserGraveerimiseApp() {
             ? ({
                 ...msg,
                 parts: [
-                  { type: 'file', url: finalUrl, mediaType: 'image/png', filename: `${variant}.png` } as UIMessage['parts'][number],
+                  { type: 'file', url: finalUrl, mediaType: 'image/png', filename: 'adult_custom.png' } as UIMessage['parts'][number],
                   { type: 'text', text: effectiveLanguage === 'eng' ? 'Image created.' : 'Pilt on loodud.' },
                 ],
               } as UIMessage)

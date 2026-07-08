@@ -580,3 +580,56 @@ export function buildAdultPrompt(
 export function getAdultLabel(variant: AdultVariant, lang: Language) {
   return ADULT_VARIANTS[variant].labels[lang]
 }
+
+// ============== FREEFORM (single "18+" entry, user writes the scene) ==============
+// Kõva piir, mida vaba tekst EI TOHI sisaldada, olenemata kasutaja soovist "teeb mida kirjutad".
+// Perekondlikud rollid + eksplitsiitne sisu koos, ja igasugune alaealisele viitav sõnastus.
+const BLOCKED_TERMS = [
+  // family-relation roles (blocked outright in this explicit-content mode)
+  'mom', 'mommy', 'mother', 'dad', 'daddy', 'father', 'son', 'daughter',
+  'sister', 'sis', 'brother', 'bro', 'stepmom', 'stepdad', 'stepson',
+  'stepdaughter', 'stepsister', 'stepbrother', 'aunt', 'uncle', 'cousin',
+  'grandma', 'grandpa', 'grandmother', 'grandfather', 'niece', 'nephew',
+  'incest', 'family',
+  // minor-coding terms
+  'teen', 'teenager', 'minor', 'child', 'children', 'kid', 'kids',
+  'schoolgirl', 'school girl', 'schoolboy', 'school boy', 'loli', 'lolita',
+  'shota', 'preteen', 'underage', 'adolescent', 'little girl', 'little boy',
+  'toddler', 'infant', 'baby', 'young girl', 'young boy',
+]
+
+const BLOCKED_TERMS_REGEX = new RegExp(
+  '\\b(' + BLOCKED_TERMS.map((t) => t.replace(/ /g, '\\s+')).join('|') + ')\\b',
+  'i',
+)
+
+export function checkFreeformSafety(text: string): string | null {
+  const match = text.match(BLOCKED_TERMS_REGEX)
+  if (match) {
+    return `Sõna "${match[0]}" ei ole lubatud (pere-rollid ja alaealisele viitav sõnastus on keelatud).`
+  }
+  return null
+}
+
+export function buildFreeformAdultPrompt(text: string): { prompt: string; negativePrompt: string } {
+  const prompt =
+    PONY_QUALITY + 'score_4_up, source_photo, rating_explicit, (uncensored:1.3), ' +
+    text.trim() + ', photorealistic, (perfect anatomy:1.2), detailed skin texture, masterpiece'
+  const negativePrompt =
+    'score_4, score_5, score_6, ' + COMMON_NEGATIVE +
+    ', anime, cartoon, drawing, deformed, bad hands, (fused fingers:1.3), ' +
+    '(censored:1.3), (bar censor:1.3), (mosaic censor:1.3), (blur censor:1.3)'
+  return { prompt, negativePrompt }
+}
+
+export const FREEFORM_ADULT_CONFIG = {
+  checkpoint: 'cyberrealisticPony_v18.safetensors' as const,
+  steps: 30,
+  cfg: 7.0,
+  width: 1024,
+  height: 1024,
+  clipSkip: -2,
+  samplerName: 'dpmpp_sde',
+  scheduler: 'karras',
+  loras: [DETAIL_TWEAKER, PENIS_SLIDER],
+}
