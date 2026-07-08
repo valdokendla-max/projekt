@@ -20,158 +20,80 @@ export interface ActionLabels {
 // Image edit prompts (POST /api/image-transform — uses /v1/images/edits)
 // -------------------------------------------------------------------------
 
-export const IMAGE_TRANSFORM_PROMPTS: Record<ImageTransformVariant, string> = {
-  'tattoo-realistic': `Transform this exact reference image into a highly detailed black and grey realistic pencil-style tattoo design.
+export interface ImageTransformPromptSet {
+  prompt: string
+  negativePrompt: string
+}
 
-CRITICAL RULES:
-- Preserve the EXACT composition of the reference
-- Keep ALL original subjects in their exact positions
-- DO NOT add any new subjects, faces, people, characters, or objects that are NOT in the reference
-- DO NOT change the layout or arrangement
-- Only enhance what is already there
-
-Enhance with:
-- Smooth gradient shading and depth on all existing elements
-- Realistic fur texture on animal manes (if animal present)
-- Detailed metallic shading on mechanical objects (clocks, gears, keys)
-- Soft petal shading on flowers
-- Layered leaf textures
-- Strong contrast between deep black shadows and soft grey highlights
-- Pencil/charcoal drawing aesthetic with smooth whip shading
-- Sharp clean linework preserved underneath
-
-Output: professional black and grey realistic tattoo flash artwork, pencil drawing aesthetic, centered composition, pure clean white background, no frame, no border, no added decoration outside the original subjects.
-
-Negative prompt: added faces, added people, added humans, new characters not in reference, woman, man, child, additional subjects, different composition, colored, watercolor, cartoon, anime, flat shading, low detail, blurry, distorted anatomy, added animals, added objects, scenery, environment, photo background, frame, border.`,
-
-  'tattoo-portrait': `Transform this exact reference image into a highly detailed black and grey realistic pencil-style tattoo design featuring the people from the reference.
-
-CRITICAL RULES:
-- Preserve the EXACT composition of the reference
-- Keep ALL original subjects in their exact positions
-- DO NOT add any new subjects, faces, or people that are NOT in the reference
-- DO NOT change the layout or arrangement
-
-For HUMAN subjects (faces, portraits):
-- Preserve the EXACT identity, age, and facial features of every person
-- Keep skin smooth and clean — do NOT add wrinkles
-- Do NOT age the subjects — children stay children, young people stay young, elderly stay elderly
-- Soft natural shading on faces only, no heavy stippling on facial skin
-- Faces remain instantly recognizable and identical to the reference
-- Eyes, nose, mouth proportions stay exactly as in reference
-
-For ornamental/background/clothing elements:
-- Add smooth gradient shading and depth
-- Add realistic textures (fabric folds, hair strands, leaves, flowers)
-- Strong contrast between deep black shadows and soft grey highlights
-- Pencil/charcoal drawing style with refined detail
-
-Output: professional black and grey realistic portrait tattoo flash artwork, pencil drawing aesthetic, centered composition, pure clean white background, no frame, no border.
-
-Negative prompt: added faces, added people not in reference, new characters, aged faces, wrinkled skin on young people, added age, distorted facial features, changed identity, unrecognizable faces, colored, watercolor, cartoon, anime, flat shading, low detail, blurry, distorted anatomy, scenery, environment, photo background, frame, border.`,
-
-  enhance: `Enhance and clean up this exact reference image. Make it visually crisp, sharp, and highly detailed while preserving 100% of the original composition.
-
-CRITICAL RULES:
-- Preserve the EXACT composition, subjects, and layout
-- DO NOT add, remove, or change any elements
-- DO NOT alter the style — keep it as the reference
-- Only IMPROVE clarity and detail
-
-Enhancements:
-- Sharpen all edges and linework
-- Improve contrast — deeper blacks, cleaner whites
-- Remove any noise, blur, compression artifacts, or background distractions
-- Enhance fine details (textures, small elements)
-- Clean and unify the background (pure white or as in reference)
-- Balanced exposure across the image
-- Professional high-resolution quality
-- Crisp, clean, gallery-ready finish
-
-For human subjects (if present):
-- Preserve exact identity and age
-- Smooth skin clean-up only, no aging, no wrinkles added
-
-Output: high-resolution clean version of the same image, sharper and more detailed, ready for laser engraving or printing.
-
-Negative prompt: changed composition, added elements, removed elements, different style, distorted subjects, colored if original is black and white, low quality, blurry, noisy, dark, washed out, oversaturated, cartoon, anime, photo background, frame, border, watermark, text.`,
-
-  'line-art': `Convert this exact reference image into a clean simple line art drawing suitable for laser engraving and vector tracing in LightBurn.
-
-CRITICAL RULES:
-- Preserve the EXACT composition and all subjects from the reference
-- DO NOT add or remove any elements
-- Keep the same layout and proportions
-
-Style requirements:
-- Pure black outlines on pure white background
-- Simple clean continuous lines, no broken or sketchy strokes
-- Uniform line weight throughout — clean and consistent
-- NO shading, NO gradients, NO grey tones, NO dotwork, NO stippling, NO crosshatching
-- ONLY outlines — bold and minimal
-- Connected closed shapes where possible (better for vector tracing)
-- Strong silhouette and clear contours
-- Minimal interior detail — only essential lines that define the shape
-- Suitable for single-pass laser cutting OR LightBurn Trace-to-Vector conversion
-
-Output: clean minimalist line drawing, pure black on pure white, vector-ready, centered composition, no frame, no border, no shading whatsoever.
-
-Negative prompt: shading, gradients, grey tones, dotwork, stippling, crosshatching, sketchy lines, broken strokes, varying line weight, fill colors, watercolor, realistic style, photo, 3D, depth, shadows, highlights, texture, background, frame, border, watermark.`,
-
-  'text-logo': `Convert this exact reference (text or logo) into a clean professional engraving-ready version optimized for laser engraving.
-
-CRITICAL RULES:
-- Preserve the EXACT text content, letters, words, symbols, and logo elements
-- DO NOT change letterforms, font style, or proportions
-- DO NOT add new elements or decorations not in the reference
-- Keep the same layout and composition
-
-For TEXT:
-- Sharp clean letter edges
-- Uniform stroke weight
-- Pure black on pure white
-- Crisp typography ready for engraving
-- Preserve original font characteristics
-
-For LOGO:
-- Bold clean shapes
-- Solid black fills where appropriate, clean outlines elsewhere
-- Remove any gradients or shading — convert to solid black and white
-- Sharp vector-ready edges
-- Preserve symbol proportions and details
-
-Output: high-contrast pure black on pure white version, optimized for laser engraving, sharp edges, no gradients, no grey tones, centered composition, no frame, no border.
-
-Negative prompt: gradients, grey tones, soft edges, blur, anti-aliasing artifacts, changed text, misspellings, changed letters, added decoration, frame, border, background, drop shadow, 3D effect, glow, colored, watercolor, sketchy, distorted letterforms, illegible text.`,
-
-  'relief-3d': `Transform this exact reference image into a highly detailed 3D sculptural relief style suitable for deep laser engraving on wood, stone, or metal.
-
-CRITICAL RULES:
-- Preserve the EXACT composition, pose, and all subjects from the reference
-- Keep ALL original elements in their exact positions
-- DO NOT add new subjects, faces, characters, or objects
-- DO NOT change the layout, anatomy, or proportions
-
-Style requirements:
-- High-relief 3D sculpture aesthetic, like carved marble or stone
-- Pure white surface with deep dramatic shadows defining the form
-- Smooth volumetric shading — soft gradient transitions from highlight to shadow
-- Cinematic directional lighting from above-left creating clear depth
-- Sharp crisp shadows in recessed areas, bright highlights on raised surfaces
-- Realistic anatomy and musculature (if figures present)
-- Intricate sculpted detail on textured elements (hair curls, feathers, fabric folds, chains, ornamental work)
-- Polished marble or fine stone surface quality
-- Clean monochrome white-to-grey-to-black tonal range
-- Strong sense of three-dimensional depth and volume
-- Classical sculpture aesthetic — Renaissance/Baroque inspired
-
-Background:
-- Pure black background isolating the sculpted subject
-- Subject fully lit, background completely dark for maximum contrast
-
-Output: photo-realistic 3D sculptural relief rendering, white marble or carved stone aesthetic, dramatic chiaroscuro lighting, centered composition, isolated on solid black background, ready for depth-map laser engraving.
-
-Negative prompt: flat shading, line art, outlines only, sketchy, pencil drawing, tattoo style, watercolor, cartoon, anime, colored, low contrast, grey background, white background, washed out, no shadows, no depth, 2D, illustration style, added subjects, changed pose, distorted anatomy, frame, border, text, watermark.`,
+export const IMAGE_TRANSFORM_PROMPTS: Record<ImageTransformVariant, ImageTransformPromptSet> = {
+  'tattoo-realistic': {
+    prompt:
+      'monochrome black and grey realistic tattoo design, greyscale ink drawing on skin, ' +
+      'fine detailed pencil linework, engraved tattoo stencil texture overlaid on the entire body and face, ' +
+      'smooth whip shading, strong contrast between deep black shadows and soft grey highlights, ' +
+      'sharp clean linework, professional tattoo flash artwork, pencil drawing aesthetic, ' +
+      'desaturated, no skin color, centered composition, highly detailed, masterpiece',
+    negativePrompt:
+      'added faces, added people, new characters, extra subjects, child, ' +
+      'colored, color photo, skin tone, watercolor, cartoon, anime, flat shading, low detail, blurry, ' +
+      'distorted anatomy, extra limbs, added animals, added objects, scenery, environment, ' +
+      'photo background, frame, border, text, watermark, low quality',
+  },
+  'tattoo-portrait': {
+    prompt:
+      'monochrome black and grey realistic portrait tattoo design, greyscale ink drawing on skin, ' +
+      'fine detailed pencil linework, engraved tattoo stencil texture overlaid on the entire body and face, ' +
+      'soft natural shading, smooth gradient shading on hair and clothing, ' +
+      'strong contrast between deep black shadows and soft grey highlights, ' +
+      'professional tattoo flash artwork, desaturated, no skin color, centered composition, ' +
+      'highly detailed, masterpiece',
+    negativePrompt:
+      'added faces, added people, new characters, aged face, wrinkles, distorted facial features, ' +
+      'changed identity, unrecognizable face, colored, color photo, skin tone, watercolor, cartoon, anime, ' +
+      'flat shading, low detail, blurry, distorted anatomy, scenery, environment, photo background, ' +
+      'frame, border, text, watermark, low quality',
+  },
+  enhance: {
+    prompt:
+      'high resolution clean sharp version of the same image, crisp edges, improved contrast, ' +
+      'clean unified background, balanced exposure, professional quality, ready for laser engraving',
+    negativePrompt:
+      'changed composition, added elements, removed elements, different style, distorted subjects, ' +
+      'low quality, blurry, noisy, dark, washed out, oversaturated, cartoon, anime, ' +
+      'photo background, frame, border, watermark, text',
+  },
+  'line-art': {
+    prompt:
+      'clean minimalist line art drawing, pure black outlines on pure white background, ' +
+      'uniform line weight throughout, bold simple continuous lines, strong silhouette, ' +
+      'clear contours, vector-ready, centered composition',
+    negativePrompt:
+      'shading, gradients, grey tones, dotwork, stippling, crosshatching, sketchy lines, ' +
+      'broken strokes, varying line weight, fill colors, watercolor, realistic style, photo, ' +
+      '3D, depth, shadows, highlights, texture, background, frame, border, watermark',
+  },
+  'text-logo': {
+    prompt:
+      'high contrast pure black on pure white engraving-ready version, sharp clean letter edges, ' +
+      'uniform stroke weight, crisp typography, solid black fills, clean outlines, ' +
+      'sharp vector-ready edges, centered composition',
+    negativePrompt:
+      'gradients, grey tones, soft edges, blur, anti-aliasing artifacts, changed text, misspellings, ' +
+      'changed letters, added decoration, frame, border, background, drop shadow, 3D effect, glow, ' +
+      'colored, watercolor, sketchy, distorted letterforms, illegible text',
+  },
+  'relief-3d': {
+    prompt:
+      'high-relief 3D sculptural relief, carved marble or stone aesthetic, pure white surface with ' +
+      'deep dramatic shadows, smooth volumetric shading, cinematic directional lighting from above-left, ' +
+      'sharp crisp shadows in recessed areas, bright highlights on raised surfaces, polished marble surface, ' +
+      'classical sculpture aesthetic, isolated on solid black background, photo-realistic, masterpiece',
+    negativePrompt:
+      'flat shading, line art, outlines only, sketchy, pencil drawing, tattoo style, watercolor, ' +
+      'cartoon, anime, colored, low contrast, grey background, white background, washed out, ' +
+      'no shadows, no depth, 2D, illustration style, added subjects, changed pose, distorted anatomy, ' +
+      'frame, border, text, watermark',
+  },
 }
 
 // User-facing labels for each variant (i18n)

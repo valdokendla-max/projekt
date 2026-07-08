@@ -28,6 +28,11 @@ export interface Txt2ImgWorkflowParams {
   filenamePrefix?: string
   checkpoint?: string
   loras?: LoraEntry[]
+  // Negative value (e.g. -2) matches "Clip skip: 2" in Automatic1111 — many
+  // SD1.5/Pony photoreal merges are trained expecting this, skipped by default here.
+  clipSkip?: number
+  samplerName?: string
+  scheduler?: string
 }
 
 export function buildTxt2ImgWorkflow(params: Txt2ImgWorkflowParams): Record<string, unknown> {
@@ -59,6 +64,14 @@ export function buildTxt2ImgWorkflow(params: Txt2ImgWorkflowParams): Record<stri
     clipRef = [id, 1]
   })
 
+  if (params.clipSkip) {
+    wf['clip_skip'] = {
+      class_type: 'CLIPSetLastLayer',
+      inputs: { clip: clipRef, stop_at_clip_layer: params.clipSkip },
+    }
+    clipRef = ['clip_skip', 0]
+  }
+
   wf['2'] = {
     class_type: 'CLIPTextEncode',
     inputs: { text: params.prompt, clip: clipRef },
@@ -85,8 +98,8 @@ export function buildTxt2ImgWorkflow(params: Txt2ImgWorkflowParams): Record<stri
       seed,
       steps: params.steps ?? SDXL_DEFAULTS.steps,
       cfg: params.cfg ?? SDXL_DEFAULTS.cfg,
-      sampler_name: SDXL_DEFAULTS.sampler,
-      scheduler: SDXL_DEFAULTS.scheduler,
+      sampler_name: params.samplerName ?? SDXL_DEFAULTS.sampler,
+      scheduler: params.scheduler ?? SDXL_DEFAULTS.scheduler,
       denoise: 1.0,
     },
   }
@@ -186,7 +199,7 @@ export function buildTxt2ImgWithFaceFixWorkflow(params: Txt2ImgWorkflowParams): 
   const loras = params.loras ?? []
   const lastLoraId = loras.length > 0 ? `lora_${loras.length - 1}` : null
   const modelRef: [string, number] = lastLoraId ? [lastLoraId, 0] : ['1', 0]
-  const clipRef: [string, number] = lastLoraId ? [lastLoraId, 1] : ['1', 1]
+  const clipRef: [string, number] = params.clipSkip ? ['clip_skip', 0] : lastLoraId ? [lastLoraId, 1] : ['1', 1]
   const faceOut = appendFaceDetailer(wf, {
     imageNode: ['6', 0], // VAEDecode output
     modelNode: modelRef,
@@ -239,6 +252,105 @@ export interface Img2ImgWorkflowParams {
   cfg?: number
   filenamePrefix?: string
   checkpoint?: string
+}
+
+// -----------------------------------------------------------------------------
+// ControlNet (Canny) guided img2img — locks the source image's edge structure
+// so the model can't wander off into an unrelated subject at higher denoise.
+// Uses ComfyUI's built-in Canny/ControlNetLoader/ControlNetApplyAdvanced nodes
+// (no custom node package required).
+// -----------------------------------------------------------------------------
+
+export interface ControlNetImg2ImgParams {
+  prompt: string
+  negativePrompt?: string
+  sourceImageName: string
+  controlNetName: string
+  controlNetStrength?: number // 0..10, typical 0.6-1.0
+  cannyLowThreshold?: number // 0..1
+  cannyHighThreshold?: number // 0..1
+  denoise?: number
+  seed?: number
+  steps?: number
+  cfg?: number
+  filenamePrefix?: string
+  checkpoint?: string
+}
+
+export function buildControlNetImg2ImgWorkflow(params: ControlNetImg2ImgParams): Record<string, unknown> {
+  const seed = params.seed ?? Math.floor(Math.random() * 1_000_000_000)
+  return {
+    '1': {
+      class_type: 'CheckpointLoaderSimple',
+      inputs: { ckpt_name: params.checkpoint ?? SDXL_CHECKPOINT },
+    },
+    '2': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: params.prompt, clip: ['1', 1] },
+    },
+    '3': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: params.negativePrompt ?? '', clip: ['1', 1] },
+    },
+    '4': {
+      class_type: 'LoadImage',
+      inputs: { image: params.sourceImageName },
+    },
+    '5': {
+      class_type: 'VAEEncode',
+      inputs: { pixels: ['4', 0], vae: ['1', 2] },
+    },
+    'cn_edge': {
+      class_type: 'Canny',
+      inputs: {
+        image: ['4', 0],
+        low_threshold: params.cannyLowThreshold ?? 0.3,
+        high_threshold: params.cannyHighThreshold ?? 0.8,
+      },
+    },
+    'cn_loader': {
+      class_type: 'ControlNetLoader',
+      inputs: { control_net_name: params.controlNetName },
+    },
+    'cn_apply': {
+      class_type: 'ControlNetApplyAdvanced',
+      inputs: {
+        positive: ['2', 0],
+        negative: ['3', 0],
+        control_net: ['cn_loader', 0],
+        image: ['cn_edge', 0],
+        strength: params.controlNetStrength ?? 0.85,
+        start_percent: 0.0,
+        end_percent: 1.0,
+      },
+    },
+    '6': {
+      class_type: 'KSampler',
+      inputs: {
+        model: ['1', 0],
+        positive: ['cn_apply', 0],
+        negative: ['cn_apply', 1],
+        latent_image: ['5', 0],
+        seed,
+        steps: params.steps ?? SDXL_DEFAULTS.steps,
+        cfg: params.cfg ?? SDXL_DEFAULTS.cfg,
+        sampler_name: SDXL_DEFAULTS.sampler,
+        scheduler: SDXL_DEFAULTS.scheduler,
+        denoise: params.denoise ?? 0.65,
+      },
+    },
+    '7': {
+      class_type: 'VAEDecode',
+      inputs: { samples: ['6', 0], vae: ['1', 2] },
+    },
+    '8': {
+      class_type: 'SaveImage',
+      inputs: {
+        images: ['7', 0],
+        filename_prefix: params.filenamePrefix ?? 'controlnet-img2img',
+      },
+    },
+  }
 }
 
 export function buildImg2ImgWorkflow(params: Img2ImgWorkflowParams): Record<string, unknown> {

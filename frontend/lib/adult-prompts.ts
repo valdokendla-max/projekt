@@ -45,6 +45,12 @@ export type AdultVariant =
   | 'explicit-shower-couple'
   | 'explicit-cumshot-finish'
 
+export interface AdultLoraEntry {
+  name: string
+  strengthModel?: number
+  strengthClip?: number
+}
+
 export interface AdultVariantConfig {
   category: AdultCategory
   checkpoint:
@@ -58,7 +64,20 @@ export interface AdultVariantConfig {
   promptTemplate: string
   negativePrompt: string
   labels: ActionLabels
+  // Explicit content on Pony-based photoreal merges tends to "smooth over"
+  // genital anatomy. These LoRAs push it back in.
+  loras?: AdultLoraEntry[]
+  // Many SD1.5/Pony photoreal merges are trained/tagged expecting "Clip skip: 2"
+  // (A1111 convention) — maps to CLIPSetLastLayer stop_at_clip_layer: -2.
+  clipSkip?: number
+  samplerName?: string
+  scheduler?: string
 }
+
+// Pony Detail Tweaker — general anatomy/detail booster (civitai.com/models/383086).
+const DETAIL_TWEAKER: AdultLoraEntry = { name: 'pony_detail_tweaker_v2.safetensors', strengthModel: 0.6, strengthClip: 0.6 }
+// Penis Size Slider, Pony version — author notes it's inverted (negative = bigger/more present) (civitai.com/models/465379).
+const PENIS_SLIDER: AdultLoraEntry = { name: 'penis_size_slider_pony.safetensors', strengthModel: -1.0, strengthClip: -1.0 }
 
 // Kvaliteet + vanuseturve — kehtib kõigile variantidele, sh tattoo (lähivõtted lubatud).
 const SAFETY_QUALITY_NEGATIVE =
@@ -77,11 +96,17 @@ const FULL_BODY_NEGATIVE =
 const COMMON_NEGATIVE = SAFETY_QUALITY_NEGATIVE + ', ' + FULL_BODY_NEGATIVE
 
 const FULL_BODY_TAG =
-  // Tugev rõhk kogu kehale: kaalud 1.4-1.5, wide-angle lens, zoom out, kaugem kaamera.
-  '((full body shot:1.5)), ((head to toe visible:1.4)), ((entire body in frame:1.4)), ' +
-  '(showing full body length from head to feet:1.3), (zoomed out:1.3), ' +
-  '(wide angle 35mm lens:1.2), (camera far from subject:1.2), ' +
-  '(full figure in frame:1.3), '
+  // Tugev rõhk, et KOGU keha oleks kaadris/nähtav — aga ILMA kaugele/wide-angle kaamerale
+  // sundimata, mis muutis kompositsiooni distantseks "moe-editorial" stiiliks, mitte intiimseks.
+  '((full body visible:1.5)), ((head to toe in frame:1.4)), ((entire nude body shown:1.4)), ' +
+  '(no cropping, complete figure visible:1.3), '
+
+// Sunnib päris alastust — ilma selleta kaldub checkpoint "safe" moepildi poole isegi
+// kui promptis on "topless"/"nude" sõna, eriti kui l'ähedal on "fashion"/"editorial" sõnu.
+const NUDE_ENFORCE_TAG = '(completely naked:1.3), (no clothing whatsoever:1.3), fully exposed bare skin, '
+
+// Kasutaja soov: poosid peavad olema selgelt ahvatlevad, mitte lihtsalt "atmosfäärikad".
+const SEDUCTIVE_POSE_TAG = '(seductive alluring pose:1.3), sultry inviting expression, confident sensual body language, '
 
 const FLUX_QUALITY_BOOST =
   ', ultra realistic, natural skin pores, subsurface scattering, realistic eyes, ' +
@@ -214,10 +239,10 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
     checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 832, height: 1216,
     promptTemplate:
-      '{SUBJECT}, beautiful adult model, (topless editorial:1.2), (bare breasts artistic:1.1), ' +
-      'luxury penthouse, evening city lights, cinematic mood, photorealistic, ' +
-      'high-fashion magazine editorial, high detail, Vogue topless editorial style' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE + ', covered chest, bra',
+      '{SUBJECT}, beautiful nude adult woman, (fully nude:1.3), (bare breasts:1.2), ' +
+      'standing in luxury penthouse, evening city lights through window, cinematic mood, ' +
+      'photorealistic, high detail, magazine quality' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', covered chest, bra, dress, gown, clothed, fashion editorial',
     labels: { est: { name: 'Vogue topless editorial', description: 'Penthouse topless mood, kõrgmood' }, eng: { name: 'Vogue topless', description: 'Penthouse topless editorial, high fashion' } },
   },
 
@@ -264,18 +289,18 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
     checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 832, height: 1216,
     promptTemplate:
-      '{SUBJECT}, beautiful adult woman, (topless:1.2), (nude:1.1), (bare breasts:1.1), ' +
-      'flowing transparent white fabric draped artistically, ' +
-      'on tropical beach, sunset lighting, wind in hair, cinematic composition, ' +
-      'realistic anatomy, professional fashion photography' + FLUX_QUALITY_BOOST,
-    negativePrompt: COMMON_NEGATIVE + ', bikini top, swimsuit, dressed',
-    labels: { est: { name: 'Topless rannas tuules', description: 'Troopiline rand, topless, lendlev valge kangas' }, eng: { name: 'Topless beach', description: 'Tropical beach topless, flowing fabric' } },
+      '{SUBJECT}, beautiful nude adult woman, (fully nude:1.3), (bare breasts:1.2), (bare hips and legs:1.2), ' +
+      'standing on tropical beach, sunset lighting, wind in hair, cinematic composition, ' +
+      'realistic anatomy, photorealistic' + FLUX_QUALITY_BOOST,
+    negativePrompt: COMMON_NEGATIVE + ', bikini top, swimsuit, dressed, (fabric wrap:1.3), (sarong:1.3), (sheer wrap around hips:1.3), clothing, covered, fashion editorial',
+    labels: { est: { name: 'Alasti rannas tuules', description: 'Troopiline rand, täisalasti, loojang' }, eng: { name: 'Nude beach', description: 'Tropical beach fully nude, sunset' } },
   },
   // NB: rannateemaline, aga category on 'explicit' (hardcore), mitte 'beach' — vt EXPLICIT sektsiooni allpool.
   'couple-beach': {
     category: 'explicit',
     checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 35, cfg: 7.5, width: 1216, height: 832,
+    loras: [DETAIL_TWEAKER, PENIS_SLIDER],
     promptTemplate:
       PONY_QUALITY + 'source_photo, rating_explicit, ' +
       '1boy, 1girl, {SUBJECT}, ' +
@@ -292,6 +317,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
     category: 'explicit',
     checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 35, cfg: 7.5, width: 1216, height: 832,
+    loras: [DETAIL_TWEAKER, PENIS_SLIDER],
     promptTemplate:
       PONY_QUALITY + 'source_photo, rating_explicit, ' +
       '1boy, 1girl, {SUBJECT}, ' +
@@ -332,10 +358,10 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
     checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 6.5, width: 1216, height: 832,
     promptTemplate:
-      '{SUBJECT}, group of (stylish topless adult women:1.2), (bare breasts artistic:1.1), ' +
+      '{SUBJECT}, group of (topless adult women:1.3), (bare breasts:1.2), ' +
       'lounging at luxury beach club, tiny bikini bottoms only, ' +
-      'ocean backdrop, golden hour lighting, fashion editorial photography, ' +
-      'natural sensual interactions, photorealistic, premium magazine' + FLUX_QUALITY_BOOST,
+      'ocean backdrop, golden hour lighting, ' +
+      'natural sensual interactions, photorealistic' + FLUX_QUALITY_BOOST,
     negativePrompt: COMMON_NEGATIVE + ', bikini top, fully clothed',
     labels: { est: { name: 'Topless beach club', description: 'Stiilne topless grupp luksusrannas' }, eng: { name: 'Topless beach club', description: 'Stylish topless group luxury beach' } },
   },
@@ -345,6 +371,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
     category: 'explicit',
     checkpoint: 'ponyDiffusionV6XL.safetensors',
     steps: 35, cfg: 7.5, width: 1216, height: 832,
+    loras: [DETAIL_TWEAKER, PENIS_SLIDER],
     promptTemplate:
       PONY_QUALITY + 'source_photo, rating_explicit, ' +
       '2boys, 3girls, {SUBJECT}, ' +
@@ -363,6 +390,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
     category: 'explicit',
     checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 7.0, width: 832, height: 1216,
+    loras: [DETAIL_TWEAKER],
     promptTemplate:
       PONY_QUALITY + 'source_photo, rating_explicit, ' +
       '1girl, {SUBJECT}, (nude:1.2), (spread legs:1.3), (pussy:1.2), exposed body, ' +
@@ -375,20 +403,24 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
   'explicit-couple-missionary': {
     category: 'explicit',
     checkpoint: 'cyberrealisticPony_v18.safetensors',
-    steps: 30, cfg: 7.0, width: 1216, height: 832,
+    steps: 24, cfg: 6.0, width: 1216, height: 832,
+    clipSkip: -2,
+    samplerName: 'dpmpp_sde',
+    scheduler: 'karras',
+    loras: [DETAIL_TWEAKER, PENIS_SLIDER],
     promptTemplate:
-      PONY_QUALITY + 'source_photo, rating_explicit, ' +
-      '1boy, 1girl, {SUBJECT}, (sex:1.3), (vaginal:1.2), (missionary position:1.3), (penetration:1.2), ' +
-      'man on top of woman, woman legs around man, intimate moment, ' +
-      'luxury bedroom, soft warm lighting, photorealistic, 85mm lens, ' +
-      '(perfect anatomy:1.2), detailed skin, masterpiece',
-    negativePrompt: 'score_4, score_5, score_6, ' + COMMON_NEGATIVE + ', clothed, anime, cartoon, deformed, bad hands, (fused fingers:1.3)',
+      PONY_QUALITY + 'source_photo, rating_explicit, (uncensored:1.3), ' +
+      '1boy, 1girl, (from_above:1.2), (visible penetration:1.4), (sex:1.3), (vaginal:1.2), (missionary position:1.3), ' +
+      '{SUBJECT}, man on top of woman, legs spread, luxury bedroom, soft warm lighting, ' +
+      'photorealistic, 85mm lens, (perfect anatomy:1.2), detailed skin, masterpiece',
+    negativePrompt: 'score_4, score_5, score_6, ' + COMMON_NEGATIVE + ', clothed, anime, cartoon, deformed, bad hands, (fused fingers:1.3), (censored:1.3), (bar censor:1.3), (mosaic censor:1.3), (blur censor:1.3)',
     labels: { est: { name: 'Paar: missionaarse-asend', description: 'Heteropaar voodis, missionaarse-asend' }, eng: { name: 'Missionary', description: 'Couple in missionary position' } },
   },
   'explicit-couple-cowgirl': {
     category: 'explicit',
     checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 7.0, width: 832, height: 1216,
+    loras: [DETAIL_TWEAKER, PENIS_SLIDER],
     promptTemplate:
       PONY_QUALITY + 'source_photo, rating_explicit, ' +
       '1boy, 1girl, {SUBJECT}, (cowgirl position:1.3), (sex:1.2), (vaginal:1.2), ' +
@@ -402,6 +434,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
     category: 'explicit',
     checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 7.0, width: 1216, height: 832,
+    loras: [DETAIL_TWEAKER, PENIS_SLIDER],
     promptTemplate:
       PONY_QUALITY + 'source_photo, rating_explicit, ' +
       '1boy, 1girl, {SUBJECT}, (doggystyle position:1.3), (sex:1.2), (vaginal from behind:1.2), ' +
@@ -415,6 +448,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
     category: 'explicit',
     checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 7.0, width: 832, height: 1216,
+    loras: [DETAIL_TWEAKER, PENIS_SLIDER],
     promptTemplate:
       PONY_QUALITY + 'source_photo, rating_explicit, ' +
       '1boy, 1girl, {SUBJECT}, (oral sex on female:1.3), (cunnilingus:1.2), ' +
@@ -428,6 +462,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
     category: 'explicit',
     checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 7.0, width: 1216, height: 832,
+    loras: [DETAIL_TWEAKER],
     promptTemplate:
       PONY_QUALITY + 'source_photo, rating_explicit, ' +
       '2girls, {SUBJECT}, (lesbian couple:1.3), (yuri:1.2), intimate, ' +
@@ -441,6 +476,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
     category: 'explicit',
     checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 7.0, width: 832, height: 1216,
+    loras: [DETAIL_TWEAKER, PENIS_SLIDER],
     promptTemplate:
       PONY_QUALITY + 'source_photo, rating_explicit, ' +
       '1boy, 1girl, {SUBJECT}, (sex in shower:1.2), (standing sex:1.2), (penetration:1.1), ' +
@@ -454,6 +490,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
     category: 'explicit',
     checkpoint: 'cyberrealisticPony_v18.safetensors',
     steps: 30, cfg: 7.0, width: 832, height: 1216,
+    loras: [DETAIL_TWEAKER, PENIS_SLIDER],
     promptTemplate:
       PONY_QUALITY + 'source_photo, rating_explicit, ' +
       '1boy, 1girl, {SUBJECT}, (cumshot:1.3), (facial:1.2), (cum on body:1.2), ' +
@@ -533,7 +570,8 @@ export function buildAdultPrompt(
     : ''
   // Eksplitsiitsele sisule EI lisa FULL_BODY_TAG — kaamera liiga kaugel, seks ei paista.
   // Tattoo-referentsile samuti mitte — see vajab lähivõtet motiivist, mitte täiskeha kaugvõtet.
-  const bodyTag = cfg.category === 'explicit' || cfg.category === 'tattoo' ? '' : FULL_BODY_TAG
+  const isExplicitOrTattoo = cfg.category === 'explicit' || cfg.category === 'tattoo'
+  const bodyTag = isExplicitOrTattoo ? '' : FULL_BODY_TAG + NUDE_ENFORCE_TAG + SEDUCTIVE_POSE_TAG
   const prompt = ponyTags + bodyTag + cfg.promptTemplate.replace('{SUBJECT}', cleanSubject)
   const negativePrompt = negExtra + cfg.negativePrompt
   return { prompt, negativePrompt }

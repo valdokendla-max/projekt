@@ -4,7 +4,7 @@
 import { IMAGE_TRANSFORM_PROMPTS, type ImageTransformVariant } from '@/lib/image-prompts'
 import { VARIANT_CONFIG } from '@/lib/image-transform-config'
 import { ComfyClient, ComfyError, bytesToDataUrl, type ComfyImageRef, type ComfyHistoryEntry } from '@/lib/comfyui-client'
-import { buildImg2ImgWorkflow, buildLineArtWorkflow } from '@/lib/comfyui-workflows'
+import { buildImg2ImgWorkflow, buildLineArtWorkflow, buildControlNetImg2ImgWorkflow } from '@/lib/comfyui-workflows'
 
 export const runtime = 'edge'
 
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     }, { status: 501 })
   }
 
-  const prompt = IMAGE_TRANSFORM_PROMPTS[variant]
+  const { prompt, negativePrompt } = IMAGE_TRANSFORM_PROMPTS[variant]
 
   try {
     const bytes = dataUrlToBytes(sourceImageDataUrl)
@@ -67,8 +67,24 @@ export async function POST(req: Request) {
 
     const workflow = variant === 'line-art'
       ? buildLineArtWorkflow({ sourceImageName: uploaded.name, filenamePrefix: 'tx_line-art' })
+      : cfg.controlNet
+      ? buildControlNetImg2ImgWorkflow({
+          prompt,
+          negativePrompt,
+          sourceImageName: uploaded.name,
+          controlNetName: cfg.controlNet.modelName,
+          controlNetStrength: cfg.controlNet.strength,
+          cannyLowThreshold: cfg.controlNet.cannyLowThreshold,
+          cannyHighThreshold: cfg.controlNet.cannyHighThreshold,
+          denoise: cfg.denoise,
+          steps: cfg.steps,
+          cfg: cfg.cfg,
+          checkpoint: cfg.checkpoint,
+          filenamePrefix: `tx_${variant}`,
+        })
       : buildImg2ImgWorkflow({
           prompt,
+          negativePrompt,
           sourceImageName: uploaded.name,
           denoise: cfg.denoise,
           steps: cfg.steps,

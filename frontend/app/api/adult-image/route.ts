@@ -53,6 +53,7 @@ export async function POST(req: Request) {
       cfg.category === 'atmosphere' ||
       cfg.category === 'beach' ||
       cfg.category === 'group'
+    const loras = cfg.loras?.map((l) => ({ name: l.name, strengthModel: l.strengthModel, strengthClip: l.strengthClip }))
     const workflow = useFaceDetailer
       ? buildTxt2ImgWithFaceFixWorkflow({
           prompt,
@@ -62,6 +63,10 @@ export async function POST(req: Request) {
           steps: cfg.steps,
           cfg: cfg.cfg,
           checkpoint: cfg.checkpoint,
+          loras,
+          clipSkip: cfg.clipSkip,
+          samplerName: cfg.samplerName,
+          scheduler: cfg.scheduler,
           filenamePrefix: `adult_${variant}`,
         })
       : buildTxt2ImgWorkflow({
@@ -72,6 +77,10 @@ export async function POST(req: Request) {
           steps: cfg.steps,
           cfg: cfg.cfg,
           checkpoint: cfg.checkpoint,
+          loras,
+          clipSkip: cfg.clipSkip,
+          samplerName: cfg.samplerName,
+          scheduler: cfg.scheduler,
           filenamePrefix: `adult_${variant}`,
         })
     const promptId = await client.submit(workflow, req.signal)
