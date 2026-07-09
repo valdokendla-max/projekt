@@ -611,14 +611,106 @@ export function checkFreeformSafety(text: string): string | null {
   return null
 }
 
+// Pony-baasi mudelid ei loe inimeste arvu/sugu vabast lausest (nt "2 man") —
+// need vajavad Danbooru-stiilis arvu-tag'e eraldi ("2boys"), nagu kureeritud
+// variandid juba kasutavad ("1boy, 1girl, ..."). Ilma nendeta kipub mudel
+// tegelasi juurde/vähemaks genereerima või mõne soo lihtsalt ära unustama.
+const FEMALE_WORD = /\b(\d+)?\s*(women|woman|females?|girls?|ladies|lady)\b/i
+const MALE_WORD = /\b(\d+)?\s*(men|man|males?|boys?|guys?)\b/i
+
+function extractPersonCountTags(text: string): string {
+  const femaleMatch = text.match(FEMALE_WORD)
+  const maleMatch = text.match(MALE_WORD)
+  if (!femaleMatch && !maleMatch) return ''
+  const girls = femaleMatch ? Math.min(parseInt(femaleMatch[1] || '1', 10) || 1, 9) : 0
+  const boys = maleMatch ? Math.min(parseInt(maleMatch[1] || '1', 10) || 1, 9) : 0
+  const tags: string[] = []
+  if (girls > 0) tags.push(`${girls}girl${girls > 1 ? 's' : ''}`)
+  if (boys > 0) tags.push(`${boys}boy${boys > 1 ? 's' : ''}`)
+  return tags.join(', ') + ', '
+}
+
+// Sama probleem tegevuse kirjeldusega kui tegelaste arvuga: vaba lause sees
+// jäävad tegevussõnad (nt "fuck", "doggystyle") CLIP-i jaoks nõrgaks ja kipuvad
+// tekitama valesid assotsiatsioone — nt "doggystyle" ilma struktuurita tõi pildile
+// päris koera, sest mudel haaras kirja seest sõnaosa "dog" kirja. Kureeritud
+// variandid (vt "explicit-couple-doggy" jt) väldivad seda, pannes tegevuse alati
+// eraldi kaalutud tag'idena ("(doggystyle position:1.3)") ja lisades konteksti
+// (vaginal/penetration jne), mitte lootes üksikule sõnale lauses.
+// NB: üldsõnad nagu "(sex:1.3)" või "(group sex:1.4)" üksi ei piisa — Pony kipub
+// neist tegema kallistava/embrace poosi, mitte päris penetratsiooni. Kureeritud
+// variandid, mis PÄRISELT toimivad (explicit-couple-doggy, beach-club-mixed jne),
+// kirjeldavad alati ka konkreetset kehaasendit ("woman on hands and knees, man
+// behind", "man on top, legs spread") — see kopeerib sama mustrit.
+// Piling on many kaalutud tag'e sama mõiste kohta (nt 4x "penetration" erinevas
+// sõnastuses) lahjendab CLIP-i tähelepanu ja annab HALVEMA tulemuse kui üks
+// täpne fraas — testitud: 20+ tag'iga prompt andis lihtsalt embrace-poosi, kaotas
+// ühe tegelase ära. Nii et: üks tuvastatud tegevus = üks kindel, juba TÕESTATULT
+// toimiv fraas (kopeeritud otse töötavast kureeritud variandist, mitte leiutatud).
+// Prioriteetjärjekorras, valime AINULT ühe (esimese matchiva) tegevuse.
+const ACTION_PATTERNS: Array<{ pattern: RegExp; actionPhrase: string; replacement: string }> = [
+  {
+    pattern: /doggy\s*-?style/gi,
+    actionPhrase: '(doggystyle position:1.3), (sex:1.2), (vaginal from behind:1.2), woman on hands and knees, man behind',
+    replacement: 'rear entry position',
+  },
+  {
+    pattern: /group\s*sex|orgy|threesome/gi,
+    actionPhrase: '(group sex:1.4), (orgy:1.4), (outdoor sex:1.3), (male penetrating female:1.4), (vaginal sex:1.3), (sex from behind:1.3), (erect penis visible:1.3), (multiple sex acts simultaneously:1.3)',
+    replacement: 'group sex',
+  },
+  {
+    pattern: /oral(\s*sex)?/gi,
+    actionPhrase: '(oral sex on female:1.3), (cunnilingus:1.2), woman lying on bed, head back, man between her legs',
+    replacement: 'oral sex',
+  },
+  {
+    pattern: /cowgirl/gi,
+    actionPhrase: '(cowgirl position:1.3), (sex:1.2), (vaginal:1.2), woman on top straddling man, woman riding',
+    replacement: 'cowgirl position',
+  },
+  {
+    pattern: /missionary/gi,
+    actionPhrase: '(visible penetration:1.4), (sex:1.3), (vaginal:1.2), (missionary position:1.3), man on top of woman, legs spread',
+    replacement: 'missionary position',
+  },
+  {
+    pattern: /\bfuck(ing)?\b|\bsex\b/gi,
+    actionPhrase: '(sex on beach:1.4), (outdoor sex:1.4), (man fucking woman from behind:1.4), (vaginal penetration:1.3)',
+    replacement: 'having sex',
+  },
+]
+
+function extractActionTag(text: string): { tag: string; sanitized: string; hasExplicitAction: boolean } {
+  for (const rule of ACTION_PATTERNS) {
+    // NB: rule.pattern on 'g' lipuga (vajalik .replace all-jaoks) — .test() peab
+    // muidu lastIndex-i mäletama päringute vahel (regex objektid luuakse üks kord
+    // mooduli laadimisel), mis annaks valesid tulemusi teisel-kolmandal päringul.
+    rule.pattern.lastIndex = 0
+    if (rule.pattern.test(text)) {
+      const sanitized = text.replace(rule.pattern, rule.replacement)
+      return { tag: rule.actionPhrase + ', ', sanitized, hasExplicitAction: true }
+    }
+  }
+  return { tag: '', sanitized: text, hasExplicitAction: false }
+}
+
 export function buildFreeformAdultPrompt(text: string): { prompt: string; negativePrompt: string } {
+  const cleanText = text.trim()
+  const countTags = extractPersonCountTags(cleanText)
+  const { tag: actionTag, sanitized, hasExplicitAction } = extractActionTag(cleanText)
+  const nudeTag = hasExplicitAction ? '(nude:1.3), (bare breasts:1.2), (erect penis:1.2), ' : ''
+  // Kirjeldus (vanused, koht, meeleolu) läheb kirja TAVALISE kaaluga, kuna
+  // tegevuse ja alastuse juba katab eraldi tugev tag ülal — dubleerimine lahjendab.
   const prompt =
-    PONY_QUALITY + 'score_4_up, source_photo, rating_explicit, (uncensored:1.3), ' +
-    text.trim() + ', photorealistic, (perfect anatomy:1.2), detailed skin texture, masterpiece'
+    PONY_QUALITY + 'source_photo, rating_explicit, ' +
+    countTags + sanitized + ', ' + actionTag + nudeTag +
+    'photorealistic, medium shot, (perfect anatomy:1.2), masterpiece'
   const negativePrompt =
     'score_4, score_5, score_6, ' + COMMON_NEGATIVE +
     ', anime, cartoon, drawing, deformed, bad hands, (fused fingers:1.3), ' +
-    '(censored:1.3), (bar censor:1.3), (mosaic censor:1.3), (blur censor:1.3)'
+    '(censored:1.3), (bar censor:1.3), (mosaic censor:1.3), (blur censor:1.3)' +
+    (hasExplicitAction ? ', clothed, dressed, shorts, swimwear, underwear, bikini, board shorts, solo, (dog:1.3), (animal:1.2), (pet:1.2), (leash:1.2)' : '')
   return { prompt, negativePrompt }
 }
 
@@ -632,4 +724,29 @@ export const FREEFORM_ADULT_CONFIG = {
   samplerName: 'dpmpp_sde',
   scheduler: 'karras',
   loras: [DETAIL_TWEAKER, PENIS_SLIDER],
+}
+
+// Sama kiirus/kvaliteet trade-off kontseptsioon, mis image-transformis
+// (resolveVariantConfig) — "fast" kiirendab seda aeglast AMD/ZLUDA GPU-d
+// hinnaga vähem detaili, "high" vastupidi.
+export type AdultQualityTier = 'fast' | 'balanced' | 'high'
+
+const ADULT_QUALITY_STEP_MULTIPLIER: Record<AdultQualityTier, number> = {
+  fast: 0.6,
+  balanced: 1.0,
+  high: 1.3,
+}
+const ADULT_QUALITY_CFG_DELTA: Record<AdultQualityTier, number> = {
+  fast: -0.5,
+  balanced: 0,
+  high: 0.5,
+}
+
+export function resolveFreeformAdultConfig(quality: AdultQualityTier) {
+  if (quality === 'balanced') return FREEFORM_ADULT_CONFIG
+  return {
+    ...FREEFORM_ADULT_CONFIG,
+    steps: Math.max(4, Math.round(FREEFORM_ADULT_CONFIG.steps * ADULT_QUALITY_STEP_MULTIPLIER[quality])),
+    cfg: Math.max(1, Math.round((FREEFORM_ADULT_CONFIG.cfg + ADULT_QUALITY_CFG_DELTA[quality]) * 10) / 10),
+  }
 }

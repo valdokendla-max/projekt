@@ -2,7 +2,7 @@
 // No paid AI fallback. Variants without comfyEnabled return a "not yet supported"
 // message until Phase 2 (Regional Conditioning / ControlNet / IPAdapter) lands.
 import { IMAGE_TRANSFORM_PROMPTS, type ImageTransformVariant } from '@/lib/image-prompts'
-import { VARIANT_CONFIG } from '@/lib/image-transform-config'
+import { VARIANT_CONFIG, resolveVariantConfig, type QualityTier } from '@/lib/image-transform-config'
 import { ComfyClient, ComfyError, bytesToDataUrl, type ComfyImageRef, type ComfyHistoryEntry } from '@/lib/comfyui-client'
 import { buildImg2ImgWorkflow, buildLineArtWorkflow, buildControlNetImg2ImgWorkflow } from '@/lib/comfyui-workflows'
 
@@ -13,6 +13,19 @@ const COMFYUI_BASE_URL = (process.env.COMFYUI_BASE_URL || '').trim()
 interface SubmitBody {
   variant?: ImageTransformVariant
   sourceImageDataUrl?: string
+  quality?: QualityTier
+}
+
+const VALID_QUALITY_TIERS: QualityTier[] = ['fast', 'balanced', 'high']
+
+// PNG IHDR (bytes 16-23, big-endian): width then height. Cheap sanity check that
+// ComfyUI actually returned a real image and not a truncated/blank one.
+function readPngDimensions(bytes: Uint8Array): { width: number; height: number } | null {
+  if (bytes.length < 24) return null
+  const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47
+  if (!isPng) return null
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  return { width: view.getUint32(16), height: view.getUint32(20) }
 }
 
 const VALID_VARIANTS: ImageTransformVariant[] = [
@@ -50,13 +63,15 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: 'ComfyUI server pole hetkel saadaval.' }, { status: 503 })
   }
 
-  const cfg = VARIANT_CONFIG[variant]
-  if (!cfg.comfyEnabled) {
+  const baseConfig = VARIANT_CONFIG[variant]
+  if (!baseConfig.comfyEnabled) {
     return Response.json({
       ok: false,
       error: 'See variant on hetkel arenduses — vajab ControlNet / IPAdapter custom node\'e. Tuleb peagi.',
     }, { status: 501 })
   }
+  const quality: QualityTier = VALID_QUALITY_TIERS.includes(body.quality as QualityTier) ? (body.quality as QualityTier) : 'balanced'
+  const cfg = resolveVariantConfig(baseConfig, quality)
 
   const { prompt, negativePrompt } = IMAGE_TRANSFORM_PROMPTS[variant]
 
@@ -73,6 +88,7 @@ export async function POST(req: Request) {
           negativePrompt,
           sourceImageName: uploaded.name,
           controlNetName: cfg.controlNet.modelName,
+          preprocessor: cfg.controlNet.preprocessor,
           controlNetStrength: cfg.controlNet.strength,
           cannyLowThreshold: cfg.controlNet.cannyLowThreshold,
           cannyHighThreshold: cfg.controlNet.cannyHighThreshold,
@@ -154,11 +170,18 @@ export async function GET(req: Request) {
       }
       const bytes = new Uint8Array(await imgRes.arrayBuffer())
       const mediaType = imgRes.headers.get('content-type') || 'image/png'
+      // QA-kontroll: veendu, et ComfyUI tagastas päris, mõistliku suurusega pildi,
+      // mitte katkist/tühja väljundit (nt VAE decode viga, mis annab 0x0 PNG).
+      const dims = readPngDimensions(bytes)
+      if (!dims || dims.width < 64 || dims.height < 64) {
+        return Response.json({ ok: false, status: 'error', error: 'Väljund on vigane või liiga väike — proovi uuesti.', promptId }, { status: 502 })
+      }
       return Response.json({
         ok: true,
         status: 'ready',
         imageDataUrl: bytesToDataUrl(bytes, mediaType),
         promptId,
+        qualityChecked: true,
       })
     }
 

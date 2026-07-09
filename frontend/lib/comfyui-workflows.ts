@@ -255,20 +255,24 @@ export interface Img2ImgWorkflowParams {
 }
 
 // -----------------------------------------------------------------------------
-// ControlNet (Canny) guided img2img — locks the source image's edge structure
-// so the model can't wander off into an unrelated subject at higher denoise.
-// Uses ComfyUI's built-in Canny/ControlNetLoader/ControlNetApplyAdvanced nodes
-// (no custom node package required).
+// ControlNet-guided img2img — locks the source image's structure (edges, depth,
+// or body pose) so the model can't wander off into an unrelated subject at
+// higher denoise. Canny uses ComfyUI's built-in node (no extra install); depth
+// and openpose use the comfyui_controlnet_aux preprocessor package.
 // -----------------------------------------------------------------------------
+
+export type ControlNetPreprocessor = 'canny' | 'depth' | 'openpose'
 
 export interface ControlNetImg2ImgParams {
   prompt: string
   negativePrompt?: string
   sourceImageName: string
   controlNetName: string
+  preprocessor?: ControlNetPreprocessor // default 'canny'
   controlNetStrength?: number // 0..10, typical 0.6-1.0
-  cannyLowThreshold?: number // 0..1
-  cannyHighThreshold?: number // 0..1
+  cannyLowThreshold?: number // 0..1, canny only
+  cannyHighThreshold?: number // 0..1, canny only
+  preprocessorResolution?: number // depth/openpose only, default 512
   denoise?: number
   seed?: number
   steps?: number
@@ -279,6 +283,32 @@ export interface ControlNetImg2ImgParams {
 
 export function buildControlNetImg2ImgWorkflow(params: ControlNetImg2ImgParams): Record<string, unknown> {
   const seed = params.seed ?? Math.floor(Math.random() * 1_000_000_000)
+  const preprocessor = params.preprocessor ?? 'canny'
+  const preprocessorNode =
+    preprocessor === 'depth'
+      ? {
+          class_type: 'MiDaS-DepthMapPreprocessor',
+          inputs: { image: ['4', 0], resolution: params.preprocessorResolution ?? 512 },
+        }
+      : preprocessor === 'openpose'
+        ? {
+            class_type: 'OpenposePreprocessor',
+            inputs: {
+              image: ['4', 0],
+              resolution: params.preprocessorResolution ?? 512,
+              detect_hand: 'enable',
+              detect_body: 'enable',
+              detect_face: 'enable',
+            },
+          }
+        : {
+            class_type: 'Canny',
+            inputs: {
+              image: ['4', 0],
+              low_threshold: params.cannyLowThreshold ?? 0.3,
+              high_threshold: params.cannyHighThreshold ?? 0.8,
+            },
+          }
   return {
     '1': {
       class_type: 'CheckpointLoaderSimple',
@@ -300,14 +330,7 @@ export function buildControlNetImg2ImgWorkflow(params: ControlNetImg2ImgParams):
       class_type: 'VAEEncode',
       inputs: { pixels: ['4', 0], vae: ['1', 2] },
     },
-    'cn_edge': {
-      class_type: 'Canny',
-      inputs: {
-        image: ['4', 0],
-        low_threshold: params.cannyLowThreshold ?? 0.3,
-        high_threshold: params.cannyHighThreshold ?? 0.8,
-      },
-    },
+    'cn_edge': preprocessorNode,
     'cn_loader': {
       class_type: 'ControlNetLoader',
       inputs: { control_net_name: params.controlNetName },

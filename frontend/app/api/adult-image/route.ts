@@ -5,7 +5,8 @@
 import {
   buildFreeformAdultPrompt,
   checkFreeformSafety,
-  FREEFORM_ADULT_CONFIG,
+  resolveFreeformAdultConfig,
+  type AdultQualityTier,
 } from '@/lib/adult-prompts'
 import { ComfyClient, ComfyError, bytesToDataUrl, type ComfyImageRef, type ComfyHistoryEntry } from '@/lib/comfyui-client'
 import { buildTxt2ImgWorkflow } from '@/lib/comfyui-workflows'
@@ -14,9 +15,12 @@ export const runtime = 'edge'
 
 const COMFYUI_BASE_URL = (process.env.COMFYUI_BASE_URL || '').trim()
 
+const VALID_QUALITY_TIERS: AdultQualityTier[] = ['fast', 'balanced', 'high']
+
 interface SubmitBody {
   subject?: string
   ageConfirmed?: boolean
+  quality?: AdultQualityTier
 }
 
 export async function POST(req: Request) {
@@ -40,7 +44,8 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: 'ComfyUI server pole hetkel saadaval.' }, { status: 503 })
   }
 
-  const cfg = FREEFORM_ADULT_CONFIG
+  const quality: AdultQualityTier = VALID_QUALITY_TIERS.includes(body.quality as AdultQualityTier) ? (body.quality as AdultQualityTier) : 'balanced'
+  const cfg = resolveFreeformAdultConfig(quality)
   const { prompt, negativePrompt } = buildFreeformAdultPrompt(subject)
 
   try {
