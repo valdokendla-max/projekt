@@ -675,7 +675,10 @@ const ACTION_PATTERNS: Array<{ pattern: RegExp; actionPhrase: string; replacemen
     replacement: 'missionary position',
   },
   {
-    pattern: /\bfuck(ing)?\b|\bsex\b/gi,
+    // f[au]ck kaetab levinud kirjavead nagu "fack" — nõrk alastuse-sund ei
+    // tohi kunagi sõltuda ainult sellest matchist (vt nudeTag allpool), aga
+    // täpsem "sex on beach" fraas on ikka parem, kui match õnnestub.
+    pattern: /\bf[au]ck(ing)?\b|\bsex\b/gi,
     actionPhrase: '(sex on beach:1.4), (outdoor sex:1.4), (man fucking woman from behind:1.4), (vaginal penetration:1.3)',
     replacement: 'having sex',
   },
@@ -699,7 +702,13 @@ export function buildFreeformAdultPrompt(text: string): { prompt: string; negati
   const cleanText = text.trim()
   const countTags = extractPersonCountTags(cleanText)
   const { tag: actionTag, sanitized, hasExplicitAction } = extractActionTag(cleanText)
-  const nudeTag = hasExplicitAction ? '(nude:1.3), (bare breasts:1.2), (erect penis:1.2), ' : ''
+  // NB: alastus EI TOHI sõltuda sellest, kas mõni tegevussõna täpselt matchis —
+  // see endpoint on juba vanuse-kinnitatud 18+ eksplitsiitne generaator (vt
+  // checkFreeformSafety/ageConfirmed POST route'is), nii et kirjaviga nagu
+  // "fack" (mitte "fuck") ei tohi kukutada kogu prompti tagasi riietatud
+  // "safe" kompositsiooniks. Tegevuse-spetsiifiline tag (doggystyle jne) on
+  // LISAKS, alastus on alati baas.
+  const nudeTag = '(nude:1.3), (bare breasts:1.2), (erect penis:1.2), '
   // Kirjeldus (vanused, koht, meeleolu) läheb kirja TAVALISE kaaluga, kuna
   // tegevuse ja alastuse juba katab eraldi tugev tag ülal — dubleerimine lahjendab.
   const prompt =
@@ -710,7 +719,8 @@ export function buildFreeformAdultPrompt(text: string): { prompt: string; negati
     'score_4, score_5, score_6, ' + COMMON_NEGATIVE +
     ', anime, cartoon, drawing, deformed, bad hands, (fused fingers:1.3), ' +
     '(censored:1.3), (bar censor:1.3), (mosaic censor:1.3), (blur censor:1.3)' +
-    (hasExplicitAction ? ', clothed, dressed, shorts, swimwear, underwear, bikini, board shorts, solo, (dog:1.3), (animal:1.2), (pet:1.2), (leash:1.2)' : '')
+    ', clothed, dressed, shorts, swimwear, underwear, bikini, board shorts, (dog:1.3), (animal:1.2), (pet:1.2), (leash:1.2)' +
+    (hasExplicitAction ? ', solo' : '')
   return { prompt, negativePrompt }
 }
 
