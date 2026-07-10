@@ -57,6 +57,7 @@ export interface AdultVariantConfig {
     | 'ponyDiffusionV6XL.safetensors'
     | 'juggernautXI.safetensors'
     | 'cyberrealisticPony_v18.safetensors'
+    | 'ponyRealism_v21MainVAE.safetensors'
   steps: number
   cfg: number
   width: number
@@ -83,7 +84,7 @@ const PENIS_SLIDER: AdultLoraEntry = { name: 'penis_size_slider_pony.safetensors
 const SAFETY_QUALITY_NEGATIVE =
   'low quality, blurry, bad anatomy, extra fingers, extra limbs, deformed hands, ' +
   'crossed eyes, duplicate body parts, watermark, text, logo, out of frame, ' +
-  'child, teen, underage, young, kid, minor, hands out of frame, partial body'
+  'child, underage, kid, minor, hands out of frame, partial body'
 
 // Anti-crop blokk: sunnib kogu keha nähtavaks. EI sobi tattoo-referentsile,
 // mis vajab just lähivõtet (nahk/motiiv), mitte kaugvõtet täiskehast.
@@ -298,7 +299,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
   // NB: rannateemaline, aga category on 'explicit' (hardcore), mitte 'beach' — vt EXPLICIT sektsiooni allpool.
   'couple-beach': {
     category: 'explicit',
-    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    checkpoint: 'ponyRealism_v21MainVAE.safetensors',
     steps: 35, cfg: 7.5, width: 1216, height: 832,
     loras: [DETAIL_TWEAKER, PENIS_SLIDER],
     promptTemplate:
@@ -315,7 +316,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
   // NB: rannateemaline, aga category on 'explicit' (hardcore), mitte 'beach' — vt EXPLICIT sektsiooni allpool.
   'couple-shoreline': {
     category: 'explicit',
-    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    checkpoint: 'ponyRealism_v21MainVAE.safetensors',
     steps: 35, cfg: 7.5, width: 1216, height: 832,
     loras: [DETAIL_TWEAKER, PENIS_SLIDER],
     promptTemplate:
@@ -369,7 +370,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
   // NB: grupiteemaline, aga category on 'explicit' (hardcore), mitte 'group' — vt EXPLICIT sektsiooni allpool.
   'beach-club-mixed': {
     category: 'explicit',
-    checkpoint: 'ponyDiffusionV6XL.safetensors',
+    checkpoint: 'ponyRealism_v21MainVAE.safetensors',
     steps: 35, cfg: 7.5, width: 1216, height: 832,
     loras: [DETAIL_TWEAKER, PENIS_SLIDER],
     promptTemplate:
@@ -388,7 +389,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
   // ============== EXPLICIT (CyberRealistic Pony — hardcore sex acts) ==============
   'explicit-solo-spread': {
     category: 'explicit',
-    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    checkpoint: 'ponyRealism_v21MainVAE.safetensors',
     steps: 30, cfg: 7.0, width: 832, height: 1216,
     loras: [DETAIL_TWEAKER],
     promptTemplate:
@@ -402,7 +403,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
   },
   'explicit-couple-missionary': {
     category: 'explicit',
-    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    checkpoint: 'ponyRealism_v21MainVAE.safetensors',
     steps: 24, cfg: 6.0, width: 1216, height: 832,
     clipSkip: -2,
     samplerName: 'dpmpp_sde',
@@ -418,7 +419,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
   },
   'explicit-couple-cowgirl': {
     category: 'explicit',
-    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    checkpoint: 'ponyRealism_v21MainVAE.safetensors',
     steps: 30, cfg: 7.0, width: 832, height: 1216,
     loras: [DETAIL_TWEAKER, PENIS_SLIDER],
     promptTemplate:
@@ -432,7 +433,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
   },
   'explicit-couple-doggy': {
     category: 'explicit',
-    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    checkpoint: 'ponyRealism_v21MainVAE.safetensors',
     steps: 30, cfg: 7.0, width: 1216, height: 832,
     loras: [DETAIL_TWEAKER, PENIS_SLIDER],
     promptTemplate:
@@ -446,7 +447,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
   },
   'explicit-oral-female': {
     category: 'explicit',
-    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    checkpoint: 'ponyRealism_v21MainVAE.safetensors',
     steps: 30, cfg: 7.0, width: 832, height: 1216,
     loras: [DETAIL_TWEAKER, PENIS_SLIDER],
     promptTemplate:
@@ -460,7 +461,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
   },
   'explicit-lesbian-couple': {
     category: 'explicit',
-    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    checkpoint: 'ponyRealism_v21MainVAE.safetensors',
     steps: 30, cfg: 7.0, width: 1216, height: 832,
     loras: [DETAIL_TWEAKER],
     promptTemplate:
@@ -474,7 +475,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
   },
   'explicit-shower-couple': {
     category: 'explicit',
-    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    checkpoint: 'ponyRealism_v21MainVAE.safetensors',
     steps: 30, cfg: 7.0, width: 832, height: 1216,
     loras: [DETAIL_TWEAKER, PENIS_SLIDER],
     promptTemplate:
@@ -488,7 +489,7 @@ export const ADULT_VARIANTS: Record<AdultVariant, AdultVariantConfig> = {
   },
   'explicit-cumshot-finish': {
     category: 'explicit',
-    checkpoint: 'cyberrealisticPony_v18.safetensors',
+    checkpoint: 'ponyRealism_v21MainVAE.safetensors',
     steps: 30, cfg: 7.0, width: 832, height: 1216,
     loras: [DETAIL_TWEAKER, PENIS_SLIDER],
     promptTemplate:
@@ -560,7 +561,8 @@ export function buildAdultPrompt(
   // Pony-baasi mudelid vajavad score_* tag'e — lisame automaatselt.
   const usesPony =
     cfg.checkpoint === 'ponyDiffusionV6XL.safetensors' ||
-    cfg.checkpoint === 'cyberrealisticPony_v18.safetensors'
+    cfg.checkpoint === 'cyberrealisticPony_v18.safetensors' ||
+    cfg.checkpoint === 'ponyRealism_v21MainVAE.safetensors'
   const ponyTags = usesPony && !cfg.promptTemplate.startsWith('score_')
     ? 'score_9, score_8_up, score_7_up, source_photo, '
     : ''
@@ -698,8 +700,31 @@ function extractActionTag(text: string): { tag: string; sanitized: string; hasEx
   return { tag: '', sanitized: text, hasExplicitAction: false }
 }
 
-export function buildFreeformAdultPrompt(text: string): { prompt: string; negativePrompt: string } {
+// Kui tekstis on selge, üheselt mõistetav asendi-sõna (ka eesti keeles), suunatakse
+// otse juba TÕESTATULT toimivale kureeritud mallile (buildAdultPrompt) selle enda
+// steps/cfg/sampler/LoRA seadetega — see on usaldusväärsem kui vaba teksti oma
+// kaalutud-tag'ide loogika, sest need mallid on 1boy+1girl stseenide jaoks juba
+// peenhäälestatud ja testitud. Prioriteetjärjekorras, esimene matchiv võidab.
+const POSITION_VARIANT_MAP: Array<{ pattern: RegExp; variant: AdultVariant }> = [
+  { pattern: /\btagant\s*pidi\b|\btagant\b|doggy\s*-?style/gi, variant: 'explicit-couple-doggy' },
+  { pattern: /\beest\s*pidi\b|\beest\b|missionary/gi, variant: 'explicit-couple-missionary' },
+  { pattern: /\bsuhu\b|\bsuus\b|oral(\s*sex)?|blowjob|cunnilingus/gi, variant: 'explicit-oral-female' },
+  { pattern: /cowgirl|naine\s*peal/gi, variant: 'explicit-couple-cowgirl' },
+  { pattern: /lesbian|2\s*girls/gi, variant: 'explicit-lesbian-couple' },
+  { pattern: /shower|duš/gi, variant: 'explicit-shower-couple' },
+]
+
+export function buildFreeformAdultPrompt(text: string): { prompt: string; negativePrompt: string; matchedVariant?: AdultVariant } {
   const cleanText = text.trim()
+  for (const rule of POSITION_VARIANT_MAP) {
+    rule.pattern.lastIndex = 0
+    if (rule.pattern.test(cleanText)) {
+      rule.pattern.lastIndex = 0
+      const remaining = cleanText.replace(rule.pattern, '').replace(/\s{2,}/g, ' ').trim()
+      const { prompt, negativePrompt } = buildAdultPrompt(rule.variant, remaining)
+      return { prompt, negativePrompt, matchedVariant: rule.variant }
+    }
+  }
   const countTags = extractPersonCountTags(cleanText)
   const { tag: actionTag, sanitized, hasExplicitAction } = extractActionTag(cleanText)
   // NB: alastus EI TOHI sõltuda sellest, kas mõni tegevussõna täpselt matchis —
@@ -725,7 +750,11 @@ export function buildFreeformAdultPrompt(text: string): { prompt: string; negati
 }
 
 export const FREEFORM_ADULT_CONFIG = {
-  checkpoint: 'cyberrealisticPony_v18.safetensors' as const,
+  // ponyRealism_v21MainVAE annab testides usaldusväärselt õige penetratsiooni-
+  // kompositsiooni (kinnitatud 2/2 testseemet); cyberrealisticPony_v18 ja
+  // ponyDiffusionV6XL jäid mõlemad kallistuse/embrace poosi juurde, isegi
+  // kureeritud mallide ja kõrge CFG-ga.
+  checkpoint: 'ponyRealism_v21MainVAE.safetensors' as const,
   steps: 30,
   cfg: 7.0,
   width: 1024,
@@ -758,5 +787,26 @@ export function resolveFreeformAdultConfig(quality: AdultQualityTier) {
     ...FREEFORM_ADULT_CONFIG,
     steps: Math.max(4, Math.round(FREEFORM_ADULT_CONFIG.steps * ADULT_QUALITY_STEP_MULTIPLIER[quality])),
     cfg: Math.max(1, Math.round((FREEFORM_ADULT_CONFIG.cfg + ADULT_QUALITY_CFG_DELTA[quality]) * 10) / 10),
+  }
+}
+
+// Kui buildFreeformAdultPrompt tuvastas asendi-sõna ja suunas kureeritud mallile,
+// kasutame SELLE malli enda steps/cfg/sampler/LoRA seadeid (mitte freeform'i
+// vaikeseadeid) — need on 1boy+1girl stseenide jaoks juba spetsiifiliselt häälestatud.
+export function resolveAdultGenerationConfig(matchedVariant: AdultVariant | undefined, quality: AdultQualityTier) {
+  if (!matchedVariant) return resolveFreeformAdultConfig(quality)
+  const v = ADULT_VARIANTS[matchedVariant]
+  const stepMult = ADULT_QUALITY_STEP_MULTIPLIER[quality]
+  const cfgDelta = ADULT_QUALITY_CFG_DELTA[quality]
+  return {
+    checkpoint: v.checkpoint,
+    steps: Math.max(4, Math.round(v.steps * stepMult)),
+    cfg: Math.max(1, Math.round((v.cfg + cfgDelta) * 10) / 10),
+    width: v.width,
+    height: v.height,
+    clipSkip: v.clipSkip ?? FREEFORM_ADULT_CONFIG.clipSkip,
+    samplerName: v.samplerName ?? FREEFORM_ADULT_CONFIG.samplerName,
+    scheduler: v.scheduler ?? FREEFORM_ADULT_CONFIG.scheduler,
+    loras: v.loras ?? FREEFORM_ADULT_CONFIG.loras,
   }
 }
