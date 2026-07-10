@@ -149,7 +149,15 @@
       "PowerShell(wsl --terminate Ubuntu)",
       "PowerShell(wsl -d Ubuntu -- echo \"WSL OK\" 2>&1)",
       "PowerShell(wsl --list --verbose)",
-      "PowerShell(wsl -d Ubuntu -- bash -c \"whoami && df -h / && echo GPU_CHECK && ls /dev/dxg /dev/kfd 2>&1\")"
+      "PowerShell(wsl -d Ubuntu -- bash -c \"whoami && df -h / && echo GPU_CHECK && ls /dev/dxg /dev/kfd 2>&1\")",
+      "Bash(\"/d/ai/kohya_ss/venv/Scripts/python.exe\" -m pip show torch)",
+      "Read(//d/pip-cache/**)",
+      "Bash(TORCH_LIB=\"/d/ai/kohya_ss/venv/Lib/site-packages/torch/lib\" *)",
+      "Read(//d/ai/kohya_ss/venv/Lib/site-packages/torch/lib/**)",
+      "Bash(cp /d/ai/ComfyUI-Zluda/zluda/cublas.dll /d/ai/kohya_ss/venv/Lib/site-packages/torch/lib/cublas64_11.dll)",
+      "Bash(cp /d/ai/ComfyUI-Zluda/zluda/cusparse.dll /d/ai/kohya_ss/venv/Lib/site-packages/torch/lib/cusparse64_11.dll)",
+      "Bash(cp /d/ai/ComfyUI-Zluda/zluda/nvrtc.dll /d/ai/kohya_ss/venv/Lib/site-packages/torch/lib/nvrtc64_112_0.dll)",
+      "Bash(\"/d/ai/kohya_ss/venv/Scripts/python.exe\" -c \"import torch; print\\('torch OK:', torch.__version__\\)\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Admin\\ai\\ComfyUI",

@@ -5,7 +5,7 @@
 import {
   buildFreeformAdultPrompt,
   checkFreeformSafety,
-  resolveFreeformAdultConfig,
+  resolveAdultGenerationConfig,
   type AdultQualityTier,
 } from '@/lib/adult-prompts'
 import { ComfyClient, ComfyError, bytesToDataUrl, type ComfyImageRef, type ComfyHistoryEntry } from '@/lib/comfyui-client'
@@ -45,8 +45,8 @@ export async function POST(req: Request) {
   }
 
   const quality: AdultQualityTier = VALID_QUALITY_TIERS.includes(body.quality as AdultQualityTier) ? (body.quality as AdultQualityTier) : 'balanced'
-  const cfg = resolveFreeformAdultConfig(quality)
-  const { prompt, negativePrompt } = buildFreeformAdultPrompt(subject)
+  const { prompt, negativePrompt, matchedVariant } = buildFreeformAdultPrompt(subject)
+  const cfg = resolveAdultGenerationConfig(matchedVariant, quality)
 
   try {
     const client = new ComfyClient({ baseUrl: COMFYUI_BASE_URL })
