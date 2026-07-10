@@ -620,16 +620,16 @@ export function checkFreeformSafety(text: string): string | null {
 const FEMALE_WORD = /\b(\d+)?\s*(women|woman|females?|girls?|ladies|lady)\b/i
 const MALE_WORD = /\b(\d+)?\s*(men|man|males?|boys?|guys?)\b/i
 
-function extractPersonCountTags(text: string): string {
+function extractPersonCountTags(text: string): { tags: string; totalCount: number } {
   const femaleMatch = text.match(FEMALE_WORD)
   const maleMatch = text.match(MALE_WORD)
-  if (!femaleMatch && !maleMatch) return ''
+  if (!femaleMatch && !maleMatch) return { tags: '', totalCount: 0 }
   const girls = femaleMatch ? Math.min(parseInt(femaleMatch[1] || '1', 10) || 1, 9) : 0
   const boys = maleMatch ? Math.min(parseInt(maleMatch[1] || '1', 10) || 1, 9) : 0
   const tags: string[] = []
   if (girls > 0) tags.push(`${girls}girl${girls > 1 ? 's' : ''}`)
   if (boys > 0) tags.push(`${boys}boy${boys > 1 ? 's' : ''}`)
-  return tags.join(', ') + ', '
+  return { tags: tags.join(', ') + ', ', totalCount: girls + boys }
 }
 
 // Sama probleem tegevuse kirjeldusega kui tegelaste arvuga: vaba lause sees
@@ -714,7 +714,7 @@ const POSITION_VARIANT_MAP: Array<{ pattern: RegExp; variant: AdultVariant }> = 
   { pattern: /shower|duš/gi, variant: 'explicit-shower-couple' },
 ]
 
-export function buildFreeformAdultPrompt(text: string): { prompt: string; negativePrompt: string; matchedVariant?: AdultVariant } {
+export function buildFreeformAdultPrompt(text: string): { prompt: string; negativePrompt: string; matchedVariant?: AdultVariant; personCount?: number } {
   const cleanText = text.trim()
   for (const rule of POSITION_VARIANT_MAP) {
     rule.pattern.lastIndex = 0
@@ -725,7 +725,7 @@ export function buildFreeformAdultPrompt(text: string): { prompt: string; negati
       return { prompt, negativePrompt, matchedVariant: rule.variant }
     }
   }
-  const countTags = extractPersonCountTags(cleanText)
+  const { tags: countTags, totalCount: personCount } = extractPersonCountTags(cleanText)
   const { tag: actionTag, sanitized, hasExplicitAction } = extractActionTag(cleanText)
   // NB: alastus EI TOHI sõltuda sellest, kas mõni tegevussõna täpselt matchis —
   // see endpoint on juba vanuse-kinnitatud 18+ eksplitsiitne generaator (vt
@@ -734,19 +734,25 @@ export function buildFreeformAdultPrompt(text: string): { prompt: string; negati
   // "safe" kompositsiooniks. Tegevuse-spetsiifiline tag (doggystyle jne) on
   // LISAKS, alastus on alati baas.
   const nudeTag = '(nude:1.3), (bare breasts:1.2), (erect penis:1.2), '
+  // 3+ tegelast kipuvad ruudukujulises 1024x1024 kaadris üksteist katma või
+  // servast välja jääma (üks tegelane lõigatakse kaadri äärest ära) — lisame
+  // tugeva "kõik nähtavad" rõhutuse ainult siis, kui seda tegelikult vaja on,
+  // et mitte lahjendada 1-2 tegelasega stseenide prompti asjatult.
+  const groupFramingTag = personCount >= 3 ? '(full body shot from head to toe:1.4), (all heads and feet visible:1.4), (standing at distance from camera:1.3), (nobody cropped out:1.3), wide angle, full scene visible, ' : ''
   // Kirjeldus (vanused, koht, meeleolu) läheb kirja TAVALISE kaaluga, kuna
   // tegevuse ja alastuse juba katab eraldi tugev tag ülal — dubleerimine lahjendab.
   const prompt =
     PONY_QUALITY + 'source_photo, rating_explicit, ' +
-    countTags + sanitized + ', ' + actionTag + nudeTag +
+    countTags + sanitized + ', ' + actionTag + nudeTag + groupFramingTag +
     'photorealistic, medium shot, (perfect anatomy:1.2), masterpiece'
   const negativePrompt =
     'score_4, score_5, score_6, ' + COMMON_NEGATIVE +
     ', anime, cartoon, drawing, deformed, bad hands, (fused fingers:1.3), ' +
     '(censored:1.3), (bar censor:1.3), (mosaic censor:1.3), (blur censor:1.3)' +
     ', clothed, dressed, shorts, swimwear, underwear, bikini, board shorts, (dog:1.3), (animal:1.2), (pet:1.2), (leash:1.2)' +
-    (hasExplicitAction ? ', solo' : '')
-  return { prompt, negativePrompt }
+    (hasExplicitAction ? ', solo' : '') +
+    (personCount >= 3 ? ', (cropped person:1.4), (partially visible person:1.3), (person cut off by frame edge:1.4), (head cut off:1.5), (cropped head:1.5), (head out of frame:1.5), (close-up:1.3), zoomed in, tight crop, missing limbs, incomplete figure' : '')
+  return { prompt, negativePrompt, personCount }
 }
 
 export const FREEFORM_ADULT_CONFIG = {
@@ -781,10 +787,15 @@ const ADULT_QUALITY_CFG_DELTA: Record<AdultQualityTier, number> = {
   high: 0.5,
 }
 
-export function resolveFreeformAdultConfig(quality: AdultQualityTier) {
-  if (quality === 'balanced') return FREEFORM_ADULT_CONFIG
+export function resolveFreeformAdultConfig(quality: AdultQualityTier, personCount?: number) {
+  // 3+ seisvat tegelast vajavad KÕRGUST (pead jäävad muidu kaadrist välja), mitte
+  // laiust — laiem 1344x896 kaader testiti ja tegi asja hullemaks (pead kadusid
+  // ülevalt ära). Suurem ruudukujuline kaader annab ruumi igas suunas.
+  const dims = personCount && personCount >= 3 ? { width: 1152, height: 1152 } : {}
+  if (quality === 'balanced') return { ...FREEFORM_ADULT_CONFIG, ...dims }
   return {
     ...FREEFORM_ADULT_CONFIG,
+    ...dims,
     steps: Math.max(4, Math.round(FREEFORM_ADULT_CONFIG.steps * ADULT_QUALITY_STEP_MULTIPLIER[quality])),
     cfg: Math.max(1, Math.round((FREEFORM_ADULT_CONFIG.cfg + ADULT_QUALITY_CFG_DELTA[quality]) * 10) / 10),
   }
@@ -793,8 +804,8 @@ export function resolveFreeformAdultConfig(quality: AdultQualityTier) {
 // Kui buildFreeformAdultPrompt tuvastas asendi-sõna ja suunas kureeritud mallile,
 // kasutame SELLE malli enda steps/cfg/sampler/LoRA seadeid (mitte freeform'i
 // vaikeseadeid) — need on 1boy+1girl stseenide jaoks juba spetsiifiliselt häälestatud.
-export function resolveAdultGenerationConfig(matchedVariant: AdultVariant | undefined, quality: AdultQualityTier) {
-  if (!matchedVariant) return resolveFreeformAdultConfig(quality)
+export function resolveAdultGenerationConfig(matchedVariant: AdultVariant | undefined, quality: AdultQualityTier, personCount?: number) {
+  if (!matchedVariant) return resolveFreeformAdultConfig(quality, personCount)
   const v = ADULT_VARIANTS[matchedVariant]
   const stepMult = ADULT_QUALITY_STEP_MULTIPLIER[quality]
   const cfgDelta = ADULT_QUALITY_CFG_DELTA[quality]

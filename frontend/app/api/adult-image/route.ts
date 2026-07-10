@@ -45,8 +45,8 @@ export async function POST(req: Request) {
   }
 
   const quality: AdultQualityTier = VALID_QUALITY_TIERS.includes(body.quality as AdultQualityTier) ? (body.quality as AdultQualityTier) : 'balanced'
-  const { prompt, negativePrompt, matchedVariant } = buildFreeformAdultPrompt(subject)
-  const cfg = resolveAdultGenerationConfig(matchedVariant, quality)
+  const { prompt, negativePrompt, matchedVariant, personCount } = buildFreeformAdultPrompt(subject)
+  const cfg = resolveAdultGenerationConfig(matchedVariant, quality, personCount)
 
   try {
     const client = new ComfyClient({ baseUrl: COMFYUI_BASE_URL })
