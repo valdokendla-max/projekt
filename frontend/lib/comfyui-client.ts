@@ -96,7 +96,7 @@ export class ComfyClient {
     signal?: AbortSignal,
   ): Promise<{ name: string; subfolder: string; type: string }> {
     const form = new FormData()
-    form.append('image', new Blob([bytes], { type: 'image/png' }), filename)
+    form.append('image', new Blob([bytes as BlobPart], { type: 'image/png' }), filename)
     form.append('overwrite', 'true')
     const res = await fetch(`${this.base}/upload/image`, { method: 'POST', body: form, signal })
     if (!res.ok) {
