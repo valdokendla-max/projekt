@@ -9,7 +9,7 @@ import {
   type AdultQualityTier,
 } from '@/lib/adult-prompts'
 import { ComfyClient, ComfyError, bytesToDataUrl, type ComfyImageRef, type ComfyHistoryEntry } from '@/lib/comfyui-client'
-import { buildTxt2ImgWorkflow } from '@/lib/comfyui-workflows'
+import { buildTxt2ImgWithFaceFixWorkflow } from '@/lib/comfyui-workflows'
 
 export const runtime = 'edge'
 
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
   try {
     const client = new ComfyClient({ baseUrl: COMFYUI_BASE_URL })
     const loras = cfg.loras.map((l) => ({ name: l.name, strengthModel: l.strengthModel, strengthClip: l.strengthClip }))
-    const workflow = buildTxt2ImgWorkflow({
+    const workflow = buildTxt2ImgWithFaceFixWorkflow({
       prompt,
       negativePrompt,
       width: cfg.width,

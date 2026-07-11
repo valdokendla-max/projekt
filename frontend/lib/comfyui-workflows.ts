@@ -136,6 +136,10 @@ export interface FaceDetailerOptions {
   cfg?: number
   denoise?: number // 0.5 is the standard "fix only" value
   bboxModel?: string // YOLO bbox model filename
+  // Higher = fewer false positives (e.g. hand detector mistaking a knee/leg for
+  // a hand and redrawing it hand-shaped). Default 0.5 is fine for faces (few
+  // false positives) but too loose for hands in tangled multi-limb poses.
+  bboxThreshold?: number
 }
 
 export function appendFaceDetailer(
@@ -171,7 +175,7 @@ export function appendFaceDetailer(
       feather: 5,
       noise_mask: true,
       force_inpaint: true,
-      bbox_threshold: 0.50,
+      bbox_threshold: options.bboxThreshold ?? 0.50,
       bbox_dilation: 10,
       bbox_crop_factor: 3.0,
       sam_detection_hint: 'center-1',
@@ -220,6 +224,10 @@ export function buildTxt2ImgWithFaceFixWorkflow(params: Txt2ImgWorkflowParams): 
     guideSize: 384, // käed väiksemad kui nägu
     denoise: 0.4, // veidi õrnem, kuna käed on tundlikud
     bboxModel: 'bbox/hand_yolov8s.pt',
+    // Seksistseenides on jalad/põlved käte lähedal ja käte-tuvastaja ajab need
+    // kergesti segi (testitud: 0.5 lävega joonistas naise jala käekujuliseks) —
+    // kõrgem lävi väldib nõrku/ebakindlaid tuvastusi.
+    bboxThreshold: 0.75,
   }, 'hand')
   ;(wf['7'] as { inputs: { images: [string, number] } }).inputs.images = handsOut
   return wf
