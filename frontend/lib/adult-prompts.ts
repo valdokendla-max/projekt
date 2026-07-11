@@ -657,8 +657,12 @@ const ACTION_PATTERNS: Array<{ pattern: RegExp; actionPhrase: string; replacemen
     replacement: 'rear entry position',
   },
   {
+    // NB: "orgy" tag eemaldatud siit tahtlikult — see sõna kallutab mudelit
+    // rohkem tegelasi lisama kui countTags täpselt ette annab (testitud: 3
+    // küsitud, 6 saadi, sest "orgy" tähendab visuaalselt tavaliselt rohkem
+    // kui 3 inimest). "group sex"/"threesome" jäävad, need on neutraalsemad.
     pattern: /group\s*sex|orgy|threesome/gi,
-    actionPhrase: '(group sex:1.4), (orgy:1.4), (outdoor sex:1.3), (male penetrating female:1.4), (vaginal sex:1.3), (sex from behind:1.3), (erect penis visible:1.3), (multiple sex acts simultaneously:1.3)',
+    actionPhrase: '(group sex:1.4), (outdoor sex:1.3), (male penetrating female:1.4), (vaginal sex:1.3), (sex from behind:1.3), (erect penis visible:1.3), (multiple sex acts simultaneously:1.3)',
     replacement: 'group sex',
   },
   {
@@ -748,11 +752,15 @@ export function buildFreeformAdultPrompt(text: string): { prompt: string; negati
   // tugeva "kõik nähtavad" rõhutuse ainult siis, kui seda tegelikult vaja on,
   // et mitte lahjendada 1-2 tegelasega stseenide prompti asjatult.
   const groupFramingTag = personCount >= 3 ? '(full body shot from head to toe:1.4), (all heads and feet visible:1.4), (standing at distance from camera:1.3), (nobody cropped out:1.3), wide angle, full scene visible, ' : ''
+  // Mudel kipub sõnadest nagu "group sex"/"threesome" ise rohkem tegelasi
+  // juurde looma kui countTags täpselt ütleb (testitud: küsiti 3, saadi 6) —
+  // rõhutame täpset arvu tugevalt ja keelame lisategelased negative'is.
+  const exactCountTag = personCount >= 2 ? `(exactly ${personCount} people total:1.3), (no other people:1.2), ` : ''
   // Kirjeldus (vanused, koht, meeleolu) läheb kirja TAVALISE kaaluga, kuna
   // tegevuse ja alastuse juba katab eraldi tugev tag ülal — dubleerimine lahjendab.
   const prompt =
     PONY_QUALITY + 'source_photo, rating_explicit, ' +
-    countTags + sanitized + ', ' + actionTag + nudeTag + groupFramingTag +
+    countTags + exactCountTag + sanitized + ', ' + actionTag + nudeTag + groupFramingTag +
     'photorealistic, medium shot, (perfect anatomy:1.2), masterpiece'
   const negativePrompt =
     'score_4, score_5, score_6, ' + COMMON_NEGATIVE +
@@ -760,7 +768,8 @@ export function buildFreeformAdultPrompt(text: string): { prompt: string; negati
     '(censored:1.3), (bar censor:1.3), (mosaic censor:1.3), (blur censor:1.3)' +
     ', clothed, dressed, shorts, swimwear, underwear, bikini, board shorts, (dog:1.3), (animal:1.2), (pet:1.2), (leash:1.2)' +
     (hasExplicitAction ? ', solo' : '') +
-    (personCount >= 3 ? ', (cropped person:1.4), (partially visible person:1.3), (person cut off by frame edge:1.4), (head cut off:1.5), (cropped head:1.5), (head out of frame:1.5), (close-up:1.3), zoomed in, tight crop, missing limbs, incomplete figure' : '')
+    (personCount >= 3 ? ', (cropped person:1.4), (partially visible person:1.3), (person cut off by frame edge:1.4), (head cut off:1.5), (cropped head:1.5), (head out of frame:1.5), (close-up:1.3), zoomed in, tight crop, missing limbs, incomplete figure' : '') +
+    (personCount >= 2 ? ', (extra person:1.4), (additional people:1.4), (more people than described:1.3), crowd, background people, orgy, extra bodies' : '')
   return { prompt, negativePrompt, personCount }
 }
 
