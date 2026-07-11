@@ -716,13 +716,22 @@ const POSITION_VARIANT_MAP: Array<{ pattern: RegExp; variant: AdultVariant }> = 
 
 export function buildFreeformAdultPrompt(text: string): { prompt: string; negativePrompt: string; matchedVariant?: AdultVariant; personCount?: number } {
   const cleanText = text.trim()
-  for (const rule of POSITION_VARIANT_MAP) {
-    rule.pattern.lastIndex = 0
-    if (rule.pattern.test(cleanText)) {
+  // Kureeritud mallid (POSITION_VARIANT_MAP) on kõik kõvasti "1boy, 1girl" —
+  // kui kasutaja kirjeldab 3+ inimest (nt "2boys, 1girl, threesome"), EI TOHI
+  // neile suunata: tulemus oleks vastuoluline prompt ("1boy, 1girl" JA "2boys"
+  // korraga) ja kaotaks ära grupi kaadri-fix'i (allpool), mis tekitas päris
+  // kasutaja juures inimeste kaadrist väljajäämise. Kontrollime tegelaste
+  // arvu KÕIGEPEALT, enne kureeritud malli valikut.
+  const { totalCount: earlyPersonCount } = extractPersonCountTags(cleanText)
+  if (earlyPersonCount < 3) {
+    for (const rule of POSITION_VARIANT_MAP) {
       rule.pattern.lastIndex = 0
-      const remaining = cleanText.replace(rule.pattern, '').replace(/\s{2,}/g, ' ').trim()
-      const { prompt, negativePrompt } = buildAdultPrompt(rule.variant, remaining)
-      return { prompt, negativePrompt, matchedVariant: rule.variant }
+      if (rule.pattern.test(cleanText)) {
+        rule.pattern.lastIndex = 0
+        const remaining = cleanText.replace(rule.pattern, '').replace(/\s{2,}/g, ' ').trim()
+        const { prompt, negativePrompt } = buildAdultPrompt(rule.variant, remaining)
+        return { prompt, negativePrompt, matchedVariant: rule.variant }
+      }
     }
   }
   const { tags: countTags, totalCount: personCount } = extractPersonCountTags(cleanText)
