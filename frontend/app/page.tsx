@@ -1084,12 +1084,16 @@ export default function LaserGraveerimiseApp() {
       isCustomActionRunning: isExporting,
       prompt: '',
     },
-    {
-      label: 'ComfyUI',
-      icon: <Wand2 className="h-5 w-5" />,
-      onCustomAction: () => window.open('http://localhost:8188', '_blank'),
-      prompt: '',
-    },
+    ...(auth.user?.role === 'admin'
+      ? [
+          {
+            label: 'ComfyUI',
+            icon: <Wand2 className="h-5 w-5" />,
+            onCustomAction: () => window.open('http://localhost:8188', '_blank'),
+            prompt: '',
+          },
+        ]
+      : []),
   ]
 
   useEffect(() => {
