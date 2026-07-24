@@ -9,7 +9,7 @@ import {
   type AdultQualityTier,
 } from '@/lib/adult-prompts'
 import { ComfyClient, ComfyError, bytesToDataUrl, type ComfyImageRef, type ComfyHistoryEntry } from '@/lib/comfyui-client'
-import { buildTxt2ImgWithFaceFixWorkflow } from '@/lib/comfyui-workflows'
+import { buildTxt2ImgWorkflow, buildTxt2ImgWithFaceFixWorkflow } from '@/lib/comfyui-workflows'
 
 export const runtime = 'edge'
 
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
   try {
     const client = new ComfyClient({ baseUrl: COMFYUI_BASE_URL })
     const loras = cfg.loras.map((l) => ({ name: l.name, strengthModel: l.strengthModel, strengthClip: l.strengthClip }))
-    const workflow = buildTxt2ImgWithFaceFixWorkflow({
+    const workflowParams = {
       prompt,
       negativePrompt,
       width: cfg.width,
@@ -64,7 +64,11 @@ export async function POST(req: Request) {
       samplerName: cfg.samplerName,
       scheduler: cfg.scheduler,
       filenamePrefix: 'adult_custom',
-    })
+    }
+    // "fast" jätab näo/käte automaatse paranduse vahele — see lisab 2 täiendavat
+    // sammu-ringi, mis sellel aeglasel AMD/DirectML GPU-l võtab omakorda mitu
+    // lisaminutit. Kiirus on "fast" tasemel prioriteet kvaliteedi ees.
+    const workflow = quality === 'fast' ? buildTxt2ImgWorkflow(workflowParams) : buildTxt2ImgWithFaceFixWorkflow(workflowParams)
     const promptId = await client.submit(workflow, req.signal)
     return Response.json({
       ok: true,
