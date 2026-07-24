@@ -697,7 +697,11 @@ export default function LaserGraveerimiseApp() {
       if (!imageDataUrl) {
         if (!submitData.promptId) throw new Error('No promptId.')
         const promptId = submitData.promptId
-        const deadline = Date.now() + 10 * 60 * 1000
+        // 18 min, mitte 10 — näo/käte automaatne parandus (FaceDetailer x2) lisab
+        // 2 täiendavat samm-ringi ja sellel aeglasel AMD/DirectML GPU-l ületab see
+        // mõnikord vana 10-min piiri, kukutades generatsiooni katkiseks isegi kui
+        // ComfyUI ise oleks lõpuks õigesti valmis saanud.
+        const deadline = Date.now() + 18 * 60 * 1000
         while (Date.now() < deadline) {
           await new Promise((r) => setTimeout(r, 4000))
           const pollRes = await fetch(`/api/playground?id=${encodeURIComponent(promptId)}`)
@@ -783,7 +787,9 @@ export default function LaserGraveerimiseApp() {
       if (!imageDataUrl) {
         if (!submitData.promptId) throw new Error('No promptId returned.')
         const promptId = submitData.promptId
-        const deadline = Date.now() + 10 * 60 * 1000
+        // 18 min, mitte 10 — vt playground'i sama kommentaari ülal: FaceDetailer x2
+        // lisab aega, mis aeglasel AMD/DirectML GPU-l kipub 10-min piiri ületama.
+        const deadline = Date.now() + 18 * 60 * 1000
         while (Date.now() < deadline) {
           await new Promise((r) => setTimeout(r, 4000))
           const pollRes = await fetch(`/api/adult-image?id=${encodeURIComponent(promptId)}`)
