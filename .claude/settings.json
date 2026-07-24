@@ -157,7 +157,8 @@
       "Bash(cp /d/ai/ComfyUI-Zluda/zluda/cublas.dll /d/ai/kohya_ss/venv/Lib/site-packages/torch/lib/cublas64_11.dll)",
       "Bash(cp /d/ai/ComfyUI-Zluda/zluda/cusparse.dll /d/ai/kohya_ss/venv/Lib/site-packages/torch/lib/cusparse64_11.dll)",
       "Bash(cp /d/ai/ComfyUI-Zluda/zluda/nvrtc.dll /d/ai/kohya_ss/venv/Lib/site-packages/torch/lib/nvrtc64_112_0.dll)",
-      "Bash(\"/d/ai/kohya_ss/venv/Scripts/python.exe\" -c \"import torch; print\\('torch OK:', torch.__version__\\)\")"
+      "Bash(\"/d/ai/kohya_ss/venv/Scripts/python.exe\" -c \"import torch; print\\('torch OK:', torch.__version__\\)\")",
+      "Bash(xargs grep -l \"GROQ_API_KEY=gsk\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Admin\\ai\\ComfyUI",
